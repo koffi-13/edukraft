@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "EduKraft",
+    "slug": "edukraft",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#5B4ABB"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#5B4ABB"
+      },
+      "package": "tg.edukraft.mvp",
+      "permissions": ["INTERNET", "ACCESS_NETWORK_STATE"]
+    },
+    "plugins": [],
+    "extra": {
+      "apiBaseUrl": "https://api.edukraft.tg",
+      "polygonRpcUrl": "https://polygon-rpc.com",
+      "syncIntervalMs": 30000
+    }
+  }
+}

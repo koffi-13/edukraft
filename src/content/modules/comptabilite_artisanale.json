@@ -1,0 +1,257 @@
+{
+  "$schema": "https://schema.edukraft.tg/module/v1.json",
+
+  "id":           "comptabilite-artisanale-v1",
+  "version":      "1.0.0",
+  "filiere":      "Comptabilité & Gestion",
+  "difficulty":   2,
+  "language":     "fr",
+  "available_translations": ["ewe"],
+
+  "meta": {
+    "title":       "Comptabilité Artisanale",
+    "subtitle":    "Gère tes finances avec un cahier et un téléphone",
+    "description": "Apprends à tenir une comptabilité simple pour ton atelier ou ta boutique : recettes, dépenses, bénéfice net, seuil de rentabilité. Aucune formation comptable préalable requise.",
+    "duration_min": 6,
+    "xp_reward":    160,
+    "badge_title":  "Certifié Comptabilité Artisanale",
+    "icon":         "ledger",
+    "color":        "#1D9E75",
+    "tags":         ["comptabilité", "gestion", "finances", "artisanat", "PME", "trésorerie"],
+    "target_audience": "Artisans, commerçants et micro-entrepreneurs souhaitant mieux contrôler leurs finances.",
+    "prerequisites": []
+  },
+
+  "lessons": [
+    {
+      "index":    0,
+      "title":    "Recettes, dépenses et bénéfice",
+      "subtitle": "Les 3 colonnes qui sauvent une entreprise",
+      "duration_min": 2,
+      "xp_per_lesson": 35,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Beaucoup d'artisans et de commerçants au Togo travaillent dur toute la semaine, mais ne savent pas à la fin si leur activité est réellement rentable. L'argent rentre, l'argent sort, et le solde reste flou.\n\nLa comptabilité artisanale, c'est simplement noter trois choses dans un cahier ou une application : ce qui rentre (recettes), ce qui sort (dépenses), et ce qui reste (bénéfice). C'est tout.",
+        "sections": [
+          {
+            "heading": "Les 3 colonnes fondamentales",
+            "body":    "Recettes : tout l'argent reçu de tes clients dans la journée ou la semaine. Inclut les espèces, les Mobile Money, les paiements différés encaissés.\n\nDépenses : tout l'argent sorti pour faire tourner l'activité. Matières premières, transport, loyer de l'atelier, salaires, frais de téléphone.\n\nBénéfice net = Recettes − Dépenses. C'est ton vrai salaire. Si le résultat est négatif, ton activité perd de l'argent.",
+            "highlight": true
+          },
+          {
+            "heading": "Pourquoi noter chaque jour ?",
+            "body":    "Une dépense de 2 000 FCFA paraît anodine. Mais 5 petites dépenses de 2 000 FCFA non notées représentent 10 000 FCFA disparus en fin de semaine — l'équivalent d'une journée de travail.\n\nLa règle d'or : note immédiatement après chaque transaction, même petite. Un carnet dans ta poche suffit pour commencer."
+          },
+          {
+            "heading": "L'outil minimal : le tableau à 3 colonnes",
+            "body":    "Date | Recettes (FCFA) | Dépenses (FCFA)\n---\nLundi 9 jan | 25 000 | 8 500\nMardi 10 jan | 18 000 | 3 200\nTotal semaine | 43 000 | 11 700\nBénéfice net : 43 000 − 11 700 = 31 300 FCFA\n\nTu peux faire ce tableau dans un cahier, dans les Notes de ton téléphone, ou dans Google Sheets (gratuit)."
+          }
+        ],
+        "key_takeaway": "Bénéfice net = Recettes − Dépenses. Une ligne par jour. C'est suffisant pour commencer."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":   "q0_0",
+            "text": "Un artisan reçoit 30 000 FCFA de clients et dépense 12 000 FCFA en matières premières et transport. Quel est son bénéfice net ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "42 000 FCFA" },
+              { "id": "b", "text": "18 000 FCFA", "correct": true },
+              { "id": "c", "text": "12 000 FCFA" },
+              { "id": "d", "text": "30 000 FCFA" }
+            ],
+            "explanation": "Bénéfice net = Recettes − Dépenses = 30 000 − 12 000 = 18 000 FCFA. C'est le vrai revenu de l'artisan après avoir payé ses charges."
+          },
+          {
+            "id":   "q0_1",
+            "text": "Parmi ces éléments, lequel doit être enregistré dans la colonne 'Dépenses' ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "Le paiement reçu d'un client par Mobile Money" },
+              { "id": "b", "text": "Le loyer mensuel de l'atelier", "correct": true },
+              { "id": "c", "text": "Le bénéfice net de la semaine" },
+              { "id": "d", "text": "Le solde du compte bancaire" }
+            ],
+            "explanation": "Le loyer est une dépense (argent qui sort). Le paiement client est une recette (argent qui rentre). Le bénéfice et le solde bancaire sont des résultats calculés, pas des colonnes de base."
+          },
+          {
+            "id":   "q0_2",
+            "text": "Quelle est la règle d'or pour tenir une comptabilité fiable ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "Tout noter une fois par mois pour gagner du temps" },
+              { "id": "b", "text": "Ne noter que les dépenses supérieures à 5 000 FCFA" },
+              { "id": "c", "text": "Noter immédiatement après chaque transaction, même petite", "correct": true },
+              { "id": "d", "text": "Faire appel à un comptable professionnel dès le départ" }
+            ],
+            "explanation": "Les petites dépenses non notées s'accumulent silencieusement. 5 dépenses de 2 000 FCFA = 10 000 FCFA perdus si non enregistrées. L'immédiateté est la clé d'une comptabilité fiable."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    1,
+      "title":    "Seuil de rentabilité et prix de vente",
+      "subtitle": "Combien dois-je vendre pour ne pas perdre d'argent ?",
+      "duration_min": 2,
+      "xp_per_lesson": 55,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Fixer le bon prix est le défi numéro 1 des artisans et commerçants au Togo. Trop bas : tu travailles à perte sans le savoir. Trop haut : tu perds des clients. La solution est de calculer ton seuil de rentabilité avant de fixer ton prix.",
+        "sections": [
+          {
+            "heading": "Les coûts fixes vs les coûts variables",
+            "body":    "Coûts fixes : ce que tu paies même si tu ne vends rien — loyer, abonnement téléphone, salaire d'un employé permanent. Ils restent constants chaque mois.\n\nCoûts variables : ce que tu dépenses uniquement pour produire ou vendre — matières premières, emballage, commission livreur. Ils augmentent avec le volume de ventes.",
+            "highlight": true
+          },
+          {
+            "heading": "Calcul du prix de vente minimum",
+            "body":    "Formule simple pour un artisan :\n\nCoût de revient = Coût matières + (Coûts fixes mensuels ÷ Nb de pièces produites par mois)\n\nPrix minimum = Coût de revient × 1,30 (marge de 30 %)\n\nExemple : une robe coûte 4 000 FCFA en tissu + 2 000 FCFA de frais fixes alloués = 6 000 FCFA de coût de revient. Prix minimum = 6 000 × 1,30 = 7 800 FCFA."
+          },
+          {
+            "heading": "Le seuil de rentabilité mensuel",
+            "body":    "Seuil de rentabilité = Coûts fixes mensuels ÷ (Prix de vente − Coût variable unitaire)\n\nRésultat : le nombre minimum de pièces à vendre chaque mois pour couvrir tous tes frais fixes.\n\nEn dessous de ce seuil, ton activité perd de l'argent. Au-dessus, chaque pièce vendue en plus génère du profit net."
+          }
+        ],
+        "key_takeaway": "Calcule ton coût de revient avant de fixer ton prix. Ne jamais deviner — toujours calculer."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 15,
+        "questions": [
+          {
+            "id":   "q1_0",
+            "text": "Un menuisier paie 40 000 FCFA de loyer par mois (coût fixe) et utilise 15 000 FCFA de bois par table (coût variable). Il produit 8 tables par mois. Quel est le coût fixe alloué par table ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "40 000 FCFA" },
+              { "id": "b", "text": "20 000 FCFA" },
+              { "id": "c", "text": "5 000 FCFA", "correct": true },
+              { "id": "d", "text": "8 000 FCFA" }
+            ],
+            "explanation": "Coût fixe par table = Coûts fixes ÷ Nombre de pièces = 40 000 ÷ 8 = 5 000 FCFA par table. Le coût de revient total de chaque table est donc 15 000 + 5 000 = 20 000 FCFA."
+          },
+          {
+            "id":   "q1_1",
+            "text": "Lequel de ces éléments est un coût VARIABLE pour une couturière ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "Le loyer mensuel de l'atelier" },
+              { "id": "b", "text": "L'abonnement internet du téléphone" },
+              { "id": "c", "text": "Le tissu acheté pour confectionner chaque robe", "correct": true },
+              { "id": "d", "text": "Le salaire d'une assistante permanente" }
+            ],
+            "explanation": "Le tissu est un coût variable car son montant change selon le nombre de robes produites. Le loyer, l'abonnement et le salaire fixe sont des coûts fixes — ils ne changent pas selon le volume de production."
+          },
+          {
+            "id":   "q1_2",
+            "text": "Une boulangerie a des coûts fixes de 60 000 FCFA/mois. Chaque pain se vend 500 FCFA et coûte 200 FCFA en ingrédients. Quel est le seuil de rentabilité mensuel en nombre de pains ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "120 pains" },
+              { "id": "b", "text": "200 pains", "correct": true },
+              { "id": "c", "text": "300 pains" },
+              { "id": "d", "text": "500 pains" }
+            ],
+            "explanation": "Seuil de rentabilité = Coûts fixes ÷ (Prix − Coût variable) = 60 000 ÷ (500 − 200) = 60 000 ÷ 300 = 200 pains. En dessous de 200 pains/mois, la boulangerie perd de l'argent."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    2,
+      "title":    "Trésorerie et Mobile Money",
+      "subtitle": "Suivre l'argent réel sur ton téléphone",
+      "duration_min": 2,
+      "xp_per_lesson": 70,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Au Togo, la grande majorité des transactions artisanales passent par le Mobile Money (T-Money, Flooz) ou les espèces. La trésorerie, c'est la gestion de ces flux réels d'argent — pas du bénéfice théorique, mais du cash disponible maintenant.\n\nUn artisan peut être rentable sur le papier et manquer de liquidités pour acheter ses matières premières. C'est le piège de la trésorerie.",
+        "sections": [
+          {
+            "heading": "La différence entre bénéfice et trésorerie",
+            "body":    "Le bénéfice est un calcul théorique. La trésorerie est l'argent réellement disponible en ce moment.\n\nExemple : Tu as livré 5 commandes pour 100 000 FCFA mais tes clients n'ont pas encore payé. Ton bénéfice théorique est positif, mais ta trésorerie est à zéro. Tu ne peux pas acheter des matières premières avec un bénéfice non encaissé.",
+            "highlight": true
+          },
+          {
+            "heading": "Suivi Mobile Money et espèces séparés",
+            "body":    "Règle professionnelle : tiens deux colonnes séparées dans ton cahier.\n\n1. Espèces (argent physique dans la caisse)\n2. Mobile Money (solde T-Money ou Flooz)\n\nChaque semaine, vérifie que le total correspond à ce que tu vois réellement dans ta caisse et sur ton téléphone. Toute différence signale une erreur ou une perte non enregistrée."
+          },
+          {
+            "heading": "Les 3 règles d'or de la trésorerie artisanale",
+            "body":    "1. Ne jamais mélanger l'argent personnel et l'argent de l'activité. Ouvrir un compte T-Money dédié à l'activité.\n\n2. Se payer un 'salaire fixe' mensuel prélevé sur le bénéfice. Ne pas piocher dans la caisse selon les besoins.\n\n3. Conserver une réserve d'au moins 2 semaines de coûts fixes. Cette réserve permet de traverser une semaine creuse sans endetter l'activité."
+          }
+        ],
+        "key_takeaway": "Bénéfice ≠ Trésorerie. Un compte Mobile Money dédié à l'activité est le premier acte de gestion professionnelle."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 20,
+        "questions": [
+          {
+            "id":   "q2_0",
+            "text": "Une couturière a terminé et livré 10 robes pour un client (valeur : 80 000 FCFA) mais le client paiera dans 3 semaines. Quelle est sa trésorerie disponible aujourd'hui ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "80 000 FCFA — la commande est livrée donc encaissée" },
+              { "id": "b", "text": "0 FCFA si elle n'a pas d'autre argent disponible", "correct": true },
+              { "id": "c", "text": "40 000 FCFA — la moitié de la valeur" },
+              { "id": "d", "text": "Cela dépend de son bénéfice mensuel" }
+            ],
+            "explanation": "La trésorerie est l'argent réellement disponible maintenant. Même si la commande est livrée, tant que le client n'a pas payé, la trésorerie est à 0. Le bénéfice comptable est positif, mais l'argent n'est pas encore là."
+          },
+          {
+            "id":   "q2_1",
+            "text": "Pourquoi est-il recommandé d'ouvrir un compte Mobile Money séparé pour son activité ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "Pour bénéficier d'un taux préférentiel sur les transactions" },
+              { "id": "b", "text": "Pour séparer clairement les finances personnelles des finances de l'activité", "correct": true },
+              { "id": "c", "text": "Parce que T-Money et Flooz l'exigent légalement" },
+              { "id": "d", "text": "Pour éviter de payer des impôts sur les bénéfices" }
+            ],
+            "explanation": "Mélanger argent personnel et argent de l'activité est la première cause d'erreurs comptables chez les artisans. Un compte dédié permet de voir immédiatement les flux de l'activité, sans confusion avec les dépenses personnelles."
+          },
+          {
+            "id":   "q2_2",
+            "text": "Quelle réserve de trésorerie est recommandée pour une petite activité artisanale ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "Aucune réserve — tout le bénéfice doit être réinvesti immédiatement" },
+              { "id": "b", "text": "6 mois de coûts fixes" },
+              { "id": "c", "text": "Au moins 2 semaines de coûts fixes", "correct": true },
+              { "id": "d", "text": "1 an de bénéfice en avance" }
+            ],
+            "explanation": "Une réserve de 2 semaines de coûts fixes permet de traverser une mauvaise semaine (peu de ventes, client qui ne paie pas) sans s'endetter ni arrêter l'activité. C'est le coussin de sécurité minimal pour tout artisan."
+          }
+        ]
+      }
+    }
+  ],
+
+  "completion_criteria": {
+    "all_lessons_passed": true,
+    "min_total_score":    0.67,
+    "issues_badge":       true,
+    "xp_completion_bonus": 0
+  },
+
+  "i18n": {
+    "ewe": {
+      "meta.title":       "Akɔunta artisanal",
+      "meta.subtitle":    "Ðe wò xexlẽdzidzi ŋu wò dɔ me",
+      "meta.description": "Ðe nunya bena wòatrɔ wò akɔunta ŋu wò atikɔ abe kple wò tablitɔ."
+    }
+  }
+}

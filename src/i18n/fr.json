@@ -1,0 +1,101 @@
+{
+  "_meta": {
+    "language": "fr",
+    "locale": "fr-TG",
+    "version": "1.0.0",
+    "completeness": "100%"
+  },
+
+  "app": {
+    "name": "EduKraft",
+    "tagline": "Certifie ta compétence"
+  },
+
+  "nav": {
+    "dashboard": "Accueil",
+    "learn":     "Apprendre",
+    "badges":    "Badges",
+    "profile":   "Profil"
+  },
+
+  "dashboard": {
+    "greeting_morning":   "Bonjour",
+    "greeting_afternoon": "Bon après-midi",
+    "greeting_evening":   "Bonsoir",
+    "xp_label":           "Points XP",
+    "level_label":        "Niveau",
+    "continue_learning":  "Continuer l'apprentissage",
+    "modules_available":  "Modules disponibles",
+    "your_progress":      "Ta progression",
+    "completed":          "complété",
+    "lessons_done":       "leçons terminées",
+    "streak_label":       "Jours d'affilée",
+    "offline_banner":     "Mode hors-ligne — progression sauvegardée localement"
+  },
+
+  "lesson": {
+    "intro":           "Introduction",
+    "quiz":            "Quiz de validation",
+    "complete":        "Leçon terminée !",
+    "xp_earned":       "XP gagnés",
+    "next_lesson":     "Leçon suivante",
+    "back":            "Retour",
+    "read_time":       "min de lecture",
+    "start_quiz":      "Démarrer le quiz",
+    "question_of":     "Question {{current}} sur {{total}}",
+    "correct":         "Bonne réponse !",
+    "incorrect":       "Pas tout à fait...",
+    "correct_answer":  "La bonne réponse était :",
+    "quiz_result":     "Résultat : {{score}}/{{total}}",
+    "quiz_pass":       "Félicitations ! Tu passes à la leçon suivante.",
+    "quiz_fail":       "Révise et réessaie. Tu peux le faire !",
+    "retry":           "Réessayer",
+    "min_score_info":  "Score minimum requis : {{min}}%"
+  },
+
+  "badge": {
+    "title":           "Tes Badges",
+    "subtitle":        "Certifications vérifiables",
+    "earned_on":       "Obtenu le",
+    "verify_qr":       "Scanner pour vérifier",
+    "share":           "Partager",
+    "blockchain_info": "Ce badge est ancré sur la blockchain Polygon",
+    "hash_label":      "Hash de certification",
+    "empty_title":     "Aucun badge encore",
+    "empty_text":      "Complète ton premier module pour obtenir ton badge certifié.",
+    "module_complete": "Module complété",
+    "score_label":     "Score obtenu",
+    "pending_sync":    "En attente de synchronisation",
+    "synced":          "Certifié on-chain"
+  },
+
+  "module": {
+    "lessons_count":  "{{count}} leçons",
+    "duration":       "{{min}} min",
+    "difficulty":     "Niveau",
+    "start":          "Commencer",
+    "resume":         "Reprendre",
+    "completed":      "Terminé",
+    "locked":         "Verrouillé"
+  },
+
+  "offline": {
+    "status_offline":  "Hors ligne",
+    "status_online":   "En ligne",
+    "sync_pending":    "{{count}} éléments en attente de sync",
+    "sync_success":    "Synchronisation réussie",
+    "sync_error":      "Erreur de synchronisation"
+  },
+
+  "common": {
+    "loading":  "Chargement...",
+    "error":    "Une erreur est survenue",
+    "retry":    "Réessayer",
+    "close":    "Fermer",
+    "next":     "Suivant",
+    "back":     "Retour",
+    "done":     "Terminé",
+    "cancel":   "Annuler",
+    "save":     "Enregistrer"
+  }
+}

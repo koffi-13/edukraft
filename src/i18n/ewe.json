@@ -1,0 +1,66 @@
+{
+  "_meta": {
+    "language": "ewe",
+    "locale": "ee-TG",
+    "version": "1.0.0",
+    "completeness": "35%",
+    "translator_note": "Traduction partielle — à compléter avec des locuteurs natifs Ewe du Togo. Les clés non traduites tombent sur le français (fallback).",
+    "contact": "traduction@edukraft.tg"
+  },
+
+  "app": {
+    "name": "EduKraft",
+    "tagline": "Ɖo wò nunya ŋu"
+  },
+
+  "nav": {
+    "dashboard": "Ƒometo",
+    "learn":     "Ðe nunya",
+    "badges":    "Nyatefe",
+    "profile":   "Ŋutifafa"
+  },
+
+  "dashboard": {
+    "greeting_morning":   "Ŋdi",
+    "greeting_afternoon": "Fiẽyi",
+    "greeting_evening":   "Fiẽdzɔ",
+    "offline_banner":     "Offline — wò dɔwɔwɔ le dodometo"
+  },
+
+  "lesson": {
+    "intro":       "Dɔwɔwɔ bena",
+    "quiz":        "Ðeɖeɖe",
+    "complete":    "Ðaŋu wòdzo !",
+    "xp_earned":   "XP wòdi",
+    "next_lesson": "Ðaŋu vevie",
+    "correct":     "Nyuie !",
+    "incorrect":   "Megbe o..."
+  },
+
+  "badge": {
+    "title":    "Wò Nyatefewo",
+    "subtitle": "Nyatefe siwo la",
+    "earned_on": "Wòdi",
+    "empty_title": "Nyatefe mele o",
+    "empty_text":  "Ðaŋu ɖeka wò dzo bena wò nyatefe ɖe."
+  },
+
+  "common": {
+    "loading": "Ðe...",
+    "next":    "Megbe",
+    "back":    "Egbe",
+    "done":    "Xɔ",
+    "retry":   "Ɖe keke"
+  },
+
+  "_todo": [
+    "module.lessons_count",
+    "module.duration",
+    "module.difficulty",
+    "dashboard.xp_label",
+    "dashboard.your_progress",
+    "lesson.question_of",
+    "lesson.quiz_result",
+    "badge.blockchain_info"
+  ]
+}
