@@ -1,0 +1,58 @@
+🎯 INSTRUCTIONS COMPLÈTES POUR GÉNÉRER L'APK EDUKRAFT
+
+📱 MÉTHODE 1 - PWA BUILDER (RECOMMANDÉ)
+
+1. ✅ PWA Builder est déjà ouvert dans votre navigateur
+2. 📂 Allez dans le dossier c:\EduKraft\
+3. 📄 Prenez le fichier "edukraft-quick.html"
+4. 🖱️ Glissez-le sur la page PWA Builder
+5. ⚙️ Configurez:
+   - Nom: EduKraft
+   - Description: Formation Professionnelle
+   - Couleur: #5B4ABB
+6. 🔨 Cliquez sur "Generate"
+7. 📱 Choisissez "Android"
+8. ⬇️ Téléchargez l'APK
+9. 📲 Installez sur votre appareil Android
+
+📱 MÉTHODE 2 - SI PWA BUILDER NE FONCTIONNE PAS
+
+Si vous ne voyez que "Blog", "Docs", "Community":
+
+1. 🔄 Rafraîchissez la page (F5)
+2. 🌐 Utilisez: https://www.pwabuilder.com/main
+3. 🔄 Essayez un autre navigateur (Chrome/Edge)
+4. 📂 Glissez "edukraft-quick.html" manuellement
+
+📱 MÉTHODE 3 - ALTERNATIVE RAPIDE
+
+1. 📂 Ouvrez "edukraft-quick.html" directement dans votre navigateur
+2. 📲 Installez comme PWA (icône "+" dans la barre d'adresse)
+3. 🎯 L'application fonctionne directement dans le navigateur
+
+📱 FICHIERS CRÉÉS
+
+✅ edukraft-quick.html - Application PWA complète
+✅ manifest-quick.json - Configuration PWA
+✅ sw-quick.js - Service Worker pour offline
+✅ pwa-builder-apk.bat - Script d'automatisation
+
+🎯 RÉSULTAT ATTENDU
+
+Une fois terminé, vous aurez:
+- 📱 edukraft.apk - Application Android native
+- ✅ Installation directe sur Android
+- 🎓 Formation professionnelle complète
+- 🏆 Badges et progression
+- 📲 Fonctionnement hors-ligne
+
+📞 EN CAS DE PROBLÈME
+
+1. Vérifiez que PWA Builder est bien ouvert
+2. Assurez-vous que le fichier "edukraft-quick.html" existe
+3. Essayez de glisser le fichier sur différentes parties de la page
+4. Contactez: dev@edukraft.tg
+
+🎉 BONNE CHANCE!
+
+L'application EduKraft sera bientôt prête sur votre mobile!
