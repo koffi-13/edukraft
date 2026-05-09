@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduKraft - Formation Professionnelle</title>
+    <meta name="description" content="Application mobile de formation professionnelle">
+    <meta name="theme-color" content="#5B4ABB">
+    <link rel="manifest" href="manifest.json">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #5B4ABB 0%, #7B68EE 100%);
+            min-height: 100vh;
+            color: white;
+            padding: 20px;
+        }
+        .container { max-width: 400px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 30px; padding-top: 20px; }
+        .logo { font-size: 60px; margin-bottom: 10px; }
+        .title { font-size: 32px; font-weight: bold; margin-bottom: 5px; }
+        .subtitle { font-size: 16px; opacity: 0.8; margin-bottom: 10px; }
+        .card {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .card-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; }
+        .module {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .module:hover { background: rgba(255,255,255,0.1); transform: translateY(-2px); }
+        .module-icon { font-size: 24px; margin-bottom: 10px; }
+        .module-title { font-weight: bold; margin-bottom: 5px; }
+        .module-desc { font-size: 14px; opacity: 0.8; margin-bottom: 5px; }
+        .module-duration { font-size: 12px; opacity: 0.6; }
+        .button {
+            background: white;
+            color: #5B4ABB;
+            border: none;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            transition: all 0.3s ease;
+        }
+        .button:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.2); }
+        .progress-bar {
+            height: 8px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            border-radius: 4px;
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+        .footer { text-align: center; margin-top: 30px; padding: 20px 0; }
+        .footer-text { font-size: 14px; font-weight: bold; }
+        .footer-subtext { font-size: 12px; opacity: 0.8; }
+        .footer-date { font-size: 10px; opacity: 0.6; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🎓</div>
+            <div class="title">EduKraft</div>
+            <div class="subtitle">Formation Professionnelle</div>
+        </div>
+        
+        <div class="card">
+            <div class="card-title">📚 Modules Disponibles</div>
+            <div class="module" onclick="alert('Module: Développement Web')">
+                <div class="module-icon">🌐</div>
+                <div class="module-title">Développement Web</div>
+                <div class="module-desc">HTML, CSS, JavaScript, React</div>
+                <div class="module-duration">⏱️ 40 heures • 🏆 250 XP</div>
+            </div>
+            <div class="module" onclick="alert('Module: Marketing Digital')">
+                <div class="module-icon">📱</div>
+                <div class="module-title">Marketing Digital</div>
+                <div class="module-desc">SEO, Social Media, Analytics</div>
+                <div class="module-duration">⏱️ 30 heures • 🏆 200 XP</div>
+            </div>
+            <div class="module" onclick="alert('Module: Blockchain & Crypto')">
+                <div class="module-icon">⛓️</div>
+                <div class="module-title">Blockchain & Crypto</div>
+                <div class="module-desc">Bitcoin, Ethereum, Smart Contracts</div>
+                <div class="module-duration">⏱️ 35 heures • 🏆 300 XP</div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-title">🏆 Mes Badges</div>
+            <div style="text-align: center; padding: 20px; opacity: 0.8;">
+                Commencez un module pour débloquer des badges!
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-title">⚡ Progression</div>
+            <div style="margin-bottom: 15px;">XP: 0 / 1000</div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressBar"></div>
+            </div>
+            <button class="button" onclick="startQuiz()">📝 Faire un quiz</button>
+        </div>
+        
+        <div class="footer">
+            <div class="footer-text">EduKraft MVP</div>
+            <div class="footer-subtext">Version Mobile</div>
+            <div class="footer-date">Build: 2026-05-09</div>
+        </div>
+    </div>
+    
+    <script>
+        let userXP = 0;
+        
+        function startQuiz() {
+            alert('📝 Quiz: Le quiz sera bientôt disponible!');
+        }
+        
+        function updateProgress() {
+            const progressBar = document.getElementById('progressBar');
+            const progress = (userXP / 1000) * 100;
+            progressBar.style.width = progress + '%';
+        }
+        
+        // Service Worker pour le mode hors-ligne
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(console.log);
+        }
+    </script>
+</body>
+</html>
