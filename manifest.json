@@ -2,7 +2,7 @@
   "name": "EduKraft - Formation Professionnelle",
   "short_name": "EduKraft",
   "description": "Application mobile de formation professionnelle",
-  "start_url": "/edukraft-quick.html",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#5B4ABB",
   "theme_color": "#5B4ABB",
