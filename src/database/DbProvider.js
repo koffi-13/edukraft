@@ -5,6 +5,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { generateBadge } from '../blockchain/badgeGenerator';
+import ENV from '../config/env';
 
 const DbContext = createContext(null);
 
@@ -87,6 +88,27 @@ export function DbProvider({ children }) {
   const isMemory = () => !db;
   const store = () => storeRef.current;
 
+  // ── Enqueue : ajoute une opération dans la file de sync ───────────────
+  const enqueue = useCallback(async (tableName, operation, recordId, payload) => {
+    const queueId = `sq_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const now = new Date().toISOString();
+
+    if (isMemory()) {
+      store().syncQueue.push({
+        id: queueId, table_name: tableName, record_id: recordId,
+        operation, payload: JSON.stringify(payload),
+        queued_at: now, retry_count: 0, last_error: null,
+      });
+      return;
+    }
+
+    const { QUERIES } = require('./schema');
+    await db.runAsync(QUERIES.ENQUEUE, [
+      queueId, tableName, recordId, operation,
+      JSON.stringify(payload), now,
+    ]);
+  }, [db]);
+
   // ── Learner ───────────────────────────────────────────────────────────
 
   const createLearner = useCallback(async ({ id, name, phone, language = 'fr' }) => {
@@ -102,6 +124,8 @@ export function DbProvider({ children }) {
       store().learner = newLearner;
       setLearner(newLearner);
       console.log('[DB/MEMORY] Learner créé :', name);
+      // Enqueue pour sync
+      enqueue('learner', 'INSERT', id, newLearner);
       return newLearner;
     }
 
@@ -111,8 +135,10 @@ export function DbProvider({ children }) {
       [id, name, phone, language, 0, 0, now, now, now]);
     const updated = await db.getFirstAsync(QUERIES.GET_LEARNER);
     setLearner(updated);
+    // Enqueue pour sync
+    enqueue('learner', 'INSERT', id, updated);
     return updated;
-  }, [db]);
+  }, [db, enqueue]);
 
   const addXP = useCallback(async (amount) => {
     if (!learner) return null;
@@ -128,6 +154,7 @@ export function DbProvider({ children }) {
       store().learner = updated;
       setLearner(updated);
       console.log(`[DB/MEMORY] +${amount} XP. Total: ${updated.total_xp}`);
+      enqueue('learner', 'UPDATE', updated.id, updated);
       return updated.total_xp;
     }
 
@@ -136,8 +163,9 @@ export function DbProvider({ children }) {
     await db.runAsync(QUERIES.ADD_XP, [amount, now, learner.id]);
     const updated = await db.getFirstAsync(QUERIES.GET_LEARNER);
     setLearner(updated);
+    enqueue('learner', 'UPDATE', updated.id, updated);
     return updated.total_xp;
-  }, [db, learner]);
+  }, [db, learner, enqueue]);
 
   // ── Module Progress ───────────────────────────────────────────────────
 
@@ -182,6 +210,7 @@ export function DbProvider({ children }) {
 
       store().progress[moduleId] = merged;
       console.log(`[DB/MEMORY] Progress mis à jour: ${moduleId} → ${merged.status}`);
+      enqueue('module_progress', 'UPDATE', merged.id, merged);
       return merged;
     }
 
@@ -206,8 +235,9 @@ export function DbProvider({ children }) {
       merged.current_lesson, merged.lessons_done, merged.total_xp_earned,
       merged.best_score, merged.started_at, merged.completed_at, now,
     ]);
+    enqueue('module_progress', existing ? 'UPDATE' : 'INSERT', merged.id, merged);
     return merged;
-  }, [db, learner, getProgress]);
+  }, [db, learner, getProgress, enqueue]);
 
   // ── Quiz Attempts ─────────────────────────────────────────────────────
 
@@ -234,6 +264,12 @@ export function DbProvider({ children }) {
       };
       store().quizAttempts.push(attempt);
       console.log(`[DB/MEMORY] Quiz sauvé: ${moduleId}/L${lessonIndex} → ${Math.round(score * 100)}%`);
+      enqueue('quiz_attempt', 'INSERT', id, {
+        learner_id: learnerId, module_id: moduleId,
+        lesson_index: lessonIndex, score, answers,
+        xp_awarded: xpAwarded, passed: passed ? 1 : 0,
+        completed_at: now,
+      });
       return id;
     }
 
@@ -247,8 +283,14 @@ export function DbProvider({ children }) {
       id, learnerId, moduleId, lessonIndex, attemptNumber,
       score, JSON.stringify(answers), xpAwarded, passed ? 1 : 0, now,
     ]);
+    enqueue('quiz_attempt', 'INSERT', id, {
+      learner_id: learnerId, module_id: moduleId,
+      lesson_index: lessonIndex, attempt_number: attemptNumber,
+      score, answers, xp_awarded: xpAwarded, passed: passed ? 1 : 0,
+      completed_at: now,
+    });
     return id;
-  }, [db, learner]);
+  }, [db, learner, enqueue]);
 
   // ── Badges ────────────────────────────────────────────────────────────
 
@@ -271,6 +313,12 @@ export function DbProvider({ children }) {
       };
       store().badges.push(badgeRow);
       console.log(`[DB/MEMORY] Badge émis: ${moduleTitle}`);
+      enqueue('badge', 'INSERT', badge.id, {
+        learner_id: learnerId, module_id: moduleId,
+        module_title: moduleTitle, score, xp_total: xpTotal,
+        badge_hash: badge.hash, qr_payload: badge.qrPayload,
+        issued_at: badge.issuedAt,
+      });
       return badge;
     }
 
@@ -281,8 +329,14 @@ export function DbProvider({ children }) {
       score, xpTotal, badge.hash, badge.qrPayload,
       null, badge.issuedAt,
     ]);
+    enqueue('badge', 'INSERT', badge.id, {
+      learner_id: learnerId, module_id: moduleId,
+      module_title: moduleTitle, score, xp_total: xpTotal,
+      badge_hash: badge.hash, qr_payload: badge.qrPayload,
+      issued_at: badge.issuedAt,
+    });
     return badge;
-  }, [db, learner]);
+  }, [db, learner, enqueue]);
 
   const getAllBadges = useCallback(async () => {
     if (isMemory()) {
@@ -374,7 +428,7 @@ export function DbProvider({ children }) {
     issueBadge, getAllBadges,
     // Sync internals
     getPendingQueue, removeFromQueue, incrementRetry,
-    updateBadgeTx, getSyncMeta, setSyncMeta,
+    updateBadgeTx, getSyncMeta, setSyncMeta, enqueue,
     // Utils
     resetAll,
   };

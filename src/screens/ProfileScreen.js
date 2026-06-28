@@ -9,8 +9,9 @@ import { t } from '../i18n';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { learner, getAllBadges, resetAll } = useDb();
+  const { learner, getAllBadges, resetAll, getPendingQueue, getSyncMeta } = useDb();
   const [badges, setBadges] = useState([]);
+  const [syncInfo, setSyncInfo] = useState({ pending: 0, lastSync: null });
 
   const loadBadges = useCallback(async () => {
     try {
@@ -21,9 +22,26 @@ export default function ProfileScreen() {
     }
   }, [getAllBadges]);
 
+  const loadSyncInfo = useCallback(async () => {
+    try {
+      const queue = await getPendingQueue();
+      const lastSync = await getSyncMeta('last_sync_at');
+      setSyncInfo({
+        pending: queue?.length || 0,
+        lastSync,
+      });
+    } catch (_) {}
+  }, [getPendingQueue, getSyncMeta]);
+
   useEffect(() => {
-    if (learner) loadBadges();
-  }, [learner, loadBadges]);
+    if (learner) {
+      loadBadges();
+      loadSyncInfo();
+      // Rafraîchir la sync info toutes les 10s
+      const interval = setInterval(loadSyncInfo, 10_000);
+      return () => clearInterval(interval);
+    }
+  }, [learner, loadBadges, loadSyncInfo]);
 
   const handleReset = () => {
     Alert.alert(
@@ -40,6 +58,12 @@ export default function ProfileScreen() {
         },
       ],
     );
+  };
+
+  const formatSyncTime = (iso) => {
+    if (!iso) return 'Jamais';
+    const d = new Date(iso);
+    return d.toLocaleTimeString('fr-TG', { hour: '2-digit', minute: '2-digit' });
   };
 
   if (!learner) {
@@ -88,6 +112,28 @@ export default function ProfileScreen() {
           <Text style={[styles.statValue, { color: Colors.teal }]}>{badges.length}</Text>
           <Text style={styles.statLabel}>Badges</Text>
         </View>
+      </View>
+
+      {/* Sync status */}
+      <View style={styles.syncCard}>
+        <Text style={styles.syncTitle}>Synchronisation</Text>
+        <View style={styles.syncRow}>
+          <View style={styles.syncDotWrap}>
+            <View style={[
+              styles.syncDot,
+              { backgroundColor: syncInfo.pending > 0 ? Colors.xpGold : Colors.teal },
+            ]} />
+          </View>
+          <Text style={styles.syncText}>
+            {syncInfo.pending > 0
+              ? `${syncInfo.pending} élément(s) en attente de synchronisation`
+              : 'Tout est à jour'
+            }
+          </Text>
+        </View>
+        <Text style={styles.syncSubtext}>
+          Dernière sync : {formatSyncTime(syncInfo.lastSync)}
+        </Text>
       </View>
 
       {/* Badges */}
@@ -203,6 +249,47 @@ const styles = StyleSheet.create({
     fontSize: Typography.caption,
     color: Colors.ink50,
     marginTop: Spacing.xs,
+  },
+  syncCard: {
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.lg,
+    padding: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  syncTitle: {
+    fontSize: Typography.body,
+    fontWeight: Typography.semibold,
+    color: Colors.ink,
+    marginBottom: Spacing.sm,
+  },
+  syncRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  syncDotWrap: {
+    width: 20,
+    alignItems: 'center',
+  },
+  syncDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  syncText: {
+    flex: 1,
+    fontSize: Typography.caption,
+    color: Colors.ink70,
+    lineHeight: 18,
+  },
+  syncSubtext: {
+    fontSize: Typography.tiny,
+    color: Colors.ink30,
+    marginTop: Spacing.sm,
+    textAlign: 'right',
   },
   section: {
     padding: Spacing.lg,
