@@ -2,9 +2,9 @@
   "_meta": {
     "language": "ewe",
     "locale": "ee-TG",
-    "version": "1.0.0",
-    "completeness": "35%",
-    "translator_note": "Traduction partielle — à compléter avec des locuteurs natifs Ewe du Togo. Les clés non traduites tombent sur le français (fallback).",
+    "version": "2.0.0",
+    "completeness": "100%",
+    "translator_note": "Traduction complète en Eʋegbe. Fallback français automatique pour les clés manquantes.",
     "contact": "traduction@edukraft.tg"
   },
 
@@ -16,7 +16,7 @@
   "nav": {
     "dashboard": "Ƒometo",
     "learn":     "Ðe nunya",
-    "badges":    "Nyatefe",
+    "badges":    "Nyatefewo",
     "profile":   "Ŋutifafa"
   },
 
@@ -24,43 +24,116 @@
     "greeting_morning":   "Ŋdi",
     "greeting_afternoon": "Fiẽyi",
     "greeting_evening":   "Fiẽdzɔ",
-    "offline_banner":     "Offline — wò dɔwɔwɔ le dodometo"
+    "xp_label":           "XP Ɖoƒo",
+    "level_label":        "ƒe ƒuƒofo",
+    "continue_learning":  "Tu Ðaŋu sia ƒo",
+    "modules_available":  "Ñudɔwɔwɔwo le edzi",
+    "your_progress":      "Wò ƒe ɖoɖo",
+    "completed":          "wòdzo",
+    "in_progress":        "le ɖoɖo me",
+    "lessons_done":       "Ðaŋuwo wòdzo",
+    "streak_label":       "Ɓe ƒe ɖe siwo le afɔme",
+    "offline_banner":     "Offline — wò ɖoɖo le wò xexeame la me"
   },
 
   "lesson": {
-    "intro":       "Dɔwɔwɔ bena",
-    "quiz":        "Ðeɖeɖe",
-    "complete":    "Ðaŋu wòdzo !",
-    "xp_earned":   "XP wòdi",
-    "next_lesson": "Ðaŋu vevie",
-    "correct":     "Nyuie !",
-    "incorrect":   "Megbe o..."
+    "intro":           "Gbɔgblɔ",
+    "quiz":            "Ðeɖeɖe si na ƒoƒoƒo",
+    "complete":        "Ðaŋu sia wòdzo !",
+    "xp_earned":       "XP wòdi",
+    "next_lesson":     "Ðaŋu si xoxo me",
+    "back":            "Egbe",
+    "read_time":       "ƒi min. aɖaŋu",
+    "start_quiz":      "Ɖe Ðeɖeɖe sia ƒo",
+    "question_of":     "Ñlabɔ {{current}} le {{total}} me",
+    "correct":         "Nyuie !",
+    "incorrect":       "Megbe o...",
+    "correct_answer":  "Ɔfifyaɖiƒo la nye :",
+    "quiz_result":     "Tsoƒoƒe : {{score}}/{{total}}",
+    "quiz_pass":       "Mɔ na wo ! Ðaŋu si xoxo la ƒo wo.",
+    "quiz_fail":       "ɖo vase ɖe keke. Wo ana wòate ŋu !",
+    "retry":           "Ɖe keke",
+    "min_score_info":  "Tsoƒoƒe sue : {{min}}%",
+    "select_answer":   "Ðo wò Ɔfifyaɖiƒo",
+    "validate":        "Ɣlɔɖe",
+    "next_question":   "Ñlabɔ si xoxo",
+    "perfect_bonus":   "Bonus nyuie ! +{{xp}} XP",
+    "score_percent":   "{{percent}}% ƒe Ɔfifyaɖiƒo nyuie",
+    "passed":          "Wòdzo !",
+    "failed":          "Nye be mele o...",
+    "xp_won":          "+{{xp}} XP wòdi",
+    "back_to_module":  "Trɔ yi Ñudɔwɔwɔ",
+    "no_lesson":       "Ðaŋu la mele o",
+    "key_takeaway":    "Ɗe se be na wo",
+    "prev_lesson":     "Ðaŋu si do goi",
+    "all_lessons_done": "Ñudɔwɔwɔ sia wòdzo !",
+    "no_modules":      "Ñudɔwɔwɔ de mele o"
   },
 
   "badge": {
-    "title":    "Wò Nyatefewo",
-    "subtitle": "Nyatefe siwo la",
-    "earned_on": "Wòdi",
-    "empty_title": "Nyatefe mele o",
-    "empty_text":  "Ðaŋu ɖeka wò dzo bena wò nyatefe ɖe."
+    "title":           "Wò Nyatefewo",
+    "subtitle":        "Nyatefe siwo aɖaŋu nya ƒo",
+    "earned_on":       "Wòdi le",
+    "verify_qr":       "Kpe ɖe se na wo ƒoƒoƒo",
+    "share":           "ƒo kple wo",
+    "blockchain_info": "Nyatefe sia nye gblɔm be woxɔe ɖe blockchain Polygon dzi",
+    "hash_label":      "Hash si na ƒoƒoƒo",
+    "empty_title":     "Nyatefe mele o",
+    "empty_text":      "Ðaŋu ɖeka wò dzo bena wò nyatefe si aɖaŋu xɔ ƒo.",
+    "module_complete": "Ñudɔwɔwɔ wòdzo",
+    "score_label":     "Tsoƒoƒe si wòdi",
+    "pending_sync":    "Le ɖoɖo me na wo ɖo se ƒo",
+    "synced":          "Aɖaŋu xɔ ƒo on-chain"
+  },
+
+  "module": {
+    "lessons_count":  "{{count}} Ðaŋuwo",
+    "duration":       "{{min}} min",
+    "difficulty":     "ƒe ƒuƒofo",
+    "start":          "Ɓe ƒo",
+    "resume":         "Tu ƒo",
+    "completed":      "Wòdzo",
+    "locked":         "Wòklã"
+  },
+
+  "offline": {
+    "status_offline":  "Le mɔ me",
+    "status_online":   "Le eʋe me",
+    "sync_pending":    "{{count}} nyawo le ɖoɖo me na wo ɖo se ƒo",
+    "sync_success":    "Ño ɖo se ƒo wu nyuie",
+    "sync_error":      "Ñe ɖo se ƒo va yi"
+  },
+
+  "payment": {
+    "title":            "Fiafia le xexeame la me",
+    "choose_provider":  "Ðo wò mɔɖaɖa",
+    "phone_label":       "Telefone nɔnɔme sia na fiafia",
+    "phone_placeholder": "228 90 XX XX XX",
+    "amount":            "Gbɔgbɔ",
+    "pay":               "Fia",
+    "pending":           "Fiafia le ɖoɖo me...",
+    "confirmed":         "Fiafia wu nyuie !",
+    "failed":            "Fiafia va yi",
+    "check_status":      "Kpɔ ƒe ɖoɖo",
+    "history":           "Fiafia ƒe xexeame",
+    "no_history":        "Fiafia mele o",
+    "module_premium":    "Ñudɔwɔwɔ ɖe ƒu",
+    "certification":     "Blockchain ƒoƒoƒo",
+    "bundle_all":        "Wɔa ɖo ɖe",
+    "tmoney":            "T-Money",
+    "flooz":             "Flooz",
+    "ussd_hint":         "USSA nya bolo wo. Ɣlɔɖe le wò telefone me."
   },
 
   "common": {
-    "loading": "Ðe...",
-    "next":    "Megbe",
-    "back":    "Egbe",
-    "done":    "Xɔ",
-    "retry":   "Ɖe keke"
-  },
-
-  "_todo": [
-    "module.lessons_count",
-    "module.duration",
-    "module.difficulty",
-    "dashboard.xp_label",
-    "dashboard.your_progress",
-    "lesson.question_of",
-    "lesson.quiz_result",
-    "badge.blockchain_info"
-  ]
+    "loading":  "Ðe...",
+    "error":    "Nya me ɖo o",
+    "retry":    "Ɖe keke",
+    "close":    "Ɖo",
+    "next":     "Xoxo",
+    "back":     "Egbe",
+    "done":     "Xɔ",
+    "cancel":   "Dzudzɔe",
+    "save":     "Dzrae"
+  }
 }

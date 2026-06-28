@@ -8,6 +8,8 @@ const path     = require('path');
 const fs       = require('fs');
 const crypto   = require('crypto');
 const { v4: uuidv4 } = require('uuid');
+const { init: initBlockchain, mintBadge: mintOnChain, verifyBadge: verifyOnChain } = require('./blockchain');
+const payments = require('./payments');
 
 // ── Configuration ────────────────────────────────────────────────────────────
 const PORT    = parseInt(process.env.PORT, 10) || 3001;
@@ -186,7 +188,7 @@ app.get('/api/health', (req, res) => {
 // ── Sync endpoint principal ──────────────────────────────────────────────────
 // Le client envoie un batch d'opérations, le serveur les traite et renvoie
 // le serveur_id de chaque enregistrement pour que le client puisse les lier.
-app.post('/api/sync', rateLimit(30, 60000), (req, res) => {
+app.post('/api/sync', rateLimit(30, 60000), async (req, res) => {
   try {
     const { operations, client_cursor } = req.body;
 
@@ -299,7 +301,7 @@ app.post('/api/sync', rateLimit(30, 60000), (req, res) => {
 
           case 'badge': {
             if (!learnerServerId) {
-              const l = db.prepare('SELECT id FROM learner WHERE client_id = ?').get(payload.learner_id);
+              const l = db.prepare('SELECT id, name FROM learner WHERE client_id = ?').get(payload.learner_id);
               if (!l) {
                 result.status = 'error';
                 result.error = 'Learner non trouvé';
@@ -310,8 +312,16 @@ app.post('/api/sync', rateLimit(30, 60000), (req, res) => {
             }
 
             const srvId = `srv_${uuidv4().slice(0, 8)}`;
-            // Simuler un tx hash blockchain (Phase 3 intégrera Polygon PoS réel)
-            const mockTxHash = '0x' + crypto.randomBytes(32).toString('hex');
+
+            // Mint on-chain Polygon (mock en dev, réel en prod)
+            const mintResult = await mintOnChain({
+              walletAddress: learnerServerId,
+              learnerName:  payload.learner_name || db.prepare('SELECT name FROM learner WHERE id = ?').get(learnerServerId)?.name || 'Unknown',
+              moduleTitle:  payload.module_title,
+              score:        payload.score,
+              xpTotal:      payload.xp_total,
+              certHash:     payload.badge_hash,
+            });
 
             db.prepare(`
               INSERT INTO badge (id, server_id, client_id, learner_id, module_id, module_title, score, xp_total, badge_hash, qr_payload, blockchain_tx, issued_at, created_at)
@@ -320,10 +330,11 @@ app.post('/api/sync', rateLimit(30, 60000), (req, res) => {
               uuidv4(), srvId, clientId, learnerServerId,
               payload.module_id, payload.module_title, payload.score,
               payload.xp_total, payload.badge_hash, payload.qr_payload,
-              mockTxHash, payload.issued_at || now, now
+              mintResult.txHash, payload.issued_at || now, now
             );
             result.server_id = srvId;
-            result.blockchain_tx = mockTxHash;
+            result.blockchain_tx = mintResult.txHash;
+            result.on_chain = mintResult.real;
             break;
           }
 
@@ -472,20 +483,29 @@ app.post('/api/quiz-attempts', (req, res) => {
 
 // ── Badges ───────────────────────────────────────────────────────────────────
 
-/** Enregistrer un badge (et obtenir le tx hash blockchain simulé) */
-app.post('/api/badges', (req, res) => {
+/** Enregistrer un badge (mint on-chain Polygon) */
+app.post('/api/badges', async (req, res) => {
   try {
-    const { learner_id: clientId, module_id, module_title, score, xp_total, badge_hash, qr_payload } = req.body;
+    const { learner_id: clientId, module_id, module_title, score, xp_total, badge_hash, qr_payload, learner_name } = req.body;
     if (!clientId || !module_id) {
       return fail(res, 'Les champs learner_id et module_id sont requis');
     }
 
-    const learner = db.prepare('SELECT id FROM learner WHERE client_id = ?').get(clientId);
+    const learner = db.prepare('SELECT id, name FROM learner WHERE client_id = ?').get(clientId);
     if (!learner) return fail(res, 'Learner non trouvé', 404);
 
     const now = new Date().toISOString();
-    const mockTxHash = '0x' + crypto.randomBytes(32).toString('hex');
     const srvId = `srv_${uuidv4().slice(0, 8)}`;
+
+    // Mint sur Polygon PoS (mock en dev, réel en prod)
+    const mintResult = await mintOnChain({
+      walletAddress: learner.id, // En prod : adresse wallet réelle
+      learnerName:  learner_name || learner.name,
+      moduleTitle:  module_title,
+      score,
+      xpTotal:     xp_total,
+      certHash:    badge_hash,
+    });
 
     db.prepare(`
       INSERT INTO badge (id, server_id, client_id, learner_id, module_id, module_title, score, xp_total, badge_hash, qr_payload, blockchain_tx, issued_at, created_at)
@@ -493,16 +513,89 @@ app.post('/api/badges', (req, res) => {
     `).run(
       uuidv4(), srvId, `badge_${Date.now()}`, learner.id,
       module_id, module_title, score, xp_total,
-      badge_hash, qr_payload, mockTxHash, now, now
+      badge_hash, qr_payload, mintResult.txHash, now, now
     );
 
     success(res, {
-      server_id: srvId,
-      blockchain_tx: mockTxHash,
+      server_id:     srvId,
+      blockchain_tx:  mintResult.txHash,
+      token_id:      mintResult.tokenId,
+      network:        mintResult.network,
+      on_chain:      mintResult.real,
     }, 201);
   } catch (err) {
     fail(res, err.message, 500);
   }
+});
+
+/** Vérifier un badge sur la blockchain */
+app.get('/api/verify/:certHash', async (req, res) => {
+  try {
+    const result = await verifyOnChain(req.params.certHash);
+    success(res, result);
+  } catch (err) {
+    fail(res, err.message, 500);
+  }
+});
+
+// ── Paiements mobiles (T-Money / Flooz) ────────────────────────────────────────
+
+/** Initier un paiement mobile */
+app.post('/api/payments/initiate', async (req, res) => {
+  try {
+    const { learner_id: clientId, provider, phone_number, product_type, product_id } = req.body;
+    if (!clientId || !provider || !phone_number || !product_type) {
+      return fail(res, 'Champs requis: learner_id, provider, phone_number, product_type');
+    }
+
+    const learner = db.prepare('SELECT id FROM learner WHERE client_id = ?').get(clientId);
+    if (!learner) return fail(res, 'Learner non trouvé', 404);
+
+    const result = await payments.createPayment(db, {
+      learnerServerId: learner.id,
+      provider,
+      phoneNumber: phone_number,
+      productType: product_type,
+      productId: product_id,
+    });
+
+    success(res, result, 201);
+  } catch (err) {
+    fail(res, err.message, 400);
+  }
+});
+
+/** Vérifier le statut d'un paiement */
+app.get('/api/payments/status/:reference', async (req, res) => {
+  try {
+    const result = await payments.checkStatus(db, req.params.reference);
+    success(res, result);
+  } catch (err) {
+    fail(res, err.message, 404);
+  }
+});
+
+/** Historique des paiements */
+app.get('/api/payments/history/:clientId', (req, res) => {
+  const learner = db.prepare('SELECT id FROM learner WHERE client_id = ?').get(req.params.clientId);
+  if (!learner) return fail(res, 'Learner non trouvé', 404);
+  success(res, payments.getPaymentHistory(db, learner.id));
+});
+
+/** Webhook callback du fournisseur de paiement */
+app.post('/api/payments/callback', (req, res) => {
+  const result = payments.handleProviderCallback(db, req.body, req.headers['x-signature']);
+  result.success ? success(res, { received: true }) : fail(res, result.error);
+});
+
+/** Tarification disponible */
+app.get('/api/payments/pricing', (req, res) => {
+  success(res, {
+    products: payments.PRICING,
+    providers: payments.PROVIDERS,
+    currency: 'XOF',
+    mock_mode: payments.PAYMENT_MOCK,
+  });
 });
 
 // ── Statistiques publiques (pour leaderboard futur) ────────────────────────
@@ -528,6 +621,8 @@ app.use((err, req, res, _next) => {
 
 // ── Démarrage ────────────────────────────────────────────────────────────────
 initDatabase();
+initBlockchain();
+payments.init(db);
 
 app.listen(PORT, () => {
   console.log(`

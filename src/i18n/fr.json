@@ -102,6 +102,27 @@
     "sync_error":      "Erreur de synchronisation"
   },
 
+  "payment": {
+    "title":            "Paiement mobile",
+    "choose_provider":  "Choisis ton opérateur",
+    "phone_label":       "Numéro de paiement",
+    "phone_placeholder": "228 90 XX XX XX",
+    "amount":            "Montant",
+    "pay":               "Payer",
+    "pending":           "Paiement en cours...",
+    "confirmed":         "Paiement confirmé !",
+    "failed":            "Paiement échoué",
+    "check_status":      "Vérifier le statut",
+    "history":           "Historique des paiements",
+    "no_history":        "Aucun paiement effectué",
+    "module_premium":    "Module premium",
+    "certification":     "Certification blockchain",
+    "bundle_all":        "Pack complet",
+    "tmoney":            "T-Money",
+    "flooz":             "Flooz",
+    "ussd_hint":         "Tu recevras une notification USSD. Confirme sur ton téléphone."
+  },
+
   "common": {
     "loading":  "Chargement...",
     "error":    "Une erreur est survenue",
