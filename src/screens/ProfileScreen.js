@@ -1,5 +1,5 @@
 // src/screens/ProfileScreen.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -12,18 +12,18 @@ export default function ProfileScreen() {
   const { learner, getAllBadges, resetAll } = useDb();
   const [badges, setBadges] = useState([]);
 
-  useEffect(() => {
-    if (learner) loadBadges();
-  }, [learner]);
-
-  const loadBadges = async () => {
+  const loadBadges = useCallback(async () => {
     try {
       const userBadges = await getAllBadges();
       setBadges(userBadges || []);
     } catch (error) {
       console.error('Erreur chargement badges:', error);
     }
-  };
+  }, [getAllBadges]);
+
+  useEffect(() => {
+    if (learner) loadBadges();
+  }, [learner, loadBadges]);
 
   const handleReset = () => {
     Alert.alert(
@@ -109,7 +109,7 @@ export default function ProfileScreen() {
                 </View>
               </View>
               <View style={styles.badgeRight}>
-                <Text style={styles.badgeScore}>{Math.round(badge.score)}%</Text>
+                <Text style={styles.badgeScore}>{Math.round(badge.score * 100)}%</Text>
                 <Text style={styles.badgeXP}>+{badge.xp_total} XP</Text>
               </View>
             </View>

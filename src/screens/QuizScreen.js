@@ -17,7 +17,7 @@ const STEP_RESULT    = 'result';
 export default function QuizScreen({ route, navigation }) {
   const { moduleId, lessonIndex } = route.params || {};
   const insets = useSafeAreaInsets();
-  const { learner, addXP, saveQuizAttempt, updateProgress, issueBadge, getAllProgress } = useDb();
+  const { learner, addXP, saveQuizAttempt, updateProgress, issueBadge, getProgress } = useDb();
 
   // ── State ─────────────────────────────────────────────────────────────
   const [step, setStep]             = useState(STEP_QUESTION);
@@ -116,7 +116,7 @@ export default function QuizScreen({ route, navigation }) {
           current_lesson: finalPassed ? lessonIndex + 1 : lessonIndex,
           lessons_done: lessonsDone,
           total_xp_earned: (module?.xp || 0),
-          best_score: Math.max(finalScore, 0),
+          best_score: finalScore,
           completed_at: moduleCompleted ? new Date().toISOString() : undefined,
         });
 
@@ -125,7 +125,7 @@ export default function QuizScreen({ route, navigation }) {
           await issueBadge({
             moduleId: module.id,
             moduleTitle: module.badge_title || module.title,
-            score: Math.round(finalScore * 100),
+            score: finalScore,
             xpTotal: module.xp,
           });
         }
@@ -135,7 +135,7 @@ export default function QuizScreen({ route, navigation }) {
     }
 
     setStep(STEP_RESULT);
-  }, [learner, moduleId, lessonIndex, totalQ, passingScore, xpBase, quiz, isLastLesson, module]);
+  }, [learner, moduleId, lessonIndex, totalQ, passingScore, xpBase, quiz, isLastLesson, module, saveQuizAttempt, addXP, updateProgress, issueBadge]);
 
   // ── Question suivante ─────────────────────────────────────────────────
   const handleNext = useCallback(() => {
@@ -162,7 +162,7 @@ export default function QuizScreen({ route, navigation }) {
   const handleBackToModule = useCallback(() => {
     navigation.reset({
       index: 0,
-      routes: [{ name: 'Dashboard' }],
+      routes: [{ name: 'Main' }],
     });
   }, [navigation]);
 
@@ -171,7 +171,7 @@ export default function QuizScreen({ route, navigation }) {
     if (isLastLesson) {
       navigation.reset({
         index: 0,
-        routes: [{ name: 'Dashboard' }],
+        routes: [{ name: 'Main' }],
       });
     } else {
       navigation.replace('Lesson', { moduleId, lessonIndex: lessonIndex + 1 });

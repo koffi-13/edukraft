@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors, Typography, Spacing, Radius, Shadow, getLevel } from '../theme';
 import { useDb }              from '../database/DbProvider';
-import { MODULES, getTotalXP, getTotalDuration } from '../content/moduleRegistry';
+import { MODULES } from '../content/moduleRegistry';
 import XPBar                  from '../components/XPBar';
 import OfflineIndicator       from '../components/OfflineIndicator';
 import { t }                  from '../i18n';

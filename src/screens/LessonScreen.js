@@ -1,6 +1,6 @@
 // src/screens/LessonScreen.js
 // Lecteur de leçon complet — rend le contenu JSON riche
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -14,7 +14,7 @@ export default function LessonScreen({ route, navigation }) {
   const insets = useSafeAreaInsets();
   const { learner, updateProgress } = useDb();
 
-  const [scrollY, setScrollY] = useState(0);
+  
   const lessonIndex = typeof li === 'number' ? li : 0;
   const module = getModuleById(moduleId);
   const lesson = getLessonById(moduleId, lessonIndex);
@@ -30,7 +30,7 @@ export default function LessonScreen({ route, navigation }) {
         current_lesson: lessonIndex,
       }).catch(e => console.warn('[Lesson] Progress update:', e));
     }
-  }, [module?.id, lessonIndex]);
+  }, [module?.id, lessonIndex, learner, updateProgress]);
 
   const goNextLesson = () => {
     if (isLast) {
@@ -93,8 +93,6 @@ export default function LessonScreen({ route, navigation }) {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
-        onScroll={(e) => setScrollY(e.nativeEvent.contentOffset.y)}
-        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
         {/* Titre de la leçon */}

@@ -174,7 +174,7 @@ export function DbProvider({ children }) {
         current_lesson:  updates.current_lesson  ?? existing?.current_lesson  ?? 0,
         lessons_done:    updates.lessons_done    ?? existing?.lessons_done    ?? 0,
         total_xp_earned: updates.total_xp_earned ?? existing?.total_xp_earned ?? 0,
-        best_score:      updates.best_score      ?? existing?.best_score      ?? 0,
+        best_score:      Math.max(updates.best_score ?? 0, existing?.best_score ?? 0),
         started_at:      updates.started_at      ?? existing?.started_at      ?? now,
         completed_at:    updates.completed_at    ?? existing?.completed_at    ?? null,
         updated_at: now,
@@ -196,7 +196,7 @@ export function DbProvider({ children }) {
       current_lesson:  updates.current_lesson  ?? existing?.current_lesson  ?? 0,
       lessons_done:    updates.lessons_done    ?? existing?.lessons_done    ?? 0,
       total_xp_earned: updates.total_xp_earned ?? existing?.total_xp_earned ?? 0,
-      best_score:      updates.best_score      ?? existing?.best_score      ?? 0,
+      best_score:      Math.max(updates.best_score ?? 0, existing?.best_score ?? 0),
       started_at:      updates.started_at      ?? existing?.started_at      ?? null,
       completed_at:    updates.completed_at    ?? existing?.completed_at    ?? null,
     };
@@ -267,6 +267,7 @@ export function DbProvider({ children }) {
         module_title: moduleTitle, score, xp_total: xpTotal,
         badge_hash: badge.hash, qr_payload: badge.qrPayload,
         blockchain_tx: null, issued_at: badge.issuedAt,
+        sync_status: 'pending',
       };
       store().badges.push(badgeRow);
       console.log(`[DB/MEMORY] Badge émis: ${moduleTitle}`);

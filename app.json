@@ -6,11 +6,14 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "splash": {
-      "backgroundColor": "#5B4ABB"
+      "backgroundColor": "#5B4ABB",
+      "image": "./assets/icon.png"
     },
+    "icon": "./assets/icon.png",
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#5B4ABB"
+        "backgroundColor": "#5B4ABB",
+        "foregroundImage": "./assets/icon.png"
       },
       "package": "tg.edukraft.mvp",
       "permissions": ["INTERNET", "ACCESS_NETWORK_STATE"]
