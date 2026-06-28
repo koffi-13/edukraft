@@ -28,6 +28,7 @@
     "modules_available":  "Modules disponibles",
     "your_progress":      "Ta progression",
     "completed":          "complété",
+    "in_progress":        "en cours",
     "lessons_done":       "leçons terminées",
     "streak_label":       "Jours d'affilée",
     "offline_banner":     "Mode hors-ligne — progression sauvegardée localement"
@@ -50,7 +51,21 @@
     "quiz_pass":       "Félicitations ! Tu passes à la leçon suivante.",
     "quiz_fail":       "Révise et réessaie. Tu peux le faire !",
     "retry":           "Réessayer",
-    "min_score_info":  "Score minimum requis : {{min}}%"
+    "min_score_info":  "Score minimum requis : {{min}}%",
+    "select_answer":   "Choisis ta réponse",
+    "validate":        "Valider",
+    "next_question":   "Question suivante",
+    "perfect_bonus":   "Bonus parfaite ! +{{xp}} XP",
+    "score_percent":   "{{percent}}% de bonnes réponses",
+    "passed":          "Réussi !",
+    "failed":          "Pas encore...",
+    "xp_won":          "+{{xp}} XP gagnés",
+    "back_to_module":  "Retour au module",
+    "no_lesson":       "Leçon introuvable",
+    "key_takeaway":    "À retenir",
+    "prev_lesson":     "Leçon précédente",
+    "all_lessons_done":"Module terminé !",
+    "no_modules":      "Aucun module disponible"
   },
 
   "badge": {

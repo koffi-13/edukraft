@@ -21,7 +21,7 @@ export default function DashboardScreen({ navigation }) {
   const load = useCallback(async () => {
     try {
       const prog = await getAllProgress();
-      setAllProgress(prog);
+      setAllProgress(prog || []);
     } catch (error) {
       console.error('Erreur chargement progression:', error);
       setAllProgress([]);
@@ -76,7 +76,7 @@ export default function DashboardScreen({ navigation }) {
           <XPBar xp={learner?.total_xp ?? 0} />
           <View style={styles.statsRow}>
             <StatBox value={completedCount} label={t('dashboard.completed')} color={Colors.teal} />
-            <StatBox value={allProgress.filter(p => p.status === 'in_progress').length} label="En cours" color={Colors.amber} />
+            <StatBox value={allProgress.filter(p => p.status === 'in_progress').length} label={t('dashboard.in_progress')} color={Colors.amber} />
             <StatBox value={learner?.streak_days ?? 0} label={t('dashboard.streak_label')} color={Colors.coral} />
           </View>
         </View>
@@ -87,13 +87,17 @@ export default function DashboardScreen({ navigation }) {
         {MODULES.map(module => {
           const prog   = getModuleProgress(module.id);
           const status = prog?.status ?? 'not_started';
-          const pct    = prog ? (prog.lessons_done / module.lessons.length) : 0;
+          const totalLessons = module.lessons?.length || 1;
+          const pct    = prog ? (prog.lessons_done / totalLessons) : 0;
 
           return (
             <TouchableOpacity
               key={module.id}
               style={[styles.moduleCard, Shadow.card]}
-              onPress={() => navigation.navigate('Lesson', { moduleId: module.id, lessonIndex: prog?.current_lesson ?? 0 })}
+              onPress={() => navigation.navigate('Lesson', {
+                moduleId: module.id,
+                lessonIndex: status === 'not_started' ? 0 : (prog?.current_lesson ?? 0),
+              })}
               activeOpacity={0.88}
             >
               {/* Color band */}
@@ -102,8 +106,9 @@ export default function DashboardScreen({ navigation }) {
               <View style={styles.moduleBody}>
                 <View style={styles.moduleTop}>
                   <View style={styles.moduleMeta}>
+                    <Text style={styles.moduleFiliere}>{module.filiere}</Text>
                     <Text style={styles.moduleTitle}>{module.title}</Text>
-                    <Text style={styles.moduleSubtitle}>{module.description}</Text>
+                    <Text style={styles.moduleSubtitle}>{module.subtitle}</Text>
                   </View>
                   <StatusChip status={status} />
                 </View>
@@ -111,10 +116,10 @@ export default function DashboardScreen({ navigation }) {
                 {/* Stats */}
                 <View style={styles.moduleStats}>
                   <Text style={styles.statText}>
-                    📚 {module.lessons?.length || 2} leçons
+                    📚 {totalLessons} {t('module.lessons_count', { count: totalLessons })}
                   </Text>
                   <Text style={styles.statText}>
-                    ⏱ {module.duration} min
+                    ⏱ {module.duration} {t('lesson.read_time')}
                   </Text>
                   <Text style={styles.statText}>
                     ⭐ {module.xp} XP
@@ -131,7 +136,7 @@ export default function DashboardScreen({ navigation }) {
                       }]} />
                     </View>
                     <Text style={styles.progressLabel}>
-                      {prog.lessons_done}/{module.lessons?.length || 2} {t('dashboard.lessons_done')}
+                      {prog.lessons_done}/{totalLessons} {t('dashboard.lessons_done')}
                     </Text>
                   </View>
                 )}
@@ -226,11 +231,17 @@ const styles = StyleSheet.create({
   moduleBody:      { flex: 1, padding: Spacing.md, gap: Spacing.sm },
   moduleTop:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   moduleMeta:      { flex: 1 },
+  moduleFiliere:   {
+    fontSize:   Typography.tiny,
+    color:      Colors.ink30,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
   moduleTitle: {
     fontSize:   Typography.h3,
     fontWeight: Typography.bold,
     color:      Colors.ink,
-    marginTop:  2,
   },
   moduleSubtitle: {
     fontSize: Typography.caption,

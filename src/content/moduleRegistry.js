@@ -1,103 +1,73 @@
 // src/content/moduleRegistry.js
 // Registry des modules de formation EduKraft
+// Charge les fichiers JSON riches et les expose en structure plate pour le Dashboard
 
-import { Colors } from '../theme';
+import marketingDigital from './modules/marketing_digital_local.json';
+import comptabiliteArtisanale from './modules/comptabilite_artisanale.json';
 
+// ── Transformation JSON riche → structure plate compatible Dashboard ─────
+function normalizeModule(json) {
+  return {
+    // Champs plate (utilisés par le Dashboard)
+    id:          json.id,
+    title:       json.meta.title,
+    subtitle:    json.meta.subtitle,
+    description: json.meta.description,
+    duration:    json.meta.duration_min,
+    xp:          json.meta.xp_reward,
+    color:       json.meta.color,
+
+    // Champs étendus
+    filiere:      json.filiere,
+    difficulty:   json.difficulty,
+    badge_title:  json.meta.badge_title,
+    icon:         json.meta.icon,
+    tags:         json.meta.tags,
+    target_audience: json.meta.target_audience,
+    version:      json.version,
+
+    // Données riches (utilisés par LessonScreen et QuizScreen)
+    lessons:          json.lessons,
+    completion_criteria: json.completion_criteria,
+    i18n:             json.i18n,
+  };
+}
+
+// ── Registre principal ───────────────────────────────────────────────────
 export const MODULES = [
-  {
-    id: 'marketing_digital_local',
-    title: 'Marketing Digital Local',
-    description: 'Apprenez à promouvoir votre entreprise en ligne',
-    duration: 120, // minutes
-    xp: 100,
-    color: Colors.teal,
-    lessons: [
-      {
-        id: 0,
-        title: 'Introduction au Marketing Digital',
-        content: 'Le marketing digital englobe toutes les stratégies de marketing en ligne...',
-        duration: 15,
-        quiz: {
-          questions: [
-            {
-              id: 1,
-              question: 'Qu\'est-ce que le marketing digital ?',
-              options: [
-                'Marketing uniquement sur les réseaux sociaux',
-                'Marketing utilisant les canaux numériques',
-                'Marketing traditionnel',
-                'Marketing par email seulement'
-              ],
-              correct: 1
-            }
-          ]
-        }
-      },
-      {
-        id: 1,
-        title: 'Les Réseaux Sociaux',
-        content: 'Les réseaux sociaux sont essentiels pour le marketing moderne...',
-        duration: 20,
-        quiz: {
-          questions: [
-            {
-              id: 1,
-              question: 'Quel réseau social est le plus populaire au Togo ?',
-              options: ['Facebook', 'Twitter', 'LinkedIn', 'TikTok'],
-              correct: 0
-            }
-          ]
-        }
-      }
-    ]
-  },
-  {
-    id: 'comptabilite_artisanale',
-    title: 'Comptabilité Artisanale',
-    description: 'Gestion financière de base pour artisans',
-    duration: 90,
-    xp: 80,
-    color: Colors.amber,
-    lessons: [
-      {
-        id: 0,
-        title: 'Bases de la comptabilité',
-        content: 'La comptabilité permet de suivre vos finances...',
-        duration: 15,
-        quiz: {
-          questions: [
-            {
-              id: 1,
-              question: 'Qu\'est-ce qu\'un bilan ?',
-              options: [
-                'Liste des clients',
-                'Photo des stocks',
-                'État financier du patrimoine',
-                'Plan de marketing'
-              ],
-              correct: 2
-            }
-          ]
-        }
-      }
-    ]
-  }
+  normalizeModule(marketingDigital),
+  normalizeModule(comptabiliteArtisanale),
 ];
 
-// Fonctions utilitaires
+// ── Fonctions utilitaires ────────────────────────────────────────────────
+
 export function getModuleById(moduleId) {
-  return MODULES.find(module => module.id === moduleId);
+  return MODULES.find(m => m.id === moduleId);
 }
 
-export function getTotalXP() {
-  return MODULES.reduce((total, module) => total + module.xp, 0);
-}
-
-export function getTotalDuration() {
-  return MODULES.reduce((total, module) => total + module.duration, 0);
-}
-
+/** Récupère une leçon par moduleId et index */
 export function getLessonById(moduleId, lessonIndex) {
   const module = getModuleById(moduleId);
-  return module?.lessons[lessonIndex];
+  return module?.lessons?.[lessonIndex] ?? null;
+}
+
+/** Récupère le quiz d'une leçon */
+export function getQuizForLesson(moduleId, lessonIndex) {
+  const lesson = getLessonById(moduleId, lessonIndex);
+  return lesson?.quiz ?? null;
+}
+
+/** Calcule le XP total de tous les modules */
+export function getTotalXP() {
+  return MODULES.reduce((sum, m) => sum + m.xp, 0);
+}
+
+/** Calcule la durée totale de tous les modules */
+export function getTotalDuration() {
+  return MODULES.reduce((sum, m) => sum + m.duration, 0);
+}
+
+/** Nombre total de leçons */
+export function getTotalLessons() {
+  return MODULES.reduce((sum, m) => sum + (m.lessons?.length || 0), 0);
 }
