@@ -209,6 +209,64 @@
     "email_display":          "Email / Téléphone"
   },
 
+  "gamification": {
+    "screen_title":              "Progression & succès",
+    "day_singular":              "jour",
+    "day_plural":                "jours",
+    "best_streak":               "Record : {{count}} jours",
+    "freezes_label":             "Jokers (jours pardonnés)",
+    "score_label":               "Score",
+
+    "daily_goal_section":        "Objectif du jour",
+    "goal_lessons":              "{{target}} leçon(s) par jour",
+    "goal_xp":                   "{{target}} XP par jour",
+    "goal_met":                  "Objectif atteint !",
+    "goal_remaining":            "Encore {{remaining}} pour atteindre ton objectif",
+    "set_goal_title":            "Définis ton objectif",
+    "set_goal_desc":             "Choisis un rythme qui te convient — modifiable à tout moment.",
+    "choose_goal":               "Choisir un objectif",
+    "goal_confirm_title":        "Confirmer l'objectif",
+    "goal_confirm_msg":          "Ton objectif : {{goal}}",
+    "goal_hint":                 "Un objectif atteignable vaut mieux qu'un objectif ambitieux abandonné.",
+
+    "preset_1_lesson":           "1 leçon / jour",
+    "preset_2_lessons":          "2 leçons / jour",
+    "preset_30_xp":              "30 XP / jour",
+    "preset_60_xp":              "60 XP / jour",
+
+    "mastery_title":             "Maîtrise par domaine",
+    "mastery_subtitle":          "Ta compétence par filière de formation",
+    "mastery_empty":             "Commence un module pour suivre ta maîtrise.",
+    "mastery_mastered":          "Maîtrisé",
+    "mastery_in_progress":       "En cours",
+    "mastery_not_started":       "À explorer",
+
+    "achievements_section":      "Succès",
+    "achievements_link_title":   "Tes succès",
+    "achievements_link_sub":     "{{unlocked}}/{{total}} débloqués",
+    "new_achievements":          "Nouveau(x) succès ({{count}})",
+
+    "category_first_step":       "Premiers pas",
+    "category_consistency":      "Constance",
+    "category_mastery":          "Maîtrise",
+    "category_curiosity":        "Curiosité",
+    "category_resilience":       "Résilience",
+
+    "celebration_lesson_done":   "Leçon terminée",
+    "celebration_progress":      "Tu progresses",
+    "celebration_goal_met_title":"Objectif du jour atteint",
+    "celebration_achievement_title": "Nouveau succès débloqué",
+    "celebration_streak_title":  "Ta série continue",
+    "streak_restarted":          "Nouvelle série — chaque jour compte.",
+    "daily_goal_reached":        " Bravo, tu as atteint ton objectif du jour.",
+
+    "profile_link_title":        "Progression & succès",
+    "profile_link_desc":         "Streak, objectifs, succès et maîtrise par domaine.",
+
+    "philosophy_title":          "Notre approche",
+    "philosophy_text":           "La gamification d'EduKraft encourage la régularité et la maîtrise, pas la précipitation. Un jour manqué est pardonné grâce aux jokers. Revenir après une absence est un succès, pas un échec. Tes succès récompensent tes comportements d'apprentissage réels."
+  },
+
   "profile": {
     "title":            "Mon profil",
     "name_label":       "Nom",

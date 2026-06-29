@@ -19,6 +19,7 @@ import PaymentScreen     from '../screens/PaymentScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import LoginScreen      from '../screens/LoginScreen';
 import RegisterScreen   from '../screens/RegisterScreen';
+import AchievementsScreen from '../screens/AchievementsScreen';
 import { useDb }        from '../database/DbProvider';
 import { useAuth }      from '../contexts/AuthContext';
 
@@ -109,6 +110,9 @@ function RootStack() {
       />
       <Stack.Screen name="Quiz"    component={QuizScreen}
         options={{ presentation: 'modal', gestureEnabled: false }}
+      />
+      <Stack.Screen name="Achievements" component={AchievementsScreen}
+        options={{ presentation: 'card', gestureEnabled: true }}
       />
     </Stack.Navigator>
   );

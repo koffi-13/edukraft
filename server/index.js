@@ -11,6 +11,7 @@ const { v4: uuidv4 } = require('uuid');
 const { init: initBlockchain, mintBadge: mintOnChain, verifyBadge: verifyOnChain, getHealth: getBlockchainHealth } = require('./blockchain');
 const payments = require('./payments');
 const auth = require('./auth');
+const gamification = require('./gamification');
 
 // ── Configuration ────────────────────────────────────────────────────────────
 const PORT    = parseInt(process.env.PORT, 10) || 3001;
@@ -160,9 +161,10 @@ function findOrCreateLearner(clientId, payload) {
       payload.total_xp || 0, payload.streak_days || 0, now, now, now);
     learner = db.prepare('SELECT * FROM learner WHERE id = ?').get(id);
   } else {
-    // Mettre à jour les champs modifiés
+    // Mettre à jour les champs modifiés (COALESCE pour ne pas écraser les champs
+    // absents du payload — important pour les updates partiels gamification)
     db.prepare(`
-      UPDATE learner SET name = ?, phone = COALESCE(?, phone), language = COALESCE(?, language),
+      UPDATE learner SET name = COALESCE(?, name), phone = COALESCE(?, phone), language = COALESCE(?, language),
         total_xp = MAX(total_xp, ?), streak_days = MAX(streak_days, ?),
         last_active_at = ?, updated_at = ?
       WHERE id = ?
@@ -224,6 +226,48 @@ app.post('/api/sync', rateLimit(30, 60000), async (req, res) => {
             learnerServerId = learner.id;
             result.server_id = learner.id;
             result.client_id = clientId;
+            // Gamification : sync des champs streak/freezes/best_streak si présents
+            if (payload.streak_days !== undefined || payload.streak_freezes !== undefined
+                || payload.best_streak !== undefined || payload.last_active_date !== undefined
+                || payload.total_lessons_done !== undefined) {
+              gamification.applySyncOperation(db, 'learner', {
+                ...payload,
+                learner_id: learner.id,
+              });
+            }
+            break;
+          }
+
+          case 'streak_log':
+          case 'achievement':
+          case 'daily_goal': {
+            // Tables gamification — déléguer au module gamification
+            // Résoudre le learner_id (client_id → server id)
+            if (!payload.learner_id) {
+              result.status = 'error';
+              result.error = 'learner_id manquant';
+              results.push(result);
+              continue;
+            }
+            let gLearnerId = learnerServerId;
+            if (!gLearnerId) {
+              const l = db.prepare('SELECT id FROM learner WHERE client_id = ?').get(payload.learner_id);
+              if (!l) {
+                result.status = 'error';
+                result.error = 'Learner non trouvé';
+                results.push(result);
+                continue;
+              }
+              gLearnerId = l.id;
+              learnerServerId = l.id;
+            }
+            const gRes = gamification.applySyncOperation(db, table_name, {
+              ...payload,
+              learner_id: gLearnerId,
+            });
+            result.status = gRes.status;
+            if (gRes.server_id) result.server_id = gRes.server_id;
+            if (gRes.error) result.error = gRes.error;
             break;
           }
 
@@ -644,6 +688,8 @@ app.use('/api/auth/phone',    otpLimiter);
 initDatabase();
 auth.initAuthTables(db);          // tables user + refresh_token
 auth.mountAuthRoutes(app, db);    // /api/auth/* (register, login, google, apple, facebook, phone, me, refresh, logout)
+gamification.initGamificationTables(db);  // tables streak_log + achievement + daily_goal + colonnes learner v2
+gamification.mountGamificationRoutes(app, db);  // /api/gamification/*
 initBlockchain();
 payments.init(db);
 

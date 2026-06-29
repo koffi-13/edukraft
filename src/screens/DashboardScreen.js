@@ -10,23 +10,31 @@ import { useDb }              from '../database/DbProvider';
 import { MODULES } from '../content/moduleRegistry';
 import XPBar                  from '../components/XPBar';
 import OfflineIndicator       from '../components/OfflineIndicator';
+import StreakWidget           from '../components/StreakWidget';
+import DailyGoalRing          from '../components/DailyGoalRing';
+import MasteryCard            from '../components/MasteryCard';
 import { t }                  from '../i18n';
 
 export default function DashboardScreen({ navigation }) {
   const insets          = useSafeAreaInsets();
-  const { learner, getAllProgress } = useDb();
+  const { learner, getAllProgress, getGamificationState } = useDb();
   const [allProgress, setAllProgress] = useState([]);
   const [refreshing, setRefreshing]   = useState(false);
+  const [gamo, setGamo]               = useState(null);  // état gamification
 
   const load = useCallback(async () => {
     try {
-      const prog = await getAllProgress();
+      const [prog, gState] = await Promise.all([
+        getAllProgress(),
+        getGamificationState ? getGamificationState() : Promise.resolve(null),
+      ]);
       setAllProgress(prog || []);
+      if (gState) setGamo(gState);
     } catch (error) {
       console.error('Erreur chargement progression:', error);
       setAllProgress([]);
     }
-  }, [getAllProgress]);
+  }, [getAllProgress, getGamificationState]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -80,6 +88,54 @@ export default function DashboardScreen({ navigation }) {
             <StatBox value={learner?.streak_days ?? 0} label={t('dashboard.streak_label')} color={Colors.coral} />
           </View>
         </View>
+
+        {/* Gamification : Objectif quotidien + Streak (côte à côte) */}
+        {gamo && (
+          <View style={styles.gamoRow}>
+            <View style={styles.gamoColLeft}>
+              <DailyGoalRing
+                goal={gamo.goal}
+                todayValue={gamo.goal?.type === 'xp' ? gamo.todayXp : gamo.todayLessons}
+                onPress={() => navigation.navigate('Achievements')}
+              />
+            </View>
+            <View style={styles.gamoColRight}>
+              <StreakWidget
+                streak={gamo.streak}
+                freezes={gamo.freezes}
+                bestStreak={gamo.bestStreak}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Gamification : Maîtrise par filière */}
+        {gamo?.mastery?.length > 0 && (
+          <MasteryCard mastery={gamo.mastery} />
+        )}
+
+        {/* Lien vers tous les succès */}
+        {gamo && (
+          <TouchableOpacity
+            style={styles.achievementsLink}
+            onPress={() => navigation.navigate('Achievements')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.achievementsLinkIcon}>🏆</Text>
+            <View style={styles.achievementsLinkText}>
+              <Text style={styles.achievementsLinkTitle}>
+                {t('gamification.achievements_link_title')}
+              </Text>
+              <Text style={styles.achievementsLinkSub}>
+                {t('gamification.achievements_link_sub', {
+                  unlocked: gamo.achievements.unlocked.length,
+                  total: gamo.achievements.total,
+                })}
+              </Text>
+            </View>
+            <Text style={styles.achievementsLinkArrow}>›</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Modules */}
         <Text style={styles.sectionTitle}>{t('dashboard.modules_available')}</Text>
@@ -213,6 +269,41 @@ const styles = StyleSheet.create({
     borderRadius:    Radius.lg,
     padding:         Spacing.md,
     gap:             Spacing.md,
+  },
+  // Gamification row (objectif + streak)
+  gamoRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  gamoColLeft:   { flex: 1 },
+  gamoColRight:  { flex: 1 },
+  // Lien Succès
+  achievementsLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  achievementsLinkIcon: { fontSize: 28 },
+  achievementsLinkText: { flex: 1 },
+  achievementsLinkTitle: {
+    fontSize: Typography.body,
+    fontWeight: Typography.bold,
+    color: Colors.ink,
+  },
+  achievementsLinkSub: {
+    fontSize: Typography.caption,
+    color: Colors.ink60,
+    marginTop: 2,
+  },
+  achievementsLinkArrow: {
+    fontSize: 24,
+    color: Colors.ink30,
+    fontWeight: '300',
   },
   statsRow:     { flexDirection: 'row', gap: Spacing.sm },
   sectionTitle: {

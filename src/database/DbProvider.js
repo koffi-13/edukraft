@@ -17,7 +17,11 @@ class MemoryStore {
     this.quizAttempts = [];
     this.badges = [];
     this.syncQueue = [];
-    this.syncMeta = { schema_version: '1', last_sync_at: null, sync_cursor: '0' };
+    this.syncMeta = { schema_version: '2', last_sync_at: null, sync_cursor: '0' };
+    // Gamification (v2)
+    this.streakLogs = {};      // activityDate → { lessons_done, xp_earned, goal_met, streak_freeze_used }
+    this.achievements = [];    // [{ achievement_key, unlocked_at }]
+    this.dailyGoal = null;     // { goal_type, goal_target, enabled }
   }
 
   reset() {
@@ -26,6 +30,9 @@ class MemoryStore {
     this.quizAttempts = [];
     this.badges = [];
     this.syncQueue = [];
+    this.streakLogs = {};
+    this.achievements = [];
+    this.dailyGoal = null;
   }
 }
 
@@ -55,9 +62,15 @@ export function DbProvider({ children }) {
           `);
 
           // Création des tables
-          const { CREATE_TABLES, INITIAL_SYNC_META } = require('./schema');
+          const { CREATE_TABLES, INITIAL_SYNC_META, MIGRATE_LEARNER_V2 } = require('./schema');
           await nativeDb.execAsync(CREATE_TABLES);
           await nativeDb.execAsync(INITIAL_SYNC_META);
+
+          // Migration v1 → v2 : ajoute les colonnes gamification au learner
+          // (idempotent : chaque ALTER échoue silencieusement si la colonne existe)
+          for (const stmt of MIGRATE_LEARNER_V2) {
+            try { await nativeDb.execAsync(stmt); } catch (_) { /* colonne déjà là */ }
+          }
 
           // Charger le learner existant
           const row = await nativeDb.getFirstAsync('SELECT * FROM learner LIMIT 1');
@@ -118,6 +131,8 @@ export function DbProvider({ children }) {
       const newLearner = {
         id, name, phone, language,
         total_xp: 0, streak_days: 0,
+        streak_freezes: 2, best_streak: 0,
+        last_active_date: null, total_lessons_done: 0,
         last_active_at: now, created_at: now,
         updated_at: now, server_id: null, sync_status: 'pending',
       };
@@ -346,6 +361,100 @@ export function DbProvider({ children }) {
     return db.getAllAsync(QUERIES.GET_ALL_BADGES, [learner?.id]);
   }, [db, learner]);
 
+  // ── Gamification (v2) ─────────────────────────────────────────────────
+  // Helpers exposés au module src/gamification/index.js via le contexte.
+  // Ces méthodes lisent/écrivent dans streak_log, achievement, daily_goal.
+
+  /** Exécute une requête préparée par nom (natif) ou renvoie null (mémoire). */
+  const runAsync = useCallback(async (queryName, params = []) => {
+    if (isMemory()) return null;
+    const { QUERIES } = require('./schema');
+    const sql = QUERIES[queryName];
+    if (!sql) throw new Error(`Query inconnue: ${queryName}`);
+    return db.runAsync(sql, params);
+  }, [db]);
+
+  /** Récupère la première ligne d'une requête par nom. */
+  const getFirst = useCallback(async (queryName, params = []) => {
+    if (isMemory()) {
+      // Émulations minimales pour le mode mémoire
+      const s = store();
+      if (queryName === 'GET_TODAY_LOG' || queryName === 'GET_STREAK_LOG') {
+        const [lid, date] = params;
+        const log = s.streakLogs[date];
+        return log ? { ...log, learner_id: lid, activity_date: date } : null;
+      }
+      if (queryName === 'COUNT_PASSED_QUIZZES') return { cnt: s.quizAttempts.filter(a => a.passed).length };
+      if (queryName === 'COUNT_PERFECT_QUIZZES') return { cnt: s.quizAttempts.filter(a => a.score >= 1.0).length };
+      if (queryName === 'COUNT_STARTED_MODULES') return { cnt: Object.values(s.progress).filter(p => p.status !== 'not_started').length };
+      if (queryName === 'COUNT_COMPLETED_MODULES') return { cnt: Object.values(s.progress).filter(p => p.status === 'completed').length };
+      return null;
+    }
+    const { QUERIES } = require('./schema');
+    const sql = QUERIES[queryName];
+    if (!sql) throw new Error(`Query inconnue: ${queryName}`);
+    return db.getFirstAsync(sql, params);
+  }, [db]);
+
+  /** Liste les clés d'achievements débloqués. */
+  const getAchievements = useCallback(async () => {
+    if (isMemory()) {
+      return store().achievements.map(a => a.achievement_key);
+    }
+    const { QUERIES } = require('./schema');
+    const rows = await db.getAllAsync(QUERIES.GET_ACHIEVEMENTS, [learner?.id]);
+    return rows.map(r => r.achievement_key);
+  }, [db, learner]);
+
+  /** Récupère l'objectif quotidien. */
+  const getDailyGoal = useCallback(async () => {
+    if (isMemory()) return store().dailyGoal;
+    const { QUERIES } = require('./schema');
+    const row = await db.getFirstAsync(QUERIES.GET_DAILY_GOAL, [learner?.id]);
+    return row;
+  }, [db, learner]);
+
+  /** Définit l'objectif quotidien. */
+  const setDailyGoal = useCallback(async (goalType, target) => {
+    const now = new Date().toISOString();
+    if (isMemory()) {
+      store().dailyGoal = { goal_type: goalType, goal_target: target, enabled: 1, updated_at: now };
+      return;
+    }
+    const { QUERIES } = require('./schema');
+    const id = `goal_${learner?.id}`;
+    await db.runAsync(QUERIES.UPSERT_DAILY_GOAL, [id, learner?.id, goalType, target, 1, now]);
+    enqueue('daily_goal', 'UPDATE', id, { learner_id: learner?.id, goal_type: goalType, goal_target: target, enabled: 1, updated_at: now });
+  }, [db, learner, enqueue]);
+
+  /**
+   * Enregistre une leçon complétée et déclenche toute la gamification.
+   * Wrapper autour de src/gamification/index.js::recordLessonCompleted.
+   * @returns {Promise<Object>} { streak, newAchievements, goalMet, ... }
+   */
+  const recordLessonCompleted = useCallback(async (payload) => {
+    const gamification = require('../gamification');
+    return gamification.recordLessonCompleted(
+      {
+        learner, setLearner, enqueue,
+        runAsync, getFirst, getAllProgress,
+        getAchievements, getDailyGoal,
+        MODULES: require('../content/moduleRegistry').MODULES,
+      },
+      payload,
+    );
+  }, [learner, enqueue, runAsync, getFirst, getAllProgress, getAchievements, getDailyGoal]);
+
+  /** Retourne l'état gamification complet pour l'affichage. */
+  const getGamificationState = useCallback(async () => {
+    const gamification = require('../gamification');
+    return gamification.getGamificationState({
+      learner, getFirst, getAllProgress,
+      getAchievements, getDailyGoal,
+      MODULES: require('../content/moduleRegistry').MODULES,
+    });
+  }, [learner, getFirst, getAllProgress, getAchievements, getDailyGoal]);
+
   // ── Sync helpers (exposés pour SyncEngine) ────────────────────────────
 
   const getPendingQueue = useCallback(async () => {
@@ -407,9 +516,12 @@ export function DbProvider({ children }) {
     const SQLite = require('expo-sqlite');
     await SQLite.deleteDatabaseAsync('edukraft.db');
     const newDb = await SQLite.openDatabaseAsync('edukraft.db');
-    const { CREATE_TABLES, INITIAL_SYNC_META } = require('./schema');
+    const { CREATE_TABLES, INITIAL_SYNC_META, MIGRATE_LEARNER_V2 } = require('./schema');
     await newDb.execAsync(CREATE_TABLES);
     await newDb.execAsync(INITIAL_SYNC_META);
+    for (const stmt of MIGRATE_LEARNER_V2) {
+      try { await newDb.execAsync(stmt); } catch (_) {}
+    }
     setDb(newDb);
     setLearner(null);
   }, [db]);
@@ -426,6 +538,9 @@ export function DbProvider({ children }) {
     saveQuizAttempt,
     // Badges
     issueBadge, getAllBadges,
+    // Gamification (v2)
+    recordLessonCompleted, getGamificationState,
+    getAchievements, getDailyGoal, setDailyGoal,
     // Sync internals
     getPendingQueue, removeFromQueue, incrementRetry,
     updateBadgeTx, getSyncMeta, setSyncMeta, enqueue,

@@ -8,6 +8,7 @@ import { Colors, Typography, Spacing, Radius, Shadow, getLevel } from '../theme'
 import { useDb } from '../database/DbProvider';
 import { getModuleById, getLessonById, getQuizForLesson } from '../content/moduleRegistry';
 import { t } from '../i18n';
+import CelebrationModal from '../components/CelebrationModal';
 
 // ── Écrans du quiz ──────────────────────────────────────────────────────
 const STEP_QUESTION  = 'question';
@@ -17,7 +18,7 @@ const STEP_RESULT    = 'result';
 export default function QuizScreen({ route, navigation }) {
   const { moduleId, lessonIndex } = route.params || {};
   const insets = useSafeAreaInsets();
-  const { learner, addXP, saveQuizAttempt, updateProgress, issueBadge, getProgress } = useDb();
+  const { learner, addXP, saveQuizAttempt, updateProgress, issueBadge, getProgress, recordLessonCompleted } = useDb();
 
   // ── State ─────────────────────────────────────────────────────────────
   const [step, setStep]             = useState(STEP_QUESTION);
@@ -26,6 +27,9 @@ export default function QuizScreen({ route, navigation }) {
   const [answers, setAnswers]       = useState([]);     // [{ qId, selectedId, correct }]
   const [showExplanation, setShowExplanation] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(1));
+  // Gamification : célébration post-quiz
+  const [celebration, setCelebration] = useState(null);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   // ── Données du quiz ───────────────────────────────────────────────────
   const module   = getModuleById(moduleId);
@@ -129,13 +133,39 @@ export default function QuizScreen({ route, navigation }) {
             xpTotal: module.xp,
           });
         }
+
+        // ── Gamification : enregistrer la leçon complétée ──────────────
+        // Met à jour le streak, débloque les succès, vérifie l'objectif du jour.
+        // Ne s'affiche QUE si la leçon est réussie (pas de célébration sur échec).
+        if (finalPassed && recordLessonCompleted) {
+          try {
+            const gResult = await recordLessonCompleted({
+              xpEarned: xp,
+              moduleId,
+              lessonIndex,
+              score: finalScore,
+              passed: finalPassed,
+            });
+            // Célébration discrète — seulement s'il y a quelque chose de notable
+            if (gResult && (gResult.newAchievements?.length > 0 || gResult.goalMet || xp > 0)) {
+              setCelebration({
+                ...gResult,
+                score: finalScore,
+                xp,
+              });
+              setShowCelebration(true);
+            }
+          } catch (gErr) {
+            console.warn('[Quiz] Gamification error (non-fatal):', gErr.message);
+          }
+        }
       } catch (e) {
         console.error('[Quiz] Erreur sauvegarde:', e);
       }
     }
 
     setStep(STEP_RESULT);
-  }, [learner, moduleId, lessonIndex, totalQ, passingScore, xpBase, quiz, isLastLesson, module, saveQuizAttempt, addXP, updateProgress, issueBadge]);
+  }, [learner, moduleId, lessonIndex, totalQ, passingScore, xpBase, quiz, isLastLesson, module, saveQuizAttempt, addXP, updateProgress, issueBadge, recordLessonCompleted]);
 
   // ── Question suivante ─────────────────────────────────────────────────
   const handleNext = useCallback(() => {
@@ -453,6 +483,13 @@ export default function QuizScreen({ route, navigation }) {
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Célébration gamification (streak, succès, objectif) */}
+      <CelebrationModal
+        visible={showCelebration}
+        onClose={() => setShowCelebration(false)}
+        result={celebration}
+      />
     </View>
   );
 }

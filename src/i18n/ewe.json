@@ -211,6 +211,64 @@
     "email_display":          "Email / Telefone"
   },
 
+  "gamification": {
+    "screen_title":              "Ƒoƒoƒo kple nyatefewo",
+    "day_singular":              "ŋkeke",
+    "day_plural":                "ŋkekewo",
+    "best_streak":               "Ƒe ɖoƒo: {{count}} ŋkeke",
+    "freezes_label":             "Kafukafu (ŋkeke siwo woɖo nyuie)",
+    "score_label":               "Tsoƒoƒe",
+
+    "daily_goal_section":        "Ŋkeke ƒe taɖaɖa",
+    "goal_lessons":              "{{target}} Ðaŋu le ŋkeke ɖeka me",
+    "goal_xp":                   "{{target}} XP le ŋkeke ɖeka me",
+    "goal_met":                  "Taɖaɖa wɔ nyuie !",
+    "goal_remaining":            "{{remaining}} nɔnɔ na wò taɖaɖa",
+    "set_goal_title":            "Ðo wò taɖaɖa",
+    "set_goal_desc":             "Ðo mɔɖaɖa si le wò si — wɔa ɖo ɖe keke.",
+    "choose_goal":               "Ðo taɖaɖa ɖeka",
+    "goal_confirm_title":        "Ðo taɖaɖa ŋu",
+    "goal_confirm_msg":          "Wò taɖaɖa: {{goal}}",
+    "goal_hint":                 "Taɖaɖa si wɔa nyuie wu taɖaɖa si wuɖli o.",
+
+    "preset_1_lesson":           "1 Ðaŋu / ŋkeke",
+    "preset_2_lessons":          "2 Ðaŋu / ŋkeke",
+    "preset_30_xp":              "30 XP / ŋkeke",
+    "preset_60_xp":              "60 XP / ŋkeke",
+
+    "mastery_title":             "Nunya le mɔɖaɖa ɖeka me",
+    "mastery_subtitle":          "Wò nunya le mɔɖaɖa ɖeka me",
+    "mastery_empty":             "Ɓe Ñudɔwɔwɔ ɖeka ƒo na wò nunya.",
+    "mastery_mastered":          "Wòdzo",
+    "mastery_in_progress":       "Le ɖoɖo me",
+    "mastery_not_started":       "Nye nae na wo ƒo",
+
+    "achievements_section":      "Nyatefewo",
+    "achievements_link_title":   "Wò nyatefewo",
+    "achievements_link_sub":     "{{unlocked}}/{{total}} woɖo",
+    "new_achievements":          "Nyatefe yeye ({{count}})",
+
+    "category_first_step":       "Ƒe gbãtɔ",
+    "category_consistency":      "Ðoɖo ɖe ŋkekewo me",
+    "category_mastery":          "Nunya",
+    "category_curiosity":        "Susu yeye",
+    "category_resilience":       "Tso ɖoɖo me",
+
+    "celebration_lesson_done":   "Ðaŋu wòdzo",
+    "celebration_progress":      "Èle ƒo ɖe ŋgɔ",
+    "celebration_goal_met_title":"Ŋkeke ƒe taɖaɖa wɔ nyuie",
+    "celebration_achievement_title": "Nyatefe yeye woɖo",
+    "celebration_streak_title":  "Wò ƒe ɖe le ɖoɖo me",
+    "streak_restarted":          "ƒe ɖe yeye — ŋkeke ɖeka ɖeka xɔ",
+    "daily_goal_reached":        " Ɣlɔɖe, wò ŋkeke ƒe taɖaɖa wɔ nyuie.",
+
+    "profile_link_title":        "Ƒoƒoƒo kple nyatefewo",
+    "profile_link_desc":         "ƒe ɖe, taɖaɖawo, nyatefewo kple nunya le mɔɖaɖa me.",
+
+    "philosophy_title":          "Mɔ si tɔ",
+    "philosophy_text":           "EduKraft ƒe gamification ɖo ɖoɖo ɖe ŋkekewo me kple nunya, me ɖo ɖe tsi tsɔ o. Ŋkeke si wòme le la, woɖo nyuie kple kafukafu. Trɔ yi va ɖoɖo me nye nyatefe, nye nya meɖo o. Wò nyatefewo xɔna wò Ðaŋu ƒe nuwo."
+  },
+
   "profile": {
     "title":            "Wò ŋutifafa",
     "name_label":       "ŋkɔ",
