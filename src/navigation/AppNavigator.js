@@ -17,7 +17,10 @@ import BadgeWalletScreen from '../screens/BadgeWalletScreen';
 import ProfileScreen    from '../screens/ProfileScreen';
 import PaymentScreen     from '../screens/PaymentScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
+import LoginScreen      from '../screens/LoginScreen';
+import RegisterScreen   from '../screens/RegisterScreen';
 import { useDb }        from '../database/DbProvider';
+import { useAuth }      from '../contexts/AuthContext';
 
 const Tab   = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -111,11 +114,28 @@ function RootStack() {
   );
 }
 
-// ── App Navigator : gère l'onboarding ────────────────────────────────────────
+// ── Auth Stack (Login / Register) ────────────────────────────────────────────
+function AuthStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Login"    component={LoginScreen} />
+      <Stack.Screen name="Register" component={RegisterScreen} />
+    </Stack.Navigator>
+  );
+}
+
+// ── App Navigator : gère auth-gating + onboarding ────────────────────────────
+// Logique de navigation :
+//   1. DB pas prête           → splash screen
+//   2. Auth en cours de chargement → splash screen
+//   3. Pas authentifié & !skipAuth → AuthStack (Login / Register)
+//   4. Authentifié ou skipAuth, mais pas de learner local → Onboarding
+//   5. Authentifié/skipAuth + learner → RootStack (app principale)
 export default function AppNavigator() {
   const { learner, ready } = useDb();
+  const { loading: authLoading, isAuthenticated, skipAuth } = useAuth();
 
-  if (!ready) {
+  if (!ready || authLoading) {
     return (
       <View style={styles.splash}>
         <Text style={styles.splashTitle}>EduKraft</Text>
@@ -124,10 +144,15 @@ export default function AppNavigator() {
     );
   }
 
+  // Phase 1 : auth-gating
+  const isAuthed = isAuthenticated || skipAuth;
+
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!learner ? (
+        {!isAuthed ? (
+          <Stack.Screen name="Auth" component={AuthStack} />
+        ) : !learner ? (
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         ) : (
           <Stack.Screen name="Root" component={RootStack} />

@@ -144,6 +144,71 @@
     "callback_fail":     "Le paiement n'a pas abouti."
   },
 
+  "auth": {
+    "login_title":            "Connexion",
+    "login_subtitle":         "Certifie ta compétence",
+    "email_label":            "Email",
+    "email_placeholder":      "ton@email.com",
+    "password_label":         "Mot de passe",
+    "password_placeholder":   "••••••••",
+    "login_button":           "Se connecter",
+    "login_loading":          "Connexion...",
+    "forgot_password":        "Mot de passe oublié ?",
+    "no_account":             "Pas encore de compte ?",
+    "register_link":          "Créer un compte",
+
+    "register_title":         "Créer un compte",
+    "register_subtitle":      "Rejoins EduKraft gratuitement",
+    "name_label":             "Ton prénom",
+    "name_placeholder":       "Ex: Kofi, Ama, Moussa...",
+    "register_button":        "S'inscrire",
+    "register_loading":       "Inscription...",
+    "have_account":           "Déjà un compte ?",
+    "login_link":             "Se connecter",
+    "language_label":         "Langue d'apprentissage",
+
+    "or_continue_with":       "ou continuer avec",
+    "google":                 "Google",
+    "apple":                  "Apple",
+    "facebook":               "Facebook",
+    "oauth_error":            "Erreur d'authentification",
+
+    "phone_title":            "Connexion par SMS",
+    "phone_label":            "Numéro de téléphone",
+    "phone_placeholder":      "228 90 XX XX XX",
+    "send_code":              "Envoyer le code",
+    "code_label":             "Code de vérification",
+    "code_placeholder":       "• • • • • •",
+    "verify_code":            "Vérifier le code",
+    "code_sent":              "Code envoyé par SMS",
+    "otp_send_error":         "Envoi du code échoué",
+    "otp_verify_error":       "Vérification échouée",
+    "resend_code":            "Changer de numéro",
+
+    "skip":                   "Continuer sans compte",
+    "skip_description":       "Mode hors-ligne, sans inscription",
+
+    "logout_button":          "Se déconnecter",
+    "logout_confirm":         "Veux-tu te déconnecter ?",
+
+    "error_email_required":   "Email requis",
+    "error_password_required":"Mot de passe requis",
+    "error_password_short":   "Le mot de passe doit faire au moins 6 caractères",
+    "error_name_required":    "Ton prénom est requis",
+    "error_invalid_email":    "Email invalide",
+    "error_invalid_credentials": "Identifiants invalides",
+    "error_network":          "Erreur réseau. Vérifie ta connexion.",
+    "error_server":           "Erreur serveur. Réessaie plus tard.",
+    "error_email_taken":      "Un compte existe déjà avec cet email",
+    "error_phone_invalid":    "Numéro de téléphone invalide",
+    "error_code_invalid":     "Code invalide",
+    "error_generic":          "Une erreur est survenue",
+
+    "account_section":        "Compte",
+    "provider_label":         "Connexion via",
+    "email_display":          "Email / Téléphone"
+  },
+
   "profile": {
     "title":            "Mon profil",
     "name_label":       "Nom",

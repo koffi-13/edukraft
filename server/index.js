@@ -10,6 +10,7 @@ const crypto   = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const { init: initBlockchain, mintBadge: mintOnChain, verifyBadge: verifyOnChain, getHealth: getBlockchainHealth } = require('./blockchain');
 const payments = require('./payments');
+const auth = require('./auth');
 
 // ── Configuration ────────────────────────────────────────────────────────────
 const PORT    = parseInt(process.env.PORT, 10) || 3001;
@@ -624,8 +625,25 @@ app.use((err, req, res, _next) => {
   fail(res, 'Erreur interne du serveur', 500);
 });
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// AUTHENTIFICATION — 5 providers (email, Google, Apple, Facebook, Phone OTP)
+// ═══════════════════════════════════════════════════════════════════════════════
+// Les routes /api/auth/* sont montées ci-dessous après initDatabase() (db requis).
+// Rate-limiting spécifique :
+//   - /api/auth/register & /api/auth/login : 10 req/min/IP (anti brute-force)
+//   - /api/auth/phone                      : 5 req/min/IP   (anti spam SMS)
+
+const authLimiter = rateLimit(10, 60_000);       // login/register
+const otpLimiter  = rateLimit(5, 60_000);        // phone OTP
+
+app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/login',    authLimiter);
+app.use('/api/auth/phone',    otpLimiter);
+
 // ── Démarrage ────────────────────────────────────────────────────────────────
 initDatabase();
+auth.initAuthTables(db);          // tables user + refresh_token
+auth.mountAuthRoutes(app, db);    // /api/auth/* (register, login, google, apple, facebook, phone, me, refresh, logout)
 initBlockchain();
 payments.init(db);
 

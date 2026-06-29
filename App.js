@@ -9,6 +9,7 @@ if (typeof TextEncoder === 'undefined') {
 }
 
 import { DbProvider } from './src/database/DbProvider';
+import { AuthProvider } from './src/contexts/AuthContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import { Colors } from './src/theme';
 
@@ -28,11 +29,13 @@ function SyncActivator() {
 export default function App() {
   return (
     <DbProvider>
-      <View style={styles.container}>
-        <SyncActivator />
-        <AppNavigator />
-        <StatusBar style="light" backgroundColor={Colors.primary} />
-      </View>
+      <AuthProvider>
+        <View style={styles.container}>
+          <SyncActivator />
+          <AppNavigator />
+          <StatusBar style="light" backgroundColor={Colors.primary} />
+        </View>
+      </AuthProvider>
     </DbProvider>
   );
 }

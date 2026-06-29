@@ -5,11 +5,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors, Typography, Spacing, Radius, Shadow, getLevel } from '../theme';
 import { useDb } from '../database/DbProvider';
+import { useAuth } from '../contexts/AuthContext';
 import { t } from '../i18n';
 
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { learner, getAllBadges, resetAll, getPendingQueue, getSyncMeta } = useDb();
+  const { user, skipAuth, logout } = useAuth();
   const [badges, setBadges] = useState([]);
   const [syncInfo, setSyncInfo] = useState({ pending: 0, lastSync: null });
 
@@ -58,6 +60,40 @@ export default function ProfileScreen({ navigation }) {
         },
       ],
     );
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      t('auth.logout_button'),
+      t('auth.logout_confirm'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('auth.logout_button'),
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+          },
+        },
+      ],
+    );
+  };
+
+  // Badge visuel pour le provider d'authentification
+  const providerLabel = (provider) => {
+    const labels = {
+      email: 'Email', google: 'Google', apple: 'Apple',
+      facebook: 'Facebook', phone: 'SMS',
+    };
+    return labels[provider] || provider || '—';
+  };
+
+  const providerColor = (provider) => {
+    const colors = {
+      email: Colors.primary, google: '#4285F4', apple: Colors.ink,
+      facebook: '#1877F2', phone: Colors.teal,
+    };
+    return colors[provider] || Colors.ink50;
   };
 
   const formatSyncTime = (iso) => {
@@ -177,6 +213,43 @@ export default function ProfileScreen({ navigation }) {
               </View>
             </View>
           ))
+        )}
+      </View>
+
+      {/* Section Compte / Authentification */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>{t('auth.account_section')}</Text>
+        {user ? (
+          <View style={[styles.accountCard, Shadow.card]}>
+            <View style={styles.accountRow}>
+              <Text style={styles.accountLabel}>{t('auth.email_display')}</Text>
+              <Text style={styles.accountValue}>{user.email || user.phone || '—'}</Text>
+            </View>
+            <View style={styles.accountRow}>
+              <Text style={styles.accountLabel}>{t('auth.provider_label')}</Text>
+              <View style={[styles.providerBadge, { backgroundColor: providerColor(user.provider) }]}>
+                <Text style={styles.providerBadgeText}>{providerLabel(user.provider)}</Text>
+              </View>
+            </View>
+            {user.display_name && (
+              <View style={styles.accountRow}>
+                <Text style={styles.accountLabel}>{t('auth.name_label')}</Text>
+                <Text style={styles.accountValue}>{user.display_name}</Text>
+              </View>
+            )}
+          </View>
+        ) : skipAuth ? (
+          <View style={[styles.accountCard, Shadow.card]}>
+            <Text style={styles.skipAuthText}>
+              {t('auth.skip')} — {t('auth.skip_description')}
+            </Text>
+          </View>
+        ) : null}
+
+        {(user || skipAuth) && (
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Text style={styles.logoutButtonText}>{t('auth.logout_button')}</Text>
+          </TouchableOpacity>
         )}
       </View>
 
@@ -417,6 +490,60 @@ const styles = StyleSheet.create({
     borderColor: Colors.error,
   },
   resetButtonText: {
+    fontSize: Typography.body,
+    fontWeight: Typography.semibold,
+    color: Colors.error,
+  },
+  // ── Section Compte / Auth ───────────────────────────────────────────────
+  accountCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  accountRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.xs,
+  },
+  accountLabel: {
+    fontSize: Typography.caption,
+    color: Colors.ink50,
+    fontWeight: Typography.semibold,
+  },
+  accountValue: {
+    fontSize: Typography.body,
+    color: Colors.ink,
+    fontWeight: Typography.medium,
+    maxWidth: 200,
+    textAlign: 'right',
+  },
+  providerBadge: {
+    paddingHorizontal: Spacing.sm + 2,
+    paddingVertical: 3,
+    borderRadius: Radius.full,
+  },
+  providerBadgeText: {
+    fontSize: Typography.tiny,
+    color: Colors.surface,
+    fontWeight: Typography.bold,
+  },
+  skipAuthText: {
+    fontSize: Typography.caption,
+    color: Colors.ink50,
+    lineHeight: 18,
+  },
+  logoutButton: {
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    backgroundColor: Colors.coralLight,
+    marginTop: Spacing.sm,
+  },
+  logoutButtonText: {
     fontSize: Typography.body,
     fontWeight: Typography.semibold,
     color: Colors.error,
