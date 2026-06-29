@@ -18,6 +18,7 @@
       "package": "tg.edukraft.mvp",
       "permissions": ["INTERNET", "ACCESS_NETWORK_STATE"]
     },
+    "scheme": "edukraft",
     "plugins": [],
     "extra": {
       "apiBaseUrl": "https://api.edukraft.tg",
