@@ -7,14 +7,26 @@
 // ⚠️ API_BASE doit pointer vers l'ORIGINE du serveur (sans suffixe de chemin).
 //    Les routes serveur sont toutes préfixées /api/* (ex: /api/sync, /api/auth/login).
 //    Les appelants ajoutent eux-mêmes le /api/... approprié.
+//
+// ⚠️ Web : sur plateforme web, API_BASE default = '' (vide) → URLs relatives.
+//    Les appels fetch('/api/...') vont sur la MÊME origine que la page web,
+//    ce qui permet à un reverse-proxy (Next.js/Caddy) de router vers le backend.
+
+import { Platform } from 'react-native';
+
+const isWeb = Platform.OS === 'web';
+const DEFAULT_API_BASE = isWeb
+  ? ''   // web : URLs relatives (reverse proxy)
+  : (__DEV__ ? 'http://10.0.2.2:3001' : 'https://api.edukraft.tg');
+
+// Si EXPO_PUBLIC_API_URL est défini (même vide), on l'utilise tel quel.
+// Sinon, on prend le défaut selon la plateforme.
+const _apiBaseFromEnv = process.env.EXPO_PUBLIC_API_URL;
+const API_BASE = _apiBaseFromEnv !== undefined ? _apiBaseFromEnv : DEFAULT_API_BASE;
 
 const ENV = {
   // ── API ───────────────────────────────────────────────────────────────────
-  // Origine du backend. Remplacer par votre domaine en production.
-  // Sur Android Emulator : utiliser 10.0.2.2 au lieu de localhost
-  API_BASE:  __DEV__
-    ? (process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3001')
-    : (process.env.EXPO_PUBLIC_API_URL || 'https://api.edukraft.tg'),
+  API_BASE,
 
   // Clé API pour l'authentification (injectée via EAS secrets en production)
   API_KEY: process.env.EXPO_PUBLIC_API_KEY || 'dev-key',

@@ -23,14 +23,19 @@
 //   authenticatedFetch(url, opts)
 
 import ENV from '../config/env';
+import { Platform } from 'react-native';
 
 // ── Stockage sécurisé (expo-secure-store sur natif, fallback mémoire sur web) ─
+// ⚠️ expo-secure-store a un shim web cassé en SDK 50 (getValueWithKeySync manquant).
+// On force le fallback mémoire sur web — les tokens ne persistent pas au reload
+// mais fonctionnent pendant la session (suffisant pour démos web).
 let SecureStore = null;
-try {
-  // expo-secure-store n'est pas dispo sur web — import dynamique
-  SecureStore = require('expo-secure-store');
-} catch (_) {
-  SecureStore = null;
+if (Platform.OS !== 'web') {
+  try {
+    SecureStore = require('expo-secure-store');
+  } catch (_) {
+    SecureStore = null;
+  }
 }
 
 // Fallback mémoire (web / tests) — pas persistant, mais fonctionnel
@@ -52,9 +57,10 @@ const KEYS = {
 
 // ── Base URL ─────────────────────────────────────────────────────────────────
 // ENV.API_BASE pointe vers l'origine du serveur (ex: http://10.0.2.2:3001).
-// Les routes auth sont sous /api/auth/*. On garde un strip de /v1 par sécurité
-// au cas où un opérateur configure EXPO_PUBLIC_API_URL avec un suffixe /v1.
-const AUTH_BASE = (ENV.API_BASE || 'http://10.0.2.2:3001').replace(/\/v1\/?$/, '');
+// Sur web, ENV.API_BASE peut être '' (vide) → URLs relatives (reverse proxy).
+// On garde un strip de /v1 par sécurité au cas où un opérateur configure
+// EXPO_PUBLIC_API_URL avec un suffixe /v1.
+const AUTH_BASE = (ENV.API_BASE !== undefined ? ENV.API_BASE : 'http://10.0.2.2:3001').replace(/\/v1\/?$/, '');
 
 // ── Gestion du refresh en cours (anti-boucle) ────────────────────────────────
 let refreshPromise = null;
