@@ -107,7 +107,7 @@ async function createPayment(db, { learnerServerId, provider, phoneNumber, produ
   }
 
   const cleanPhone = phoneNumber.replace(/\s/g, '');
-  if (!cleanPhone || !/^22[0-9]{8}$/.test(cleanPhone)) {
+  if (!cleanPhone || !/^22[0-9]{8,9}$/.test(cleanPhone)) {
     throw new Error('Numéro de téléphone invalide (format: 22890XXXXXX)');
   }
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
 /**
  * @title EduKraftBadge
@@ -145,7 +145,7 @@ contract EduKraftBadge is ERC721, ERC721URIStorage, Ownable {
         return string(abi.encodePacked(
             '{"name":"EduKraft Certificate #',
             _toString(tokenId),
-            '","description":"Badge de certification EduKraft — Blockchain Polygon PoS",',
+            '","description":"Badge de certification EduKraft - Blockchain Polygon PoS",',
             '"attributes":[',
             '{"trait_type":"Module","value":"', b.moduleName, '"},',
             '{"trait_type":"Apprenant","value":"', b.learnerName, '"},',

@@ -37,5 +37,21 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "private": true
+  "private": true,
+  "description": "> Plateforme Ed-Tech togolaise · Formation gamifiée · Certification blockchain Polygon · Matching IA",
+  "directories": {
+    "doc": "docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/koffi-13/edukraft.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/koffi-13/edukraft/issues"
+  },
+  "homepage": "https://github.com/koffi-13/edukraft#readme"
 }

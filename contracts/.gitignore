@@ -1,0 +1,11 @@
+# Dependencies
+node_modules/
+artifacts/
+cache/
+
+# Hardhat
+typechain-types/
+
+# Environment
+.env
+.deployed-*.json
