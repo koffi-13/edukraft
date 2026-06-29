@@ -51,14 +51,10 @@ const KEYS = {
 };
 
 // ── Base URL ─────────────────────────────────────────────────────────────────
-// ENV.API_BASE pointe vers .../v1 mais les routes auth sont à la racine /api/auth.
-// On calcule l'origine du serveur en retirant le suffixe /v1.
-function getAuthBase() {
-  const base = ENV.API_BASE || 'http://10.0.2.2:3001';
-  return base.replace(/\/v1\/?$/, '');
-}
-
-const AUTH_BASE = getAuthBase();
+// ENV.API_BASE pointe vers l'origine du serveur (ex: http://10.0.2.2:3001).
+// Les routes auth sont sous /api/auth/*. On garde un strip de /v1 par sécurité
+// au cas où un opérateur configure EXPO_PUBLIC_API_URL avec un suffixe /v1.
+const AUTH_BASE = (ENV.API_BASE || 'http://10.0.2.2:3001').replace(/\/v1\/?$/, '');
 
 // ── Gestion du refresh en cours (anti-boucle) ────────────────────────────────
 let refreshPromise = null;

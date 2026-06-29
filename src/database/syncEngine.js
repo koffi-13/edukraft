@@ -72,7 +72,7 @@ export function useSyncEngine() {
       }));
 
       // Envoyer au serveur (batch)
-      const response = await fetch(`${ENV.API_BASE}/sync`, {
+      const response = await fetch(`${ENV.API_BASE}/api/sync`, {
         method: 'POST',
         headers: {
           'Content-Type':  'application/json',

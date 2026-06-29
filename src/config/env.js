@@ -1,16 +1,20 @@
 // src/config/env.js
 // Configuration centralisée de l'application EduKraft
 //
-// En mode développement : utilise API_URL depuis app.config.js ou localhost
+// En mode développement : utilise EXPO_PUBLIC_API_URL ou localhost
 // En production : injecté via EAS build environment variables
+//
+// ⚠️ API_BASE doit pointer vers l'ORIGINE du serveur (sans suffixe de chemin).
+//    Les routes serveur sont toutes préfixées /api/* (ex: /api/sync, /api/auth/login).
+//    Les appelants ajoutent eux-mêmes le /api/... approprié.
 
 const ENV = {
   // ── API ───────────────────────────────────────────────────────────────────
-  // URL du backend. Remplacer par votre domaine en production.
+  // Origine du backend. Remplacer par votre domaine en production.
   // Sur Android Emulator : utiliser 10.0.2.2 au lieu de localhost
   API_BASE:  __DEV__
-    ? (process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3001/v1')
-    : (process.env.EXPO_PUBLIC_API_URL || 'https://api.edukraft.tg/v1'),
+    ? (process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3001')
+    : (process.env.EXPO_PUBLIC_API_URL || 'https://api.edukraft.tg'),
 
   // Clé API pour l'authentification (injectée via EAS secrets en production)
   API_KEY: process.env.EXPO_PUBLIC_API_KEY || 'dev-key',

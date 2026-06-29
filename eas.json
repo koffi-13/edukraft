@@ -29,7 +29,7 @@
       },
       "env": {
         "APP_ENV": "demo",
-        "API_BASE_URL": "https://demo.api.edukraft.tg"
+        "EXPO_PUBLIC_API_URL": "https://demo.api.edukraft.tg"
       }
     },
     "production": {
@@ -39,7 +39,7 @@
       },
       "env": {
         "APP_ENV": "production",
-        "API_BASE_URL": "https://api.edukraft.tg"
+        "EXPO_PUBLIC_API_URL": "https://api.edukraft.tg"
       }
     }
   },

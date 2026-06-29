@@ -10,7 +10,7 @@ import ENV from '../config/env';
  * Récupérer la tarification disponible
  */
 export async function getPricing() {
-  const res = await fetch(`${ENV.API_BASE}/payments/pricing`, {
+  const res = await fetch(`${ENV.API_BASE}/api/payments/pricing`, {
     headers: { 'X-API-Key': ENV.API_KEY },
   });
   const json = await res.json();
@@ -22,7 +22,7 @@ export async function getPricing() {
  * Initier un paiement mobile
  */
 export async function initiatePayment({ clientId, provider, phoneNumber, productType, productId }) {
-  const res = await fetch(`${ENV.API_BASE}/payments/initiate`, {
+  const res = await fetch(`${ENV.API_BASE}/api/payments/initiate`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -46,7 +46,7 @@ export async function initiatePayment({ clientId, provider, phoneNumber, product
  * Vérifier le statut d'un paiement
  */
 export async function checkPaymentStatus(reference) {
-  const res = await fetch(`${ENV.API_BASE}/payments/status/${reference}`, {
+  const res = await fetch(`${ENV.API_BASE}/api/payments/status/${reference}`, {
     headers: { 'X-API-Key': ENV.API_KEY },
   });
 
@@ -59,7 +59,7 @@ export async function checkPaymentStatus(reference) {
  * Récupérer l'historique des paiements
  */
 export async function getPaymentHistory(clientId) {
-  const res = await fetch(`${ENV.API_BASE}/payments/history/${clientId}`, {
+  const res = await fetch(`${ENV.API_BASE}/api/payments/history/${clientId}`, {
     headers: { 'X-API-Key': ENV.API_KEY },
   });
 
