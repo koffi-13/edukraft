@@ -4,6 +4,12 @@
 
 import marketingDigital from './modules/marketing_digital_local.json';
 import comptabiliteArtisanale from './modules/comptabilite_artisanale.json';
+import ecommerceWhatsapp from './modules/ecommerce_whatsapp_business.json';
+import logistiqueTransit from './modules/logistique_transit_douane.json';
+import comptabiliteOhada from './modules/comptabilite_pme_ohada.json';
+import transformationAgro from './modules/transformation_agroalimentaire.json';
+import communityManager from './modules/community_manager.json';
+import agentMobileMoney from './modules/agent_mobile_money.json';
 
 // ── Transformation JSON riche → structure plate compatible Dashboard ─────
 function normalizeModule(json) {
@@ -37,6 +43,12 @@ function normalizeModule(json) {
 export const MODULES = [
   normalizeModule(marketingDigital),
   normalizeModule(comptabiliteArtisanale),
+  normalizeModule(ecommerceWhatsapp),
+  normalizeModule(logistiqueTransit),
+  normalizeModule(comptabiliteOhada),
+  normalizeModule(transformationAgro),
+  normalizeModule(communityManager),
+  normalizeModule(agentMobileMoney),
 ];
 
 // ── Fonctions utilitaires ────────────────────────────────────────────────

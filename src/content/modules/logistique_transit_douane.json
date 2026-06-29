@@ -1,0 +1,474 @@
+{
+  "$schema": "https://schema.edukraft.tg/module/v1.json",
+  "_comment": "Schéma EduKraft Module v1. Module Logistique & Transit-Douane : Port de Lomé, documents douaniers (D15), transit, zones franches. Ajouter un nouveau module = créer un nouveau fichier JSON dans content/modules/ et l'importer dans moduleRegistry.js. Aucun code à modifier.",
+
+  "id":           "logistique-transit-douane-v1",
+  "version":      "1.0.0",
+  "filiere":      "Logistique & Transport",
+  "difficulty":   3,
+  "language":     "fr",
+  "available_translations": ["ewe"],
+
+  "meta": {
+    "title":       "Logistique & Transit-Douane",
+    "subtitle":    "Le Port de Lomé comme moteur",
+    "description": "Maîtrise les opérations logistiques, les documents douaniers et le transit de marchandises via le Port de Lomé, hub régional de l'Afrique de l'Ouest.",
+    "duration_min": 8,
+    "xp_reward":    200,
+    "badge_title":  "Certifié Agent Logistique",
+    "icon":         "truck",
+    "color":        "#BA7517",
+    "tags":         ["logistique", "douane", "transit", "Port de Lomé", "commerce international"],
+    "target_audience": "Jeunes diplômés, employés de PME importatrices, entrepreneurs du commerce international.",
+    "prerequisites": []
+  },
+
+  "lessons": [
+    {
+      "index":    0,
+      "title":    "Le Port de Lomé : hub de l'Afrique de l'Ouest",
+      "subtitle": "Rôle, acteurs, flux de conteneurs",
+      "duration_min": 2,
+      "xp_per_lesson": 30,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Le Port de Lomé est le 2e port en profondeur d'Afrique de l'Ouest et le seul port en eau profonde naturelle de la région. Il accueille chaque année des milliers de navires et expédie des marchandises vers le Burkina Faso, le Mali, le Niger et au-delà. Comprendre son fonctionnement, c'est comprendre pourquoi le Togo est une porte d'entrée stratégique pour tout le commerce sous-régional.\n\nPour un importateur ou un transitaire togolais, le Port de Lomé n'est pas qu'une infrastructure : c'est un écosystème d'acteurs (Port Autonome de Lomé, OTR, transitaires, consignataires, manutentionnaires) dont il faut connaître les rôles pour faire circuler ses marchandises rapidement et à moindre coût.",
+        "sections": [
+          {
+            "heading": "Pourquoi le Port de Lomé est stratégique",
+            "body":    "Le Port de Lomé bénéficie d'un tirant d'eau naturel de 16 mètres, ce qui permet d'accueillir les plus grands porte-conteneurs sans dragage. Sa position géographique au cœur de la CEDEAO en fait un hub naturel pour les pays enclavés (Burkina Faso, Mali, Niger). Le nouveau terminal à conteneurs de Lomé (LCT) et le terminal à conteneurs de Lomé 2 (Togo Terminal) ont fait passer la capacité à plus de 2,2 millions d'EVP par an.",
+            "highlight": true
+          },
+          {
+            "heading": "Les acteurs du transit au Togo",
+            "body":    "• Port Autonome de Lomé (PAL) : autorité portuaire, gestion des infrastructures.\n• OTR (Office Togolais des Recettes) : douanes, recouvrement des droits et taxes.\n• Consignataires de navire : représentent les armateurs à quai (ex: Marsaplus, SDV/Bollore).\n• Manutentionnaires (terminaux) : chargent/déchargent les conteneurs.\n• Commissionnaires en douane agrées (transitaires) : déposent la D15 et représentent l'importateur.\n• SYDONIA World : système informatique de l'OTR pour les déclarations."
+          },
+          {
+            "heading": "Les flux de conteneurs et la chaîne logistique",
+            "body":    "Un conteneur qui arrive à Lomé suit ce parcours : déchargement du navire → mise en parc au terminal → visite douanière éventuelle → déclaration D15 par le transitaire → liquidation des droits (T-Money/Flooz ou espèces) → bon à enlever (BAE) → sortie du port → transport routier vers Lomé, Adétikopé ou les pays enclavés via le corridor Lomé-Ouagadougou."
+          }
+        ],
+        "key_takeaway": "Le Port de Lomé est la porte d'entrée naturelle de l'Afrique de l'Ouest — le maîtriser, c'est maîtriser le commerce régional."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q0_0",
+            "text":     "Quelle est la particularité géographique qui rend le Port de Lomé stratégique en Afrique de l'Ouest ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "C'est le seul port en eau profonde naturelle de la région", "correct": true },
+              { "id": "b", "text": "C'est le port le plus ancien d'Afrique de l'Ouest" },
+              { "id": "c", "text": "C'est le seul port à ne pas accueillir de conteneurs" },
+              { "id": "d", "text": "C'est le port le plus éloigné des pays enclavés" }
+            ],
+            "explanation": "Le Port de Lomé dispose d'un tirant d'eau naturel de 16 mètres, ce qui en fait le seul port en eau profonde naturelle d'Afrique de l'Ouest. Les plus grands porte-conteneurs peuvent y accoster sans dragage."
+          },
+          {
+            "id":       "q0_1",
+            "text":     "Quel organisme est responsable du recouvrement des droits et taxes douaniers au Togo ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Le Port Autonome de Lomé (PAL)" },
+              { "id": "b", "text": "L'Office Togolais des Recettes (OTR)", "correct": true },
+              { "id": "c", "text": "La CEDEAO" },
+              { "id": "d", "text": "Les consignataires de navire" }
+            ],
+            "explanation": "L'OTR (Office Togolais des Recettes) est l'autorité douanière du Togo. Elle gère les déclarations via le système SYDONIA World et recouvre les droits et taxes à l'import."
+          },
+          {
+            "id":       "q0_2",
+            "text":     "Quel document permet à un conteneur de sortir physiquement du port après dédouanement ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "La facture commerciale" },
+              { "id": "b", "text": "Le bon à enlever (BAE)", "correct": true },
+              { "id": "c", "text": "Le connaissement (BL)" },
+              { "id": "d", "text": "Le certificat d'origine" }
+            ],
+            "explanation": "Le Bon à Enlever (BAE) est émis par la douane après liquidation des droits et taxes. C'est le document autorisant la sortie physique du conteneur du terminal portuaire."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    1,
+      "title":    "Documents douanes essentiels",
+      "subtitle": "D15, facture commerciale, connaissement (BL)",
+      "duration_min": 2,
+      "xp_per_lesson": 35,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Toute marchandise qui entre au Togo doit être justifiée par un ensemble de documents précis. Un seul document manquant ou erroné peut bloquer ta marchandise en douane pendant des semaines et générer des frais de surestaries élevés.\n\nMaîtriser ces documents, c'est gagner du temps, éviter les pénalités de l'OTR et garder la confiance de tes clients importateurs. Les trois documents incontournables sont la D15 (déclaration en douane), la facture commerciale et le connaissement (Bill of Lading).",
+        "sections": [
+          {
+            "heading": "La D15 : la déclaration en douane",
+            "body":    "La D15 est le formulaire officiel de déclaration en douane au Togo, déposé électroniquement via SYDONIA World par un commissionnaire en douane agréé. Elle contient :\n• L'identité de l'importateur et de l'exportateur\n• L'espèce tarifaire (code SH à 8 chiffres) de chaque marchandise\n• La valeur déclarée et l'origine\n• Le régime douanier (mise à la consommation, transit, admission temporaire)\n\nUne D15 erronée = amendes, blocage de la marchandise, voire confiscation. Toujours vérifier les codes SH avec un transitaire agréé."
+          },
+          {
+            "heading": "La facture commerciale et le connaissement (BL)",
+            "body":    "Facture commerciale : document établi par le vendeur, indiquant la nature, la quantité, la valeur et l'origine des marchandises. Elle doit être datée, signée et détaillée (pas de 'marchandises diverses').\n\nConnaissement (Bill of Lading / BL) : émis par l'armateur ou son consignataire, il prouve la prise en charge de la marchandise par le transporteur maritime et sert de titre de propriété. Trois originaux sont souvent émis : un pour l'expéditeur, un pour le destinataire, un pour la banque (en cas de crédit documentaire).",
+            "highlight": true
+          },
+          {
+            "heading": "Le certificat d'origine et documents annexes",
+            "body":    "Le certificat d'origine (souvent émis par la Chambre de Commerce du pays exportateur) est obligatoire pour bénéficier des exemptions CEDEAO ou des accords préférentiels. Sans lui, tu paieras le droit de douane plein tarif.\n\nAutres documents fréquents : liste de colisage (packing list), certificat phyto-sanitaire (produits agricoles), certificat d'inspection (exportations vers le Togo parfois soumises au PIP - Programme d'Inspection avant Embarquement)."
+          }
+        ],
+        "key_takeaway": "Une D15 correcte + une facture détaillée + un BL en règle = un dédouanement sans surprise."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q1_0",
+            "text":     "Quelle est la fonction principale du connaissement (Bill of Lading / BL) ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Déclarer la valeur des marchandises à la douane" },
+              { "id": "b", "text": "Servir de titre de propriété et preuve de prise en charge par le transporteur", "correct": true },
+              { "id": "c", "text": "Demander un crédit à la banque" },
+              { "id": "d", "text": "Lister le contenu de chaque carton" }
+            ],
+            "explanation": "Le BL est à la fois un reçu de la marchandise par le transporteur maritime, un titre de propriété (négociable) et un contrat de transport. C'est l'un des documents les plus importants du commerce international."
+          },
+          {
+            "id":       "q1_1",
+            "text":     "Quel système informatique est utilisé au Togo pour déposer la D15 ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Le système SWIFT" },
+              { "id": "b", "text": "Le système SYDONIA World", "correct": true },
+              { "id": "c", "text": "Le portail CEDEAO Online" },
+              { "id": "d", "text": "WhatsApp Business" }
+            ],
+            "explanation": "SYDONIA World est le système informatique de l'OTR (Office Togolais des Recettes) pour la dédouanement. La D15 doit y être déposée électroniquement par un commissionnaire en douane agréé."
+          },
+          {
+            "id":       "q1_2",
+            "text":     "Pourquoi le certificat d'origine est-il crucial pour un importateur togolais ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Il n'a aucune importance en pratique" },
+              { "id": "b", "text": "Il permet de bénéficier des exemptions CEDEAO et accords préférentiels", "correct": true },
+              { "id": "c", "text": "Il remplace la facture commerciale" },
+              { "id": "d", "text": "Il sert uniquement à exporter hors du Togo" }
+            ],
+            "explanation": "Le certificat d'origine prouve l'origine de la marchandise. Sans lui, l'importateur ne peut pas bénéficier des réductions ou exemptions de droits prévues par la CEDEAO ou d'autres accords commerciaux."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    2,
+      "title":    "Calculer les droits et taxes à l'import",
+      "subtitle": "Taux Togo, exemptions CEDEAO, SKU",
+      "duration_min": 2,
+      "xp_per_lesson": 35,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Au Togo, le coût douanier d'une importation dépasse souvent 30 % de la valeur CIF de la marchandise. Savoir le calculer avant l'arrivée du conteneur permet d'éviter les mauvaises surprises financières et de comparer honnêtement plusieurs fournisseurs.\n\nLa base de calcul n'est pas le prix d'achat, mais la valeur CIF (Coût + Assurance + Fret) à laquelle s'appliquent plusieurs taxes : droit de douane (DD), redevance informatique (RI), TVA, et taxes de consommation comme le PC (Prélèvement Communautaire) et le CSL (Contribution à la Sécurité Logistique).",
+        "sections": [
+          {
+            "heading": "Les taxes principales à l'import au Togo",
+            "body":    "• Droit de douane (DD) : 0 % à 20 % selon le code SH et l'origine (réduit ou nul dans la CEDEAO).\n• Redevance Informatique (RI) : 2 % de la valeur CIF (fixe).\n• Prélèvement Communautaire (PC) : 0,5 % (UEMOA).\n• Contribution à la Sécurité Logistique (CSL) : variable.\n• TVA : 18 % calculée sur (CIF + DD + RI + PC + autres taxes).\n\nLa TVA se calcule donc sur une base qui inclut déjà les autres taxes : c'est ce qu'on appelle la TVA en cascade."
+          },
+          {
+            "heading": "Exemptions CEDEAO et accords préférentiels",
+            "body":    "Pour les marchandises originaires d'un pays membre de la CEDEAO (avec certificat d'origine CEDEAO valide), le droit de douane est réduit à 0 % dans le cadre du TEC (Tarif Extérieur Commun). Le TEC de la CEDEAO comporte 5 catégories (0 %, 5 %, 10 %, 20 %, 35 %) selon la nature du produit.\n\nAttention : la TVA (18 %) et les taxes communautaires restent dues même en cas d'exemption du DD. Toujours demander au fournisseur un certificat d'origine CEDEAO dès la commande.",
+            "highlight": true
+          },
+          {
+            "heading": "Vérifier le code SH et utiliser les outils OTR",
+            "body":    "Le code SH (Système Harmonisé, 8 chiffres au Togo) détermine le taux applicable à chaque produit (SKU). Une erreur de classification = surcoût ou amende. Avant toute commande :\n1. Identifie le code SH exact de chaque SKU (utilise la nomenclature OTR ou demande à ton transitaire).\n2. Vérifie le taux sur le site de l'OTR ou via SYDONIA.\n3. Calcule la valeur CIF (FOB + assurance + fret maritime).\n4. Applique les taxes dans l'ordre (DD → RI → PC → TVA).\n5. Paiement : T-Money, Flooz/Moov Money, ou virement bancaire."
+          }
+        ],
+        "key_takeaway": "Calcule la valeur CIF puis applique DD → RI → PC → TVA (18 %) — toujours dans cet ordre."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q2_0",
+            "text":     "Sur quelle base la TVA (18 %) est-elle calculée au Togo à l'importation ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Sur le seul prix d'achat FOB" },
+              { "id": "b", "text": "Sur la valeur CIF uniquement" },
+              { "id": "c", "text": "Sur la valeur CIF + droit de douane + redevance informatique + PC", "correct": true },
+              { "id": "d", "text": "Sur le poids de la marchandise" }
+            ],
+            "explanation": "Au Togo, la TVA à l'import est calculée en cascade : elle s'applique sur la valeur CIF augmentée du droit de douane, de la redevance informatique (RI) et du prélèvement communautaire (PC). C'est pourquoi le coût douanier total dépasse souvent 30 % de la valeur CIF."
+          },
+          {
+            "id":       "q2_1",
+            "text":     "Qu'avantage un certificat d'origine CEDEAO valide à l'importation au Togo ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Il supprime toutes les taxes, y compris la TVA" },
+              { "id": "b", "text": "Il réduit ou supprime le droit de douane (DD)", "correct": true },
+              { "id": "c", "text": "Il accélère uniquement la sortie du port" },
+              { "id": "d", "text": "Il remplace la facture commerciale" }
+            ],
+            "explanation": "Dans le cadre du Tarif Extérieur Commun (TEC) de la CEDEAO, les marchandises originaires d'un pays membre avec un certificat d'origine valide bénéficient d'un droit de douane réduit à 0 %. La TVA et les taxes communautaires restent toutefois dues."
+          },
+          {
+            "id":       "q2_2",
+            "text":     "Quelle est la redevance informatique (RI) appliquée au Togo sur la valeur CIF ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "0 %" },
+              { "id": "b", "text": "2 %", "correct": true },
+              { "id": "c", "text": "5 %" },
+              { "id": "d", "text": "18 %" }
+            ],
+            "explanation": "La Redevance Informatique (RI) est une taxe fixe de 2 % de la valeur CIF, perçue par l'OTR pour financer le système informatique douanier (SYDONIA World). Elle s'ajoute au droit de douane avant le calcul de la TVA."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    3,
+      "title":    "Choisir un transitaire et négocier",
+      "subtitle": "Prix, services, pièges à éviter",
+      "duration_min": 2,
+      "xp_per_lesson": 35,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Le transitaire est le pilier de ton opération d'importation. Il prépare tes documents, dépose la D15, paie les taxes en ton nom, et fait sortir ton conteneur du port. Choisir le mauvais transitaire peut te coûter des semaines de retard, des frais cachés et parfois même la confiscation de ta marchandise.\n\nAu Togo, environ 200 commissionnaires en douane sont agréés par l'OTR. Tous ne se valent pas : certains sont spécialisés (vrac, conteneurs, produits périssables), d'autres sont généralistes. La négociation porte sur le prix mais aussi sur les services inclus et la transparence des frais.",
+        "sections": [
+          {
+            "heading": "Les 5 services essentiels à vérifier",
+            "body":    "1. Agrément OTR en cours (vérifiable sur la liste officielle).\n2. Dépôt D15 sur SYDONIA World sous 48h.\n3. Suivi actif : numéro de téléphone joignable, mise à jour quotidienne.\n4. Capacité à gérer les régimes spéciaux (transit, zone franche, admission temporaire).\n5. Réseau vers les pays enclavés (Burkina, Mali, Niger) si tu fais du transit international.\n\nUn transitaire qui ne propose pas ces 5 services n'est pas compétitif, même à bas prix."
+          },
+          {
+            "heading": "Décortiquer le devis et éviter les frais cachés",
+            "body":    "Un devis transitaire honnête liste TOUS les postes : droit de douane (estimé), TVA, RI, PC, CSL, frais de dossier, frais de manutention terminal, frais de gardiennage, transport terminal-entrepôt, frais bancaires. Méfie-toi des 'forfaits tout compris' opaques.\n\nPièges fréquents : frais de surestaries si le conteneur reste plus de 7 à 10 jours au terminal (pénalité quotidienne), frais de branchement frigorifique non mentionnés, taux de change défavorable si paiement en devises. Demande un devis détaillé et compare au moins 3 transitaires avant de choisir.",
+            "highlight": true
+          },
+          {
+            "heading": "Négocier sans se tromper",
+            "body":    "• Demande 3 devis comparables (mêmes postes, mêmes quantités).\n• Négocie les frais de service (dossier, manutention), pas les taxes légales (fixes par loi).\n• Vise un délai de sortie du port contractuel (ex: 5 jours ouvrés après arrivée).\n• Exige un reporting écrit (WhatsApp ou email) à chaque étape.\n• Paiement : T-Money ou virement, jamais en espèces sans reçu officiel.\n• Clause de pénalité si retard transitaire > 2 jours sur le délai convenu."
+          }
+        ],
+        "key_takeaway": "Compare 3 devis détaillés, vérifie l'agrément OTR, et exige un reporting écrit à chaque étape."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q3_0",
+            "text":     "Quel est le premier critère obligatoire pour choisir un transitaire au Togo ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Le prix le plus bas du marché" },
+              { "id": "b", "text": "Un agrément OTR en cours", "correct": true },
+              { "id": "c", "text": "Un bureau situé à Adétikopé" },
+              { "id": "d", "text": "Une page Facebook active" }
+            ],
+            "explanation": "Seuls les commissionnaires en douane agréés par l'OTR peuvent déposer une D15 légalement. Vérifier l'agrément te protège contre les escroqueries et garantit que tes documents seront valides."
+          },
+          {
+            "id":       "q3_1",
+            "text":     "Qu'est-ce qu'une surestarie au port ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Une réduction de taxe pour les marchandises périssables" },
+              { "id": "b", "text": "Une pénalité quotidienne quand un conteneur reste trop longtemps au terminal", "correct": true },
+              { "id": "c", "text": "Un bonus accordé par l'OTR pour dédouanement rapide" },
+              { "id": "d", "text": "Une taxe douanière supplémentaire de 5 %" }
+            ],
+            "explanation": "La surestarie est une pénalité facturée par le terminal quand un conteneur reste au-delà de la franchise (souvent 7 à 10 jours). Elle s'accumule chaque jour et peut dépasser le coût du fret maritime si elle est négligée."
+          },
+          {
+            "id":       "q3_2",
+            "text":     "Sur quel poste peux-tu réellement négocier avec un transitaire ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Le taux de TVA (18 %)" },
+              { "id": "b", "text": "Le droit de douane fixé par la loi" },
+              { "id": "c", "text": "Les frais de dossier et de manutention", "correct": true },
+              { "id": "d", "text": "Le taux de la redevance informatique" }
+            ],
+            "explanation": "Les taxes légales (DD, TVA, RI, PC) sont fixées par la loi et non négociables. Les frais de service du transitaire (dossier, manutention, gardiennage, transport) sont négociables : c'est sur ces postes qu'un bon comparatif te fait économiser."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    4,
+      "title":    "Suivre une expédition de bout en bout",
+      "subtitle": "Tracking, incidents, réclamations",
+      "duration_min": 2,
+      "xp_per_lesson": 35,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Une expédition import n'est pas terminée tant que la marchandise n'est pas physiquement livrée et vérifiée. Suivre chaque étape — du navire à l'entrepôt — permet d'anticiper les retards, de réagir vite aux incidents (conteneur bloqué, avarie, vol partiel) et de protéger tes droits en cas de réclamation.\n\nAu Togo, les outils numériques (suivi terminal LCT/Togo Terminal, tracking armateur, notifications OTR) permettent aujourd'hui un suivi quasi en temps réel. Encore faut-il savoir où regarder et quels documents conserver pour prouver une réclamation.",
+        "sections": [
+          {
+            "heading": "Les 4 étapes à tracker",
+            "body":    "1. Embarquement (port de départ) : numéro BL, ETA (Estimated Time of Arrival) à Lomé.\n2. Arrivée à Lomé : confirmation par le consignataire, visite éventuelle OTR.\n3. Dédouanement : dépôt D15 sur SYDONIA World, liquidation, BAE émis.\n4. Sortie et livraison : transport terminal → entrepôt, signature du récepissé.\n\nÀ chaque étape, exige une preuve écrite (capture écran SYDONIA, email consignataire, bon de livraison signé)."
+          },
+          {
+            "heading": "Gérer les incidents les plus fréquents",
+            "body":    "• Retard navire : demande l'ETA actualisée au consignataire, préviens ton client/entrepôt.\n• Conteneur bloqué en douane : cause souvent une D15 erronée ou un code SH contesté — fais corriger sous 48h pour limiter les surestaries.\n• Avarie ou marchandises manquantes : fais établir un constat d'avaries par le terminal ou un commissaire d'avaries AVANT de sortir le conteneur du port.\n• Vol partiel : dépose plainte auprès de la Police Portuaire et notifie le transitaire par écrit le jour même.\n\nNe JAMAIS sortir un conteneur du port sans avoir vérifié son contenu : sortie = acceptation tacite.",
+            "highlight": true
+          },
+          {
+            "heading": "Réclamations : délais et preuves",
+            "body":    "Contre le transporteur maritime : 3 jours à compter de la livraison (règle Hague-Visby). Contre le manutentionnaire/terminal : 7 jours, par lettre recommandée ou email tracé. Contre le transitaire : délai contractuel (souvent 14 jours).\n\nDocuments à conserver minimum 3 ans : BL original, facture commerciale, D15 liquidée, bon de livraison signé, photos de la marchandise à l'arrivée, constat d'avaries éventuel. Sans preuve, pas de réclamation possible."
+          }
+        ],
+        "key_takeaway": "Vérifie ton conteneur avant de le sortir du port — passé la porte, toute réclamation devient presque impossible."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q4_0",
+            "text":     "Que signifie ETA dans le suivi d'une expédition maritime ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Export Transit Authorization" },
+              { "id": "b", "text": "Estimated Time of Arrival (date d'arrivée estimée)", "correct": true },
+              { "id": "c", "text": "Export Tax Allowance" },
+              { "id": "d", "text": "Entry Terminal Authorization" }
+            ],
+            "explanation": "ETA (Estimated Time of Arrival) est la date d'arrivée estimée du navire à destination. Elle est communiquée par l'armateur ou le consignataire et permet d'anticiper les opérations de dédouanement."
+          },
+          {
+            "id":       "q4_1",
+            "text":     "Que faut-il faire en cas de marchandises manquantes ou endommagées à l'arrivée ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Sortir le conteneur et réclamer plus tard" },
+              { "id": "b", "text": "Faire établir un constat d'avaries avant de sortir le conteneur du port", "correct": true },
+              { "id": "c", "text": "Payer les taxes et oublier l'incident" },
+              { "id": "d", "text": "Attendre 30 jours avant toute action" }
+            ],
+            "explanation": "Sortir un conteneur du port vaut acceptation tacite de son contenu. Tout incident (avarie, manquant) doit être constaté AVANT la sortie, par le terminal ou un commissaire d'avaries, pour préserver tes droits de réclamation."
+          },
+          {
+            "id":       "q4_2",
+            "text":     "Quel est le délai légal de réclamation contre le transporteur maritime (règle Hague-Visby) ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "3 jours après la livraison", "correct": true },
+              { "id": "b", "text": "30 jours après la livraison" },
+              { "id": "c", "text": "1 an après l'embarquement" },
+              { "id": "d", "text": "Il n'y a pas de délai" }
+            ],
+            "explanation": "Selon les règles Hague-Visby, applicables au transport maritime international, toute réclamation contre le transporteur doit être formulée dans les 3 jours suivant la livraison. Au-delà, la marchandise est réputée conforme."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    5,
+      "title":    "Entrepôt et stockage à Lomé",
+      "subtitle": "Zones franches, conditions, coûts",
+      "duration_min": 2,
+      "xp_per_lesson": 30,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Une fois dédouanée, ta marchandise doit être stockée. Le choix du lieu de stockage à Lomé a un impact direct sur tes coûts, ta flexibilité et tes obligations fiscales. Le Togo dispose de plusieurs options : zones franches industrielles (ZFIL), plateforme sèche d'Adétikopé (PDA), entrepôts sous douane, et entrepôts privés ordinaires.\n\nPour un importateur, comprendre les avantages fiscaux des zones franches et les conditions d'accès peut transformer une simple opération de stockage en véritable levier de compétitivité. Mais ces avantages ont des contreparties strictes qu'il faut respecter pour ne pas perdre le statut.",
+        "sections": [
+          {
+            "heading": "Les trois grandes options de stockage à Lomé",
+            "body":    "1. Plateforme Sèche d'Adétikopé (PDA) : hub logistique terrestre à 25 km du port, dédouanement et stockage sous douane, particulièrement adapté au transit vers les pays enclavés.\n2. Zones Franches Industrielles (ZFIL, SAZOF) : statut fiscal avantageux pour les entreprises exportatrices ; idéal si tu transformes localement avant réexport.\n3. Entrepôt privé ordinaire : soumis à TVA (18 %) sur les services, aucune exemption fiscale particulière, mais flexibilité maximale."
+          },
+          {
+            "heading": "La Zone Franche Industrielle : avantages et conditions",
+            "body":    "Avantages ZFIL : exonération de TVA sur les intrants importés, exonération d'impôt sur les bénéfices pendant les premières années (selon la loi togolaise des zones franches), exemption de licence d'importation, droits de douane réduits à 0 % sur les équipements.\n\nConditions strictes : exporter au moins 80 % de la production, créer un minimum d'emplois locaux, respecter les normes environnementales, et être agréé par la SAZOF (Société d'Administration des Zones Franches). Statut révocable en cas de non-respect.",
+            "highlight": true
+          },
+          {
+            "heading": "Calculer et comparer les coûts de stockage",
+            "body":    "Postes à comparer : loyer au m²/mois (200 à 800 FCFA selon zone et qualité), assurance marchandises (0,3 % à 0,8 % de la valeur), gardiennage (souvent inclus en zone franche), électricité (compteur dédié ou partagé), frais de manutention entrée/sortie, et frais administratifs.\n\nAstuce : un entrepôt plus cher mais plus proche du port peut coûter moins cher au global si tu économises sur le transport et le temps de transit. Calcule toujours le coût total (TCO), pas seulement le loyer."
+          }
+        ],
+        "key_takeaway": "La zone franche n'est avantageuse que si tu exports au moins 80 % de ta production — sinon, l'entrepôt ordinaire reste plus souple."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q5_0",
+            "text":     "Quel est le seuil minimal d'exportation pour conserver le statut de zone franche industrielle au Togo ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Au moins 50 % de la production" },
+              { "id": "b", "text": "Au moins 80 % de la production", "correct": true },
+              { "id": "c", "text": "100 % de la production (aucune vente locale autorisée)" },
+              { "id": "d", "text": "Au moins 20 % de la production" }
+            ],
+            "explanation": "La loi togolaise des zones franches industrielles impose d'exporter au moins 80 % de la production pour conserver le statut et ses avantages fiscaux. En dessous, l'entreprise perd l'agrément SAZOF et les exemptions associées."
+          },
+          {
+            "id":       "q5_1",
+            "text":     "Quel est l'avantage principal de la Plateforme Sèche d'Adétikopé (PDA) ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Exonération totale de TVA pour tout type de commerce" },
+              { "id": "b", "text": "Dédouanement et stockage sous douane, idéal pour le transit vers les pays enclavés", "correct": true },
+              { "id": "c", "text": "Loyer gratuit à vie" },
+              { "id": "d", "text": "Aucune obligation déclarative" }
+            ],
+            "explanation": "La PDA, située à 25 km du port, est un hub logistique qui permet de faire le dédouanement et le stockage sous douane de marchandises en transit vers le Burkina Faso, le Mali ou le Niger, sans payer les droits de douane togolais."
+          },
+          {
+            "id":       "q5_2",
+            "text":     "Comment comparer honnêtement deux entrepôts de stockage à Lomé ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "En choisissant toujours le loyer au m² le plus bas" },
+              { "id": "b", "text": "En calculant le coût total (TCO) incluant transport, manutention et temps", "correct": true },
+              { "id": "c", "text": "En choisissant l'entrepôt le plus éloigné du port" },
+              { "id": "d", "text": "En comparant uniquement le gardiennage" }
+            ],
+            "explanation": "Le TCO (Total Cost of Ownership) inclut loyer, transport depuis le port, manutention, assurance, électricité et temps de transit. Un entrepôt plus cher au m² mais plus proche du port peut s'avérer moins cher au global grâce aux économies sur le transport."
+          }
+        ]
+      }
+    }
+  ],
+
+  "completion_criteria": {
+    "all_lessons_passed": true,
+    "min_total_score":    0.67,
+    "issues_badge":       true,
+    "xp_completion_bonus": 0
+  },
+
+  "i18n": {
+    "ewe": {
+      "meta.title":       "Nɔnɔme ewome kple Dutadɔwɔwɔ",
+      "meta.subtitle":    "Lomé ƒe Gbɔgbɔ wò dɔe",
+      "meta.description": "Ðe nunya le nɔnɔme ewome, duta nuŋlɔɖiwo kple Lomé ƒe dziɖuɖu ƒe asiɖoɖo me."
+    }
+  }
+}

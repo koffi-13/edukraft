@@ -1,0 +1,474 @@
+{
+  "$schema": "https://schema.edukraft.tg/module/v1.json",
+  "_comment": "Schéma EduKraft Module v1. Ajouter un nouveau module = créer un nouveau fichier JSON dans content/modules/ et l'importer dans moduleRegistry.js. Aucun code à modifier.",
+
+  "id":           "ecommerce-whatsapp-business-v1",
+  "version":      "1.0.0",
+  "filiere":      "Commerce & Digital",
+  "difficulty":   2,
+  "language":     "fr",
+  "available_translations": ["ewe"],
+
+  "meta": {
+    "title":       "E-commerce & WhatsApp Business",
+    "subtitle":    "Vends avec ton téléphone",
+    "description": "Apprends à vendre tes produits sur WhatsApp Business et Facebook Marketplace, recevoir les paiements mobiles (T-Money/Flooz) et gérer tes commandes comme un pro.",
+    "duration_min": 7,
+    "xp_reward":    180,
+    "badge_title":  "Certifié E-commerçant",
+    "icon":         "shopping-cart",
+    "color":        "#1D9E75",
+    "tags":         ["commerce", "e-commerce", "WhatsApp Business", "mobile money", "PME"],
+    "target_audience": "Commerçantes, artisans, micro-entrepreneurs souhaitant vendre en ligne via WhatsApp et Facebook.",
+    "prerequisites": []
+  },
+
+  "lessons": [
+    {
+      "index":    0,
+      "title":    "Vendre sur WhatsApp sans boutique",
+      "subtitle": "Le catalogue WhatsApp Business comme vitrine",
+      "duration_min": 1,
+      "xp_per_lesson": 25,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Au Togo, des milliers de commerçantes et d'artisans vendent chaque jour sans boutique physique — uniquement avec leur téléphone. Une couturière à Adidogomé, un vendeur de chaussures au marché d'Adawlato, un menuisier à Bè : tous peuvent transformer WhatsApp en véritable boutique.\n\nL'astuce ? Utiliser WhatsApp Business (et non WhatsApp classique) pour construire un catalogue de produits visible par chaque client qui ouvre ta conversation. C'est gratuit, c'est rapide, et ça change tout.\n\nCe module commence par les bases et t'emmène jusqu'à la livraison et la gestion des litiges. À la fin, tu sauras vendre, encaisser et livrer comme un pro.",
+        "sections": [
+          {
+            "heading": "Installer WhatsApp Business (et non WhatsApp classique)",
+            "body":    "WhatsApp Business est une application gratuite, séparée de WhatsApp normal. Tu peux garder les deux sur le même téléphone avec deux numéros différents.\n\nTélécharge-la sur Play Store ou App Store. À l'installation, choisis ton numéro professionnel (idéalement un numéro dédié à l'activité, pas ton numéro familial). L'application te demande : nom de l'entreprise, catégorie, description. Remplis tout — un profil complet rassure les clients."
+          },
+          {
+            "heading": "Construire ton catalogue en 30 minutes",
+            "body":    "Va dans Outils Business → Catalogue → Ajouter un produit. Pour chaque article, remplis :\n• Photo : une seule image claire, prise en lumière naturelle près d'une fenêtre.\n• Nom : précis et court (ex: 'Robe wax taille M').\n• Prix : en FCFA (ex: 8 500 FCFA).\n• Description : taille, couleur, état, disponibilité.\n\nCommence avec tes 5 à 10 produits les plus demandés. Tu peux ajouter la suite plus tard. Le catalogue reste visible 24h/24 — même quand tu dors, les clients peuvent le consulter.",
+            "highlight": true
+          },
+          {
+            "heading": "Les étiquettes pour suivre tes clients",
+            "body":    "WhatsApp Business propose 4 étiquettes par défaut : Nouveau client, Commande en cours, Payé, Commande terminée. Ajoute-en d'autres si besoin.\n\nPour chaque conversation, attribue une étiquette. Cela te permet d'un coup d'œil de voir : qui a commandé mais n'a pas payé, qui attend une livraison, qui est un nouveau contact à fidéliser. Sans ce système, tu oublies des commandes et tu perds des clients."
+          }
+        ],
+        "key_takeaway": "WhatsApp Business + un catalogue de 5 produits = une boutique ouverte 24h/24, gratuitement."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q0_0",
+            "text":     "Quelle application dois-tu installer pour vendre avec un catalogue de produits ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "WhatsApp classique uniquement" },
+              { "id": "b", "text": "WhatsApp Business", "correct": true },
+              { "id": "c", "text": "Facebook Messenger uniquement" },
+              { "id": "d", "text": "Une application payante tierce" }
+            ],
+            "explanation": "WhatsApp Business est gratuit et inclut un catalogue, des étiquettes de suivi et des réponses automatiques — des fonctions absentes de WhatsApp classique. Tu peux garder les deux applications sur le même téléphone."
+          },
+          {
+            "id":       "q0_1",
+            "text":     "Quel prix dois-tu indiquer dans ton catalogue si tu vends au Togo ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "En euros, pour paraître professionnel" },
+              { "id": "b", "text": "En dollars, comme sur les sites internationaux" },
+              { "id": "c", "text": "En FCFA, la monnaie que tes clients connaissent", "correct": true },
+              { "id": "d", "text": "Aucun prix — laisse le client demander" }
+            ],
+            "explanation": "Le FCFA est la monnaie utilisée au Togo. Indiquer le prix en FCFA évite la confusion et accélère la décision d'achat. Cacher le prix fait fuir 3 clients sur 4 qui pensent que c'est trop cher."
+          },
+          {
+            "id":       "q0_2",
+            "text":     "À quoi servent les étiquettes WhatsApp Business (Nouveau client, Commande, Payé, Terminée) ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "À décorer tes conversations" },
+              { "id": "b", "text": "À suivre l'état de chaque client et commande en un coup d'œil", "correct": true },
+              { "id": "c", "text": "À bloquer les clients qui ne paient pas" },
+              { "id": "d", "text": "À envoyer des messages groupés automatiquement" }
+            ],
+            "explanation": "Les étiquettes transforment une messagerie chaotique en système de suivi. Tu vois immédiatement qui a payé, qui attend une livraison, qui est à relancer. C'est ton mini-CRM gratuit."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    1,
+      "title":    "Créer ta vitrine Facebook Marketplace",
+      "subtitle": "Photos qui vendent, description qui convainc",
+      "duration_min": 1,
+      "xp_per_lesson": 30,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Facebook Marketplace est devenu un marché géant à Lomé. Chaque jour, des milliers de Togolais y cherchent vêtements, téléphones, meubles, électroménager. C'est gratuit et local — tes annonces touchent les gens de ta ville.\n\nMais attention : 90 % des annonces sont mal faites. Photos floues, description vide, prix absent. Si tu apprends à faire une annonce propre, tu te démarques immédiatement de la masse et tu vends 3 fois plus vite.",
+        "sections": [
+          {
+            "heading": "Les 3 photos qui vendent",
+            "body":    "Une annonce sans bonne photo ne vend pas. Voici la recette :\n\n1. Photo principale : le produit entier, bien centré, fond propre (un drap blanc ou un mur uni suffit).\n2. Photo de détail : un gros plan sur la qualité (couture, texture, étiquette).\n3. Photo d'usage : le produit en situation (la robe portée, le téléphone allumé).\n\nPris en lumière naturelle près d'une fenêtre, jamais avec flash. Une bonne photo vaut mieux que mille mots."
+          },
+          {
+            "heading": "La description qui convainc (modèle à copier)",
+            "body":    "Utilise ce modèle pour chaque annonce :\n\n[Ligne d'accroche] Ex: '🔥 Robe wax femme — faite main à Lomé'\n\n• État : Neuf / Très bon état / Occasion\n• Taille / Dimensions : M / 40×60 cm\n• Couleur : Bleu et or\n• Prix : 12 000 FCFA (non négociable / négociable)\n• Livraison : Lomé 1 000 FCFA, région 2 500 FCFA\n• Contact : WhatsApp 90 XX XX XX\n\nCette structure rassure le client et répond à ses questions avant qu'il ne les pose.",
+            "highlight": true
+          },
+          {
+            "heading": "Le bon timing et le renouvellement",
+            "body":    "Publie tes annonces aux heures de forte affluence au Togo :\n• 7h–8h (début de journée)\n• 12h–13h (pause déjeuner)\n• 19h–21h (soirée)\n\nSi une annonce ne génère pas de message en 5 jours, supprime-la et reposte une version améliorée (autre photo d'abord, autre description). Facebook donne un coup de boost aux annonces fraîches. Ne laisse pas mourir une vieille annonce."
+          }
+        ],
+        "key_takeaway": "Une annonce avec 3 photos claires et une description structurée se vend 3 fois plus vite qu'une annonce bâclée."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q1_0",
+            "text":     "Combien de photos minimum recommandées pour une annonce Facebook Marketplace efficace ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Aucune — la description suffit" },
+              { "id": "b", "text": "1 photo unique, peu importe la qualité" },
+              { "id": "c", "text": "3 photos : vue d'ensemble, détail, et usage", "correct": true },
+              { "id": "d", "text": "10 photos pour montrer tous les angles" }
+            ],
+            "explanation": "Trois photos suffisent : la principale vend le rêve, le détail prouve la qualité, l'usage aide le client à se projeter. Trop de photos ralentissent le chargement et noient le message."
+          },
+          {
+            "id":       "q1_1",
+            "text":     "Quelle information est essentielle dans la description d'une annonce au Togo ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Le numéro de carte bancaire du vendeur" },
+              { "id": "b", "text": "Le prix en FCFA et le contact WhatsApp", "correct": true },
+              { "id": "c", "text": "L'historique complet du produit depuis sa fabrication" },
+              { "id": "d", "text": "Le nombre de vues de l'annonce" }
+            ],
+            "explanation": "Prix en FCFA + contact WhatsApp = le minimum vital. Sans prix, le client passe. Sans WhatsApp, il ne sait pas comment te joindre. Tout le reste est secondaire."
+          },
+          {
+            "id":       "q1_2",
+            "text":     "Que faire si ton annonce ne génère aucun message en 5 jours ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "La laisser en ligne indéfiniment, elle finira par marcher" },
+              { "id": "b", "text": "La supprimer et reposter une version améliorée avec une autre photo d'abord", "correct": true },
+              { "id": "c", "text": "La republier 10 fois par jour pour plus de visibilité" },
+              { "id": "d", "text": "Abandonner Facebook Marketplace définitivement" }
+            ],
+            "explanation": "Facebook privilégie les annonces récentes. Supprimer et reposter avec une meilleure photo et un autre angle donne un nouveau coup de boost. Les annonces mortes restent invisibles."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    2,
+      "title":    "Recevoir un paiement mobile (T-Money/Flooz)",
+      "subtitle": "Demande d'argent, confirmation, sécurité",
+      "duration_min": 1,
+      "xp_per_lesson": 30,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Au Togo, l'argent mobile règne. T-Money (Togocom) et Flooz (Moov Africa) sont les deux opérateurs. Savoir demander un paiement, vérifier qu'il est bien reçu et sécuriser ton compte sont des compétences aussi importantes que savoir vendre.\n\nBeaucoup de vendeurs en ligne se font arnaquer : faux SMS de paiement, client qui dit 'j'ai envoyé' alors que rien n'est arrivé. Avec la méthode ci-dessous, tu ne seras plus jamais piégé.",
+        "sections": [
+          {
+            "heading": "Demander un paiement sans erreur",
+            "body":    "Avec T-Money : compose *145*4*1*numéro destinataire*montant*code secret#. Avec Flooz : compose *155*montant*numéro destinataire*code secret#.\n\nMieux : envoie au client une 'demande d'argent' depuis ton application. Le client reçoit un message avec un code, il valide, et tu reçois immédiatement un SMS confirmant le montant, le numéro de l'expéditeur et la date. Toujours indiquer le montant exact en FCFA dans ta demande pour éviter les contestations."
+          },
+          {
+            "heading": "Confirmer AVANT de livrer — la règle d'or",
+            "body":    "Ne livre JAMAIS un produit tant que tu n'as pas reçu le SMS de confirmation de T-Money ou Flooz sur ton propre téléphone.\n\nLes arnaques classiques :\n• Un faux SMS envoyé par le client (vérifie toujours le numéro court officiel : T-Money = 145, Flooz = 155).\n• Une capture d'écran trafiquée montrant un paiement jamais envoyé.\n• 'J'ai payé, livre vite, le réseau est lent' — non, le SMS Mobile Money arrive en moins de 30 secondes.\n\nSi le SMS tarde, compose *145# (T-Money) ou *155# (Flooz) pour vérifier ton solde toi-même.",
+            "highlight": true
+          },
+          {
+            "heading": "Sécuriser ton compte Mobile Money",
+            "body":    "Ton code secret doit avoir 4 chiffres, jamais votre date de naissance ni 1234. Change-le tous les 3 mois. Ne le partage avec personne — pas même un agent T-Money ou Flooz, ils n'en ont pas besoin.\n\nActive la confirmation par SMS pour chaque transaction. Si tu changes de téléphone, désactive d'abord le compte sur l'ancien. En cas de perte de SIM, appelle immédiatement le service client (Togocom : 929, Moov : 444) pour bloquer le compte."
+          }
+        ],
+        "key_takeaway": "Pas de SMS officiel de T-Money/Flooz sur ton téléphone = pas de livraison. C'est non négociable."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q2_0",
+            "text":     "Un client t'envoie une capture d'écran disant 'je viens de payer'. Que fais-tu ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Tu livres immédiatement — la capture prouve le paiement" },
+              { "id": "b", "text": "Tu attends de recevoir le SMS officiel de T-Money/Flooz sur ton téléphone avant de livrer", "correct": true },
+              { "id": "c", "text": "Tu livres mais tu demandes un second paiement en garantie" },
+              { "id": "d", "text": "Tu bloques le client sans explication" }
+            ],
+            "explanation": "Une capture d'écran peut être trafiquée. Seul le SMS officiel reçu sur ton téléphone (depuis le numéro court 145 pour T-Money ou 155 pour Flooz) constitue une preuve valable. En cas de doute, vérifie ton solde via *145# ou *155#."
+          },
+          {
+            "id":       "q2_1",
+            "text":     "Lequel de ces codes secrets est le plus risqué pour ton compte Mobile Money ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "8372 (aléatoire)" },
+              { "id": "b", "text": "1234 (suite évidente)", "correct": true },
+              { "id": "c", "text": "6049 (aléatoire)" },
+              { "id": "d", "text": "2741 (aléatoire)" }
+            ],
+            "explanation": "1234 est le code le plus piraté au monde. Évite aussi ta date de naissance, ton année de mariage, ou 0000. Un code aléatoire à 4 chiffres est le plus sûr. Change-le tous les 3 mois."
+          },
+          {
+            "id":       "q2_2",
+            "text":     "Tu perds ton téléphone avec ta SIM Mobile Money. Que fais-tu en premier ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Tu attends de retrouver le téléphone" },
+              { "id": "b", "text": "Tu appelles le service client (929 Togocom / 444 Moov) pour bloquer le compte immédiatement", "correct": true },
+              { "id": "c", "text": "Tu préviens tes clients sur WhatsApp" },
+              { "id": "d", "text": "Tu ouvres un nouveau compte sur un autre numéro" }
+            ],
+            "explanation": "Le blocage immédiat par le service client empêche le voleur d'utiliser ton compte. Plus tu attends, plus le risque est grand. La récupération de SIM et de compte se fait ensuite en boutique avec ta pièce d'identité."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    3,
+      "title":    "Gérer stock et commandes sur téléphone",
+      "subtitle": "Suivi clients, relances, tableur gratuit",
+      "duration_min": 1,
+      "xp_per_lesson": 30,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Quand tu vends 2 ou 3 produits par semaine, tout se passe dans ta tête. Mais dès que les commandes dépassent 10 par semaine, la mémoire devient un cauchemar : qui a payé ? qui attend quoi ? ai-je encore cette robe en stock ?\n\nLa solution n'est pas un logiciel compliqué. C'est un simple tableur gratuit sur ton téléphone (Google Sheets) ou même les Notes de ton téléphone. Avec 5 minutes d'organisation par jour, tu ne perds plus jamais une commande.",
+        "sections": [
+          {
+            "heading": "Le tableau de suivi des commandes (modèle gratuit)",
+            "body":    "Crée un tableau Google Sheets (gratuit avec un compte Gmail) avec ces colonnes :\n\nDate | Client | Téléphone | Produit | Montant FCFA | Paiement (Oui/Non) | Livraison (Adidogomé/Bè/Tokoin/Région) | Statut\n\nExemple de ligne : 12/03 | Afi | 90 XX | Robe wax M | 12 000 | Oui | Tokoin | Livrée\n\nUne ligne par commande. Colorie en rouge les paiements manquants, en vert les commandes terminées. Tu vois en 2 secondes où tu en es."
+          },
+          {
+            "heading": "Gérer ton stock : la règle du seuil minimum",
+            "body":    "Pour chaque produit, fixe un seuil minimum. Exemple : si tu vends en moyenne 5 pagnes par semaine et que tu te réapprovisionnes en 1 semaine, ton seuil minimum est 5. Dès qu'il te reste 5 pagnes, tu passes commande chez ton fournisseur.\n\nNote ton stock dans une seconde feuille du même Google Sheets : Produit | Quantité restante | Seuil minimum | Fournisseur | Numéro.\n\nUne rupture de stock sur un produit qui se vend bien = clients déçus qui vont voir ailleurs. Le seuil minimum te protège.",
+            "highlight": true
+          },
+          {
+            "heading": "Relancer les clients sans être lourd",
+            "body":    "3 cas de relance, 3 messages différents :\n\n1. Paiement en attente (J+1) : 'Bonjour Afi, petit rappel pour la commande robe wax M (12 000 FCFA). T-Money au 90 XX. Merci !'\n\n2. Commande prête non retirée (J+2) : 'Bonjour, ta commande est prête. Tu peux passer aujourd'hui ou demain à Tokoin ?'\n\n3. Client silencieux depuis 1 mois : partage ton statut WhatsApp avec les nouveautés. Pas de message direct — laisse-le revenir de lui-même."
+          }
+        ],
+        "key_takeaway": "Un Google Sheets de 2 colonnes par commande vaut 100 fois ta mémoire. Note, colorie, et tu ne perds plus rien."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q3_0",
+            "text":     "Quel outil gratuit est recommandé pour suivre tes commandes sur téléphone ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Un logiciel de comptabilité payant à 50 000 FCFA" },
+              { "id": "b", "text": "Google Sheets, gratuit avec un compte Gmail", "correct": true },
+              { "id": "c", "text": "Un cahier que tu ne consultes jamais" },
+              { "id": "d", "text": "Sa mémoire uniquement — c'est suffisant" }
+            ],
+            "explanation": "Google Sheets est gratuit, accessible depuis n'importe quel téléphone, et permet de tout centraliser : commandes, stock, clients. Tu peux même y accéder hors-ligne. Un cahier se perd, un logiciel payant est trop complexe pour commencer."
+          },
+          {
+            "id":       "q3_1",
+            "text":     "Tu vends en moyenne 5 pagnes par semaine et tu te réapprovisionnes en 1 semaine. Quel est ton seuil minimum de stock ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "1 pagne" },
+              { "id": "b", "text": "3 pagnes" },
+              { "id": "c", "text": "5 pagnes", "correct": true },
+              { "id": "d", "text": "20 pagnes" }
+            ],
+            "explanation": "Le seuil minimum = consommation pendant le délai de réapprovisionnement. Si tu vends 5/semaine et que le réappro prend 1 semaine, dès qu'il te reste 5 unités, tu commandes. En dessous, tu risques la rupture."
+          },
+          {
+            "id":       "q3_2",
+            "text":     "Un client a commandé mais n'a pas payé le lendemain. Quelle est la bonne relance ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "'PAIE TOUT DE SUITE OU J'ANNULE !'" },
+              { "id": "b", "text": "'Bonjour Afi, petit rappel pour la commande (montant). T-Money au 90 XX. Merci !'", "correct": true },
+              { "id": "c", "text": "Bloquer le client sans message" },
+              { "id": "d", "text": "L'ignorer et espérer qu'il revienne" }
+            ],
+            "explanation": "Une relance polie et précise (montant + moyen de paiement) respecte le client et obtient 80 % de réponse positive. L'agressivité fait fuir définitivement. Le silence fait perdre la commande."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    4,
+      "title":    "Livrer à Lomé et en région",
+      "subtitle": "Livreurs moto, coûts, délais, retours",
+      "duration_min": 1,
+      "xp_per_lesson": 35,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "La livraison est souvent ce qui fait gagner ou perdre une vente en ligne. Un client à Tokoin qui hésite ? Si tu proposes une livraison à 1 000 FCFA dans l'heure, il commande. Si tu dis 'viens chercher', il abandonne.\n\nÀ Lomé, les zemidjan (motos-taxis) font d'excellents livreurs pour les petits colis. Pour les régions (Kara, Sokodé, Atakpamé), les compagnies de bus transportent tes colis contre un forfait. Ce lesson te donne les coûts réels et les bons réflexes.",
+        "sections": [
+          {
+            "heading": "Livrer à Lomé : zemidjan et zones de prix",
+            "body":    "Pour un petit colis (vêtement, téléphone, petit électroménager), un zemidjan livre dans toute la ville de Lomé pour 500 à 2 000 FCFA selon la distance.\n\nZones indicatives depuis le centre-ville :\n• Tokoin, Bè, Lomé II : 500 à 1 000 FCFA\n• Adidogomé, Cacavelli, Agoè : 1 000 à 1 500 FCFA\n• Aflao, Baguida : 1 500 à 2 000 FCFA\n\nAstuce : garde 2 ou 3 numéros de zemidjan de confiance que tu appelles directement. Le client paie la livraison à la réception ou par Mobile Money en avance."
+          },
+          {
+            "heading": "Livrer en région : compagnies de bus",
+            "body":    "Pour Kara, Sokodé, Atakpamé, Dapaong, Aného : envoie le colis par bus (compagnies comme Rakieta, Confort, Élvire, Adji). Le colis est retiré à la gare de destination sur présentation d'un code.\n\nTarifs indicatifs (à vérifier auprès de la compagnie) :\n• Lomé → Sokodé / Kara : 2 000 à 3 000 FCFA\n• Lomé → Atakpamé : 1 500 à 2 000 FCFA\n• Lomé → Aného : 1 000 à 1 500 FCFA\n\nDélai : 6 à 12 heures selon la destination. Demande toujours le numéro du chauffeur et communique-le au client pour le suivi.",
+            "highlight": true
+          },
+          {
+            "heading": "Politique de retour : claire et écrite",
+            "body":    "Une politique de retour claire rassure le client et protège le vendeur. Exemple à adapter :\n\n• Retour accepté sous 48h si produit défectueux ou non conforme à la photo.\n• Remboursement intégral ou échange, au choix du client.\n• Frais de retour à la charge du vendeur si erreur de sa part, sinon du client.\n\nÉcris cette politique dans ton catalogue WhatsApp et dans tes annonces Facebook. Un client qui sait qu'il peut retourner ose plus facilement commander — et les retours réels sont rares (moins de 5 %)."
+          }
+        ],
+        "key_takeaway": "Proposer une livraison claire (prix + délai) double ton taux de vente. Le client n'achète que ce qui peut lui arriver."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q4_0",
+            "text":     "Tu dois livrer une robe à Adidogomé depuis le centre-ville de Lomé. Quel coût de livraison raisonnable par zemidjan ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "100 FCFA — c'est court" },
+              { "id": "b", "text": "1 000 à 1 500 FCFA", "correct": true },
+              { "id": "c", "text": "5 000 FCFA — c'est loin" },
+              { "id": "d", "text": "10 000 FCFA minimum" }
+            ],
+            "explanation": "Adidogomé est un quartier excentré de Lomé. Le tarif zemidjan raisonnable est de 1 000 à 1 500 FCFA pour un petit colis. En dessous, le zemidjan refusera ; au-dessus, tu surfactures le client."
+          },
+          {
+            "id":       "q4_1",
+            "text":     "Pour livrer un colis à Sokodé depuis Lomé, quel mode d'envoi est le plus adapté ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Un zemidjan — il ira bien" },
+              { "id": "b", "text": "Les compagnies de bus (Rakieta, Confort, Élvire)", "correct": true },
+              { "id": "c", "text": "La poste togolaise uniquement, en recommandé" },
+              { "id": "d", "text": "Demander au client de venir chercher à Lomé" }
+            ],
+            "explanation": "Les bus desservent Sokodé plusieurs fois par jour avec un service colis fiable et économique (2 000 à 3 000 FCFA). Le zemidjan ne quitte pas Lomé. La poste est plus chère et plus lente pour ce type de destination."
+          },
+          {
+            "id":       "q4_2",
+            "text":     "Quelle politique de retour est la plus efficace pour vendre en ligne au Togo ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Aucune retour accepté, les clients doivent comprendre" },
+              { "id": "b", "text": "Retour sous 48h si produit défectueux, avec politique écrite claire", "correct": true },
+              { "id": "c", "text": "Retour accepté uniquement après 1 mois" },
+              { "id": "d", "text": "Remboursement uniquement en bon d'achat, jamais en cash" }
+            ],
+            "explanation": "Une politique écrite (48h, défaut, échange/remboursement) rassure le client : il ose commander. Résultat : les ventes augmentent et les retours réels restent rares (moins de 5 %). L'absence de politique fait fuir les acheteurs prudents."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    5,
+      "title":    "Éviter les arnaques et litiges",
+      "subtitle": "Réflexes sécurité, preuves, médiation",
+      "duration_min": 1,
+      "xp_per_lesson": 30,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Le commerce en ligne attire 95 % de clients honnêtes — mais aussi 5 % d'arnaqueurs. Un seul faux pas peut te coûter un mois de bénéfice. Les arnaques les plus courantes au Togo : faux SMS de paiement, commande urgente avec demande de remise de monnaie, faux livreur qui encaisse et disparaît.\n\nCe lesson te donne les réflexes qui te protègent : reconnaître un signal d'alarme, garder des preuves de chaque transaction, et gérer un litige sans perdre le client ni ton sang-froid.",
+        "sections": [
+          {
+            "heading": "Les 4 signaux d'alarme à reconnaître",
+            "body":    "Méfie-toi quand un client :\n\n1. Presse pour une livraison immédiate sans avoir payé ('c'est urgent, livre d'abord je paie après').\n2. Envoie une capture d'écran de paiement sans que tu reçoives le SMS officiel.\n3. Te demande de 'rendre la monnaie' sur un faux transfert trop élevé.\n4. Passe une grosse commande (plus de 50 000 FCFA) sans négocier — trop beau pour être vrai.\n\nDans 90 % des cas, l'un de ces signaux annonce une arnaque. Ne livre rien sans confirmation officielle."
+          },
+          {
+            "heading": "Garder des preuves de chaque transaction",
+            "body":    "Réflexe numéro 1 : capture d'écran systématique.\n\n• La conversation WhatsApp complète (commande, accord sur prix, adresse).\n• Le SMS officiel de T-Money/Flooz confirmant le paiement.\n• La photo du colis emballé avant remise au livreur.\n• La confirmation du livreur ou du client à la réception.\n\nCes 4 preuves suffisent à défendre ta version en cas de litige. Sans preuve, c'est parole contre parole, et le client mécontent peut te détruire la réputation sur Facebook.",
+            "highlight": true
+          },
+          {
+            "heading": "Gérer un litige sans perdre le client",
+            "body":    "Un client mécontent n'est pas un client perdu — c'est un test de ton professionnalisme.\n\nÉtapes :\n1. Réponds dans les 2 heures, calmement, sans te justifier.\n2. Demande une photo du problème pour comprendre.\n3. Si tu as tort : excuse-toi, propose remboursement ou échange sans tergiverser.\n4. Si le client a tort (mauvaise utilisation, délai dépassé) : explique poliment avec preuves à l'appui.\n5. Jamais d'insultes, jamais de blocage — un litique public mal géré fait fuir 10 autres clients.\n\nEn cas de blocage persistant, oriente vers un médiateur de confiance (association de commerçants du quartier, chef de marché)."
+          }
+        ],
+        "key_takeaway": "4 captures d'écran par transaction (conversation, paiement, colis, livraison) = zéro litige non résolu."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q5_0",
+            "text":     "Un nouveau client te passe une commande de 80 000 FCFA sans négocier le prix et presse pour une livraison immédiate sans paiement. Que fais-tu ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Tu livres immédiatement — une grosse vente, ça ne se refuse pas" },
+              { "id": "b", "text": "Tu te méfies : gros montant + pas de négociation + urgence = signal d'alarme. Tu exiges le paiement avant livraison.", "correct": true },
+              { "id": "c", "text": "Tu demandes la moitié maintenant, le reste plus tard" },
+              { "id": "d", "text": "Tu bloques le client par précaution" }
+            ],
+            "explanation": "Les arnaqueurs utilisent souvent la combinaison 'gros montant + urgence + pas de négociation' pour faire baisser ta garde. Un vrai client qui dépense 80 000 FCFA négocie toujours un peu. Exige le paiement Mobile Money confirmé avant toute livraison."
+          },
+          {
+            "id":       "q5_1",
+            "text":     "Quelle preuve est indispensable pour te défendre en cas de litige sur une commande ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Une photo de toi devant ta boutique" },
+              { "id": "b", "text": "La capture d'écran de la conversation WhatsApp, du SMS de paiement, et du colis emballé", "correct": true },
+              { "id": "c", "text": "Le nombre d'abonnés de ta page Facebook" },
+              { "id": "d", "text": "Une recommandation écrite d'un ancien client" }
+            ],
+            "explanation": "Les preuves de transaction (conversation, paiement officiel, colis) établissent les faits. Sans elles, c'est parole contre parole. Avec elles, tu défends ta version même si le client ment publiquement."
+          },
+          {
+            "id":       "q5_2",
+            "text":     "Un client reçoit son produit et te dit qu'il est défectueux alors que tu sais qu'il était parfait à l'envoi. Quelle est la bonne attitude ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "L'insulter et le bloquer immédiatement" },
+              { "id": "b", "text": "Répondre calmement, demander une photo du problème, et expliquer avec tes preuves (photo du colis avant envoi)", "correct": true },
+              { "id": "c", "text": "Ignorer le message en espérant qu'il oublie" },
+              { "id": "d", "text": "Rembourser sans rien demander pour éviter le scandale" }
+            ],
+            "explanation": "Le calme + la demande de preuve + ta propre preuve désamorcent 90 % des litiges. Si tu as raison, le client le reconnaît souvent. Si tu as tort, tu apprends et tu améliores ton processus. Réagir agressivement ne fait qu'aggraver la situation."
+          }
+        ]
+      }
+    }
+  ],
+
+  "completion_criteria": {
+    "all_lessons_passed": true,
+    "min_total_score":    0.67,
+    "issues_badge":       true,
+    "xp_completion_bonus": 0
+  },
+
+  "i18n": {
+    "ewe": {
+      "meta.title":       "E-commerce & WhatsApp Dɔwɔwɔ",
+      "meta.subtitle":    "Tɔ wò telefon ŋu ɖo nu",
+      "meta.description": "Ðe nunya bena wòaŋlɔ wò nuwo ɖo WhatsApp Business kple Facebook Marketplace dzi, wòaxɔ T-Money/Flooz, eye wòaɖo wɔ dɔ abe ame nyuiwo ene."
+    }
+  }
+}
