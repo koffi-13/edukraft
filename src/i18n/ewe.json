@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ewe",
     "locale": "ee-TG",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "completeness": "100%",
     "translator_note": "Traduction complète en Eʋegbe. Fallback français automatique pour les clés manquantes.",
     "contact": "traduction@edukraft.tg"
@@ -122,7 +122,47 @@
     "bundle_all":        "Wɔa ɖo ɖe",
     "tmoney":            "T-Money",
     "flooz":             "Flooz",
-    "ussd_hint":         "USSA nya bolo wo. Ɣlɔɖe le wò telefone me."
+    "ussd_hint":         "USSA nya bolo wo. Ɣlɔɖe le wò telefone me.",
+    "unlock_module":     "Trɔ ñudɔwɔwɔ sia yeye ƒo",
+    "unlock_cert":       "Srɔ̃ wò nyatefewo ɖe blockchain dzi",
+    "unlock_all":        "Trɔ wo yee ƒo",
+    "error_invalid_phone": "Telefone nɔnɔme la menye o",
+    "error_no_provider":  "Ðo mɔɖaɖa ɖeka",
+    "error_network":      "Xexeame la ƒo. Kpɔ wò kpekpepe.",
+    "error_server":       "Aɖaŋudzewo ƒo. Ɖe keke egbea.",
+    "tx_reference":      "Nutaƒoƒo",
+    "tx_date":           "Ńkeke",
+    "tx_product":        "Nyawo",
+    "tx_amount":         "Gbɔgbɔ",
+    "tx_status":         "ƒe ɖoɖo",
+    "status_pending":    "Le ɖoɖo me",
+    "status_confirmed":  "Wu nyuie",
+    "status_failed":     "Va yi",
+    "premium_badge":     "Ɖe ƒu",
+    "select_product":    "Nye nae nye na wo trɔ yeye ƒo ?",
+    "or":                "kloe",
+    "pay_with":          "Fia kple",
+    "callback_success":  "Fiafia ƒo ! Nyawo trɔ yeye ƒo.",
+    "callback_fail":     "Fiafia la me di o."
+  },
+
+  "profile": {
+    "title":            "Wò ŋutifafa",
+    "name_label":       "ŋkɔ",
+    "language_label":   "Gbe",
+    "total_xp":         "XP Katã",
+    "streak":           "Série le ɖoɖo me",
+    "modules_done":     "Ñudɔwɔwɔwo wòdzo",
+    "sync_status":      "Ño ɖo se ƒo",
+    "sync_up_to_date":  "Nye ƒe nya wo ƒo",
+    "pending_count":    "{{count}} le ɖoɖo me",
+    "last_sync":        "Ño ɖo se ƒo si do goi",
+    "badges_section":   "Wò nyatefewo",
+    "reset_title":      "Ɛnya",
+    "reset_confirm":    "ƒo wò nyawo katã le xexeame la me ?",
+    "premium_section":  "Nyawo ɖe ƒu",
+    "go_premium":       "Trɔ nyawo ɖe ƒu yeye ƒo",
+    "premium_desc":     "Ɛe ɖo ñudɔwɔwɔwo katã kple srɔ̃ wò nyatefewo ɖe blockchain dzi."
   },
 
   "common": {

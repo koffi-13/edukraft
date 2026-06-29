@@ -21,8 +21,9 @@ const ENV = {
   SYNC_MAX_RETRIES: 5,        // Abandon après 5 échecs
 
   // ── Blockchain (Phase 3) ─────────────────────────────────────────────────
-  POLYGON_NETWORK: 'mumbai',  // mumbai (testnet) → mainnet en prod
-  POLYGON_CHAIN_ID: 80001,
+  // Mumbai est déprécié — utiliser Amoy pour le testnet
+  POLYGON_NETWORK: 'amoy',
+  POLYGON_CHAIN_ID: 80002,
 };
 
 export default ENV;

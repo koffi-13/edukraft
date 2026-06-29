@@ -2,7 +2,7 @@
   "_meta": {
     "language": "fr",
     "locale": "fr-TG",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "completeness": "100%"
   },
 
@@ -120,7 +120,47 @@
     "bundle_all":        "Pack complet",
     "tmoney":            "T-Money",
     "flooz":             "Flooz",
-    "ussd_hint":         "Tu recevras une notification USSD. Confirme sur ton téléphone."
+    "ussd_hint":         "Tu recevras une notification USSD. Confirme sur ton téléphone.",
+    "unlock_module":     "Débloquer ce module",
+    "unlock_cert":       "Certifier mes badges on-chain",
+    "unlock_all":        "Tout débloquer",
+    "error_invalid_phone": "Numéro de téléphone invalide",
+    "error_no_provider":  "Choisis un opérateur",
+    "error_network":      "Erreur réseau. Vérifie ta connexion.",
+    "error_server":       "Erreur serveur. Réessaie plus tard.",
+    "tx_reference":      "Référence",
+    "tx_date":           "Date",
+    "tx_product":        "Produit",
+    "tx_amount":         "Montant",
+    "tx_status":         "Statut",
+    "status_pending":    "En attente",
+    "status_confirmed":  "Confirmé",
+    "status_failed":     "Échoué",
+    "premium_badge":     "Premium",
+    "select_product":    "Que veux-tu débloquer ?",
+    "or":                "ou",
+    "pay_with":          "Payer avec",
+    "callback_success":  "Paiement reçu ! Contenu débloqué.",
+    "callback_fail":     "Le paiement n'a pas abouti."
+  },
+
+  "profile": {
+    "title":            "Mon profil",
+    "name_label":       "Nom",
+    "language_label":   "Langue",
+    "total_xp":         "XP Total",
+    "streak":           "Série en cours",
+    "modules_done":     "Modules terminés",
+    "sync_status":      "Synchronisation",
+    "sync_up_to_date":  "Tout est à jour",
+    "pending_count":    "{{count}} en attente",
+    "last_sync":        "Dernière sync",
+    "badges_section":   "Mes badges",
+    "reset_title":      "Réinitialiser",
+    "reset_confirm":    "Effacer toutes les données locales ?",
+    "premium_section":  "Contenu premium",
+    "go_premium":       "Débloquer le contenu premium",
+    "premium_desc":     "Accède à tous les modules et certifie tes badges sur la blockchain."
   },
 
   "common": {

@@ -7,7 +7,7 @@ import { Colors, Typography, Spacing, Radius, Shadow, getLevel } from '../theme'
 import { useDb } from '../database/DbProvider';
 import { t } from '../i18n';
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { learner, getAllBadges, resetAll, getPendingQueue, getSyncMeta } = useDb();
   const [badges, setBadges] = useState([]);
@@ -136,9 +136,26 @@ export default function ProfileScreen() {
         </Text>
       </View>
 
+      {/* Premium section */}
+      <View style={styles.section}>
+        <TouchableOpacity
+          style={[styles.premiumCard, Shadow.card]}
+          onPress={() => navigation.navigate('Payment')}
+        >
+          <View style={styles.premiumLeft}>
+            <Text style={styles.premiumIcon}>💎</Text>
+            <View>
+              <Text style={styles.premiumTitle}>{t('profile.go_premium')}</Text>
+              <Text style={styles.premiumDesc}>{t('profile.premium_desc')}</Text>
+            </View>
+          </View>
+          <Text style={styles.premiumArrow}>›</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Badges */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Badges obtenus</Text>
+        <Text style={styles.sectionTitle}>{t('profile.badges_section')}</Text>
         {badges.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>🏆</Text>
@@ -166,7 +183,7 @@ export default function ProfileScreen() {
       {/* Reset */}
       <View style={styles.section}>
         <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
-          <Text style={styles.resetButtonText}>Réinitialiser mes données</Text>
+          <Text style={styles.resetButtonText}>{t('profile.reset_title')}</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -354,6 +371,42 @@ const styles = StyleSheet.create({
     fontSize: Typography.tiny,
     color: Colors.xpGold,
     fontWeight: Typography.semibold,
+  },
+  premiumCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.xpGold,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  premiumLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    flex: 1,
+  },
+  premiumIcon: {
+    fontSize: 28,
+  },
+  premiumTitle: {
+    fontSize: Typography.body,
+    fontWeight: Typography.bold,
+    color: Colors.ink,
+  },
+  premiumDesc: {
+    fontSize: Typography.caption,
+    color: Colors.ink50,
+    marginTop: 2,
+    lineHeight: 16,
+    maxWidth: 240,
+  },
+  premiumArrow: {
+    fontSize: 24,
+    color: Colors.ink30,
+    fontWeight: '300',
   },
   resetButton: {
     paddingVertical: Spacing.md,

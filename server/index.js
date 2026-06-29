@@ -8,7 +8,7 @@ const path     = require('path');
 const fs       = require('fs');
 const crypto   = require('crypto');
 const { v4: uuidv4 } = require('uuid');
-const { init: initBlockchain, mintBadge: mintOnChain, verifyBadge: verifyOnChain } = require('./blockchain');
+const { init: initBlockchain, mintBadge: mintOnChain, verifyBadge: verifyOnChain, getHealth: getBlockchainHealth } = require('./blockchain');
 const payments = require('./payments');
 
 // ── Configuration ────────────────────────────────────────────────────────────
@@ -176,10 +176,14 @@ function findOrCreateLearner(clientId, payload) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // ── Health check ─────────────────────────────────────────────────────────────
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
   success(res, {
     status: 'ok',
-    version: '1.0.0',
+    version: '2.0.0',
+    phase: 3,
+    features: ['offline_sync', 'blockchain_certification', 'mobile_payment'],
+    blockchain: await getBlockchainHealth(),
+    payment_mock: payments.PAYMENT_MOCK,
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
   });
@@ -584,8 +588,9 @@ app.get('/api/payments/history/:clientId', (req, res) => {
 
 /** Webhook callback du fournisseur de paiement */
 app.post('/api/payments/callback', (req, res) => {
-  const result = payments.handleProviderCallback(db, req.body, req.headers['x-signature']);
-  result.success ? success(res, { received: true }) : fail(res, result.error);
+  const signature = req.headers['x-signature'];
+  const result = payments.handleProviderCallback(db, req.body, signature);
+  result.success ? success(res, { received: true }) : fail(res, result.error, 403);
 });
 
 /** Tarification disponible */

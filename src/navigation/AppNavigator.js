@@ -15,6 +15,7 @@ import LessonScreen     from '../screens/LessonScreen';
 import QuizScreen       from '../screens/QuizScreen';
 import BadgeWalletScreen from '../screens/BadgeWalletScreen';
 import ProfileScreen    from '../screens/ProfileScreen';
+import PaymentScreen     from '../screens/PaymentScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import { useDb }        from '../database/DbProvider';
 
@@ -98,6 +99,9 @@ function RootStack() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Main"    component={MainTabs} />
       <Stack.Screen name="Lesson"  component={LessonScreen}
+        options={{ presentation: 'card', gestureEnabled: true }}
+      />
+      <Stack.Screen name="Payment" component={PaymentScreen}
         options={{ presentation: 'card', gestureEnabled: true }}
       />
       <Stack.Screen name="Quiz"    component={QuizScreen}
