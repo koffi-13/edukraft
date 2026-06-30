@@ -308,7 +308,7 @@ app.post('/api/sync', rateLimit(30, 60000), async (req, res) => {
               const srvId = `srv_${uuidv4().slice(0, 8)}`;
               db.prepare(`
                 INSERT INTO module_progress (id, server_id, client_id, learner_id, module_id, status, current_lesson, lessons_done, total_xp_earned, best_score, started_at, completed_at, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
               `).run(
                 uuidv4(), srvId, clientId, learnerServerId, payload.module_id,
                 payload.status || 'not_started', payload.current_lesson || 0,
@@ -485,7 +485,7 @@ app.patch('/api/progress/:clientId/:moduleId', (req, res) => {
       const id = uuidv4();
       db.prepare(`
         INSERT INTO module_progress (id, server_id, client_id, learner_id, module_id, status, current_lesson, lessons_done, total_xp_earned, best_score, started_at, completed_at, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(id, srvId, `${clientId}_${moduleId}`, learner.id, moduleId,
         p.status || 'not_started', p.current_lesson || 0, p.lessons_done || 0,
         p.total_xp_earned || 0, p.best_score || 0, now, null, now, now);

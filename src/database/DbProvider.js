@@ -209,6 +209,7 @@ export function DbProvider({ children }) {
     return gamification.recordLessonCompleted(
       {
         learner, setLearner, enqueue,
+        getCurrentLearner: () => storeRef.current.learner,
         runAsync, getFirst, getAllProgress,
         getAchievements, getDailyGoal,
         MODULES: require('../content/moduleRegistry').MODULES,
@@ -221,7 +222,8 @@ export function DbProvider({ children }) {
   const getGamificationState = useCallback(async () => {
     const gamification = require('../gamification');
     return gamification.getGamificationState({
-      learner, getFirst, getAllProgress,
+      learner: storeRef.current.learner || learner,
+      getFirst, getAllProgress,
       getAchievements, getDailyGoal,
       MODULES: require('../content/moduleRegistry').MODULES,
     });

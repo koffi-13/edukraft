@@ -139,14 +139,18 @@ export async function recordLessonCompleted(ctx, payload) {
   }
 
   // Mettre à jour l'état React du learner
+  // ⚠️ Lire le learner COURANT depuis le store (pas depuis le closure) pour
+  // éviter d'écraser l'XP qui vient d'être ajoutée par addXP. Le closure
+  // `learner` peut être stale (valeur au moment de la création du callback).
+  const currentLearner = (ctx.getCurrentLearner && ctx.getCurrentLearner()) || learner;
   const updatedLearner = {
-    ...learner,
+    ...currentLearner,
     streak_days: streakResult.newStreak,
     streak_freezes: finalFreezes,
     best_streak: streakResult.newBestStreak,
     last_active_date: today,
     last_active_at: nowIso,
-    total_lessons_done: (learner.total_lessons_done ?? 0) + 1,
+    total_lessons_done: (currentLearner.total_lessons_done ?? 0) + 1,
     updated_at: nowIso,
   };
   if (setLearner) setLearner(updatedLearner);

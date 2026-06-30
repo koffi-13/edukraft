@@ -199,7 +199,19 @@ export default function ProfileScreen({ navigation }) {
           </View>
         ) : (
           badges.map((badge) => (
-            <View key={badge.id} style={[styles.badgeItem, Shadow.card]}>
+            <TouchableOpacity
+              key={badge.id}
+              style={[styles.badgeItem, Shadow.card]}
+              activeOpacity={0.85}
+              onPress={() => Alert.alert(
+                badge.module_title,
+                'Score : ' + Math.round(badge.score * 100) + '%\n' +
+                'XP : ' + badge.xp_total + '\n' +
+                'Date : ' + new Date(badge.issued_at).toLocaleDateString('fr-TG') + '\n' +
+                'Hash : ' + (badge.badge_hash || 'N/A').substring(0, 20) + '...\n' +
+                'Blockchain : ' + (badge.blockchain_tx || 'En attente de sync'),
+              )}
+            >
               <View style={styles.badgeLeft}>
                 <Text style={styles.badgeIcon}>🏅</Text>
                 <View>
@@ -211,7 +223,7 @@ export default function ProfileScreen({ navigation }) {
                 <Text style={styles.badgeScore}>{Math.round(badge.score * 100)}%</Text>
                 <Text style={styles.badgeXP}>+{badge.xp_total} XP</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           ))
         )}
       </View>
