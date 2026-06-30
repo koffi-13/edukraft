@@ -1,11 +1,27 @@
 // src/database/DbProvider.js
-// Provider de données EduKraft — SQLite natif + fallback mémoire fonctionnel
-// En mode natif (Android) : utilise expo-sqlite pour la persistance réelle
-// En mode web/test : utilise un store en mémoire qui simule toutes les opérations DB
+// Provider de données EduKraft — coordonne les repositories et gère l'état React.
+//
+// Architecture v2 (Repository Pattern) :
+//   DbProvider instancie 5 repositories qui encapsulent l'accès data :
+//     - LearnerRepository       (table learner)
+//     - ProgressRepository      (module_progress, quiz_attempt)
+//     - BadgeRepository         (badge)
+//     - GamificationRepository  (streak_log, achievement, daily_goal)
+//     - SyncRepository          (sync_queue, sync_meta)
+//
+//   DbProvider gère l'état React (learner, ready, error) + l'init SQLite/migration,
+//   et délègue les opérations CRUD aux repositories. L'API publique useDb() est
+//   IDENTIQUE à la v1 — aucun écran à modifier.
+//
+//   En mode natif (Android/iOS) : utilise expo-sqlite pour la persistance réelle.
+//   En mode web/test : utilise un store en mémoire (MemoryStore) qui simule les opérations.
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import { generateBadge } from '../blockchain/badgeGenerator';
-import ENV from '../config/env';
+import { createLearnerRepository } from './repositories/learnerRepository';
+import { createProgressRepository } from './repositories/progressRepository';
+import { createBadgeRepository } from './repositories/badgeRepository';
+import { createGamificationRepository } from './repositories/gamificationRepository';
+import { createSyncRepository } from './repositories/syncRepository';
 
 const DbContext = createContext(null);
 
@@ -97,340 +113,96 @@ export function DbProvider({ children }) {
     })();
   }, []);
 
-  // ── Helper : vérifie si on est en mode mémoire ─────────────────────────
-  const isMemory = () => !db;
-  const store = () => storeRef.current;
-
-  // ── Enqueue : ajoute une opération dans la file de sync ───────────────
-  const enqueue = useCallback(async (tableName, operation, recordId, payload) => {
-    const queueId = `sq_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-    const now = new Date().toISOString();
-
-    if (isMemory()) {
-      store().syncQueue.push({
-        id: queueId, table_name: tableName, record_id: recordId,
-        operation, payload: JSON.stringify(payload),
-        queued_at: now, retry_count: 0, last_error: null,
-      });
-      return;
+  // ── Instanciation des repositories (recréés quand db change) ────────────
+  // Chaque repo reçoit (db, store, enqueue). L'enqueue est créé après les repos
+  // mais c'est OK car il est appelé de façon différée (pas au constructeur).
+  const syncRepo = useRef(null);
+  if (!syncRepo.current) syncRepo.current = createSyncRepository(db, storeRef.current);
+  // Re-créer si db change (la ref est mise à jour)
+  const getSyncRepo = useCallback(() => {
+    if (syncRepo.current === null || syncRepo.current.db !== db) {
+      syncRepo.current = createSyncRepository(db, storeRef.current);
     }
-
-    const { QUERIES } = require('./schema');
-    await db.runAsync(QUERIES.ENQUEUE, [
-      queueId, tableName, recordId, operation,
-      JSON.stringify(payload), now,
-    ]);
+    return syncRepo.current;
   }, [db]);
 
+  const enqueue = useCallback(async (tableName, operation, recordId, payload) => {
+    return getSyncRepo().enqueue(tableName, operation, recordId, payload);
+  }, [getSyncRepo]);
+
+  // Repositories principaux (recréés quand db ou enqueue change)
+  const learnerRepo = useCallback(() => createLearnerRepository(db, storeRef.current, enqueue), [db, enqueue]);
+  const progressRepo = useCallback(() => createProgressRepository(db, storeRef.current, enqueue), [db, enqueue]);
+  const badgeRepo = useCallback(() => createBadgeRepository(db, storeRef.current, enqueue), [db, enqueue]);
+  const gamificationRepo = useCallback(() => createGamificationRepository(db, storeRef.current, enqueue), [db, enqueue]);
+
   // ── Learner ───────────────────────────────────────────────────────────
-
   const createLearner = useCallback(async ({ id, name, phone, language = 'fr' }) => {
-    const now = new Date().toISOString();
-
-    if (isMemory()) {
-      const newLearner = {
-        id, name, phone, language,
-        total_xp: 0, streak_days: 0,
-        streak_freezes: 2, best_streak: 0,
-        last_active_date: null, total_lessons_done: 0,
-        last_active_at: now, created_at: now,
-        updated_at: now, server_id: null, sync_status: 'pending',
-      };
-      store().learner = newLearner;
-      setLearner(newLearner);
-      console.log('[DB/MEMORY] Learner créé :', name);
-      // Enqueue pour sync
-      enqueue('learner', 'INSERT', id, newLearner);
-      return newLearner;
-    }
-
-    // Mode SQLite natif
-    const { QUERIES } = require('./schema');
-    await db.runAsync(QUERIES.UPSERT_LEARNER,
-      [id, name, phone, language, 0, 0, now, now, now]);
-    const updated = await db.getFirstAsync(QUERIES.GET_LEARNER);
-    setLearner(updated);
-    // Enqueue pour sync
-    enqueue('learner', 'INSERT', id, updated);
-    return updated;
-  }, [db, enqueue]);
+    const result = await learnerRepo().create({ id, name, phone, language });
+    setLearner(result);
+    return result;
+  }, [learnerRepo]);
 
   const addXP = useCallback(async (amount) => {
     if (!learner) return null;
-    const now = new Date().toISOString();
-
-    if (isMemory()) {
-      const updated = {
-        ...store().learner,
-        total_xp: store().learner.total_xp + amount,
-        last_active_at: now,
-        updated_at: now,
-      };
-      store().learner = updated;
-      setLearner(updated);
-      console.log(`[DB/MEMORY] +${amount} XP. Total: ${updated.total_xp}`);
-      enqueue('learner', 'UPDATE', updated.id, updated);
-      return updated.total_xp;
-    }
-
-    // Mode SQLite natif
-    const { QUERIES } = require('./schema');
-    await db.runAsync(QUERIES.ADD_XP, [amount, now, learner.id]);
-    const updated = await db.getFirstAsync(QUERIES.GET_LEARNER);
+    const totalXp = await learnerRepo().addXP(learner, amount);
+    // Recharger le learner pour l'UI
+    const updated = await learnerRepo().get();
     setLearner(updated);
-    enqueue('learner', 'UPDATE', updated.id, updated);
-    return updated.total_xp;
-  }, [db, learner, enqueue]);
+    return totalXp;
+  }, [learner, learnerRepo]);
 
-  // ── Module Progress ───────────────────────────────────────────────────
-
+  // ── Progress ──────────────────────────────────────────────────────────
   const getProgress = useCallback(async (moduleId) => {
-    if (isMemory()) {
-      return store().progress[moduleId] || null;
-    }
-    const { QUERIES } = require('./schema');
-    return db.getFirstAsync(QUERIES.GET_MODULE_PROGRESS, [learner?.id, moduleId]);
-  }, [db, learner]);
+    return progressRepo().get(learner, moduleId);
+  }, [learner, progressRepo]);
 
   const getAllProgress = useCallback(async () => {
-    if (isMemory()) {
-      return Object.values(store().progress);
-    }
-    const { QUERIES } = require('./schema');
-    return db.getAllAsync(QUERIES.GET_ALL_PROGRESS, [learner?.id]);
-  }, [db, learner]);
+    return progressRepo().getAll(learner);
+  }, [learner, progressRepo]);
 
   const updateProgress = useCallback(async (moduleId, updates) => {
-    const now = new Date().toISOString();
-    const learnerId = learner?.id || store().learner?.id;
-    if (!learnerId) return null;
+    return progressRepo().update(learner, moduleId, updates);
+  }, [learner, progressRepo]);
 
-    if (isMemory()) {
-      const existing = store().progress[moduleId];
-      const id = existing?.id ?? `${learnerId}_${moduleId}`;
-
-      const merged = {
-        id,
-        learner_id: learnerId,
-        module_id: moduleId,
-        status:          updates.status          ?? existing?.status          ?? 'not_started',
-        current_lesson:  updates.current_lesson  ?? existing?.current_lesson  ?? 0,
-        lessons_done:    updates.lessons_done    ?? existing?.lessons_done    ?? 0,
-        total_xp_earned: updates.total_xp_earned ?? existing?.total_xp_earned ?? 0,
-        best_score:      Math.max(updates.best_score ?? 0, existing?.best_score ?? 0),
-        started_at:      updates.started_at      ?? existing?.started_at      ?? now,
-        completed_at:    updates.completed_at    ?? existing?.completed_at    ?? null,
-        updated_at: now,
-      };
-
-      store().progress[moduleId] = merged;
-      console.log(`[DB/MEMORY] Progress mis à jour: ${moduleId} → ${merged.status}`);
-      enqueue('module_progress', 'UPDATE', merged.id, merged);
-      return merged;
-    }
-
-    // Mode SQLite natif
-    const { QUERIES } = require('./schema');
-    const existing = await getProgress(moduleId);
-    const id = existing?.id ?? `${learnerId}_${moduleId}`;
-
-    const merged = {
-      id, learner_id: learnerId, module_id: moduleId,
-      status:          updates.status          ?? existing?.status          ?? 'not_started',
-      current_lesson:  updates.current_lesson  ?? existing?.current_lesson  ?? 0,
-      lessons_done:    updates.lessons_done    ?? existing?.lessons_done    ?? 0,
-      total_xp_earned: updates.total_xp_earned ?? existing?.total_xp_earned ?? 0,
-      best_score:      Math.max(updates.best_score ?? 0, existing?.best_score ?? 0),
-      started_at:      updates.started_at      ?? existing?.started_at      ?? null,
-      completed_at:    updates.completed_at    ?? existing?.completed_at    ?? null,
-    };
-
-    await db.runAsync(QUERIES.UPSERT_PROGRESS, [
-      merged.id, merged.learner_id, merged.module_id, merged.status,
-      merged.current_lesson, merged.lessons_done, merged.total_xp_earned,
-      merged.best_score, merged.started_at, merged.completed_at, now,
-    ]);
-    enqueue('module_progress', existing ? 'UPDATE' : 'INSERT', merged.id, merged);
-    return merged;
-  }, [db, learner, getProgress, enqueue]);
-
-  // ── Quiz Attempts ─────────────────────────────────────────────────────
-
-  const saveQuizAttempt = useCallback(async ({
-    moduleId, lessonIndex, score, answers, xpAwarded, passed
-  }) => {
-    const now = new Date().toISOString();
-    const learnerId = learner?.id || store().learner?.id;
-    if (!learnerId) return null;
-
-    const id = `qa_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
-    if (isMemory()) {
-      const previous = store().quizAttempts.filter(
-        a => a.learner_id === learnerId && a.module_id === moduleId && a.lesson_index === lessonIndex
-      );
-      const attemptNumber = previous.length + 1;
-
-      const attempt = {
-        id, learner_id: learnerId, module_id: moduleId,
-        lesson_index: lessonIndex, attempt_number: attemptNumber,
-        score, answers: JSON.stringify(answers), xp_awarded: xpAwarded,
-        passed: passed ? 1 : 0, completed_at: now,
-      };
-      store().quizAttempts.push(attempt);
-      console.log(`[DB/MEMORY] Quiz sauvé: ${moduleId}/L${lessonIndex} → ${Math.round(score * 100)}%`);
-      enqueue('quiz_attempt', 'INSERT', id, {
-        learner_id: learnerId, module_id: moduleId,
-        lesson_index: lessonIndex, score, answers,
-        xp_awarded: xpAwarded, passed: passed ? 1 : 0,
-        completed_at: now,
-      });
-      return id;
-    }
-
-    // Mode SQLite natif
-    const { QUERIES } = require('./schema');
-    const previous = await db.getAllAsync(QUERIES.GET_QUIZ_ATTEMPTS,
-      [learnerId, moduleId, lessonIndex]);
-    const attemptNumber = previous.length + 1;
-
-    await db.runAsync(QUERIES.INSERT_QUIZ_ATTEMPT, [
-      id, learnerId, moduleId, lessonIndex, attemptNumber,
-      score, JSON.stringify(answers), xpAwarded, passed ? 1 : 0, now,
-    ]);
-    enqueue('quiz_attempt', 'INSERT', id, {
-      learner_id: learnerId, module_id: moduleId,
-      lesson_index: lessonIndex, attempt_number: attemptNumber,
-      score, answers, xp_awarded: xpAwarded, passed: passed ? 1 : 0,
-      completed_at: now,
-    });
-    return id;
-  }, [db, learner, enqueue]);
+  // ── Quiz ──────────────────────────────────────────────────────────────
+  const saveQuizAttempt = useCallback(async (payload) => {
+    return progressRepo().saveQuizAttempt(learner, payload);
+  }, [learner, progressRepo]);
 
   // ── Badges ────────────────────────────────────────────────────────────
-
-  const issueBadge = useCallback(async ({ moduleId, moduleTitle, score, xpTotal }) => {
-    const learnerId = learner?.id || store().learner?.id;
-    if (!learnerId) return null;
-
-    const badge = generateBadge({
-      learnerId, learnerName: store().learner?.name || learner?.name,
-      moduleId, moduleTitle, score, xpTotal,
-    });
-
-    if (isMemory()) {
-      const badgeRow = {
-        id: badge.id, learner_id: learnerId, module_id: moduleId,
-        module_title: moduleTitle, score, xp_total: xpTotal,
-        badge_hash: badge.hash, qr_payload: badge.qrPayload,
-        blockchain_tx: null, issued_at: badge.issuedAt,
-        sync_status: 'pending',
-      };
-      store().badges.push(badgeRow);
-      console.log(`[DB/MEMORY] Badge émis: ${moduleTitle}`);
-      enqueue('badge', 'INSERT', badge.id, {
-        learner_id: learnerId, module_id: moduleId,
-        module_title: moduleTitle, score, xp_total: xpTotal,
-        badge_hash: badge.hash, qr_payload: badge.qrPayload,
-        issued_at: badge.issuedAt,
-      });
-      return badge;
-    }
-
-    // Mode SQLite natif
-    const { QUERIES } = require('./schema');
-    await db.runAsync(QUERIES.INSERT_BADGE, [
-      badge.id, learnerId, moduleId, moduleTitle,
-      score, xpTotal, badge.hash, badge.qrPayload,
-      null, badge.issuedAt,
-    ]);
-    enqueue('badge', 'INSERT', badge.id, {
-      learner_id: learnerId, module_id: moduleId,
-      module_title: moduleTitle, score, xp_total: xpTotal,
-      badge_hash: badge.hash, qr_payload: badge.qrPayload,
-      issued_at: badge.issuedAt,
-    });
-    return badge;
-  }, [db, learner, enqueue]);
+  const issueBadge = useCallback(async (payload) => {
+    return badgeRepo().issue(learner, payload);
+  }, [learner, badgeRepo]);
 
   const getAllBadges = useCallback(async () => {
-    if (isMemory()) {
-      return store().badges.slice().reverse();
-    }
-    const { QUERIES } = require('./schema');
-    return db.getAllAsync(QUERIES.GET_ALL_BADGES, [learner?.id]);
-  }, [db, learner]);
+    return badgeRepo().getAll(learner);
+  }, [learner, badgeRepo]);
 
   // ── Gamification (v2) ─────────────────────────────────────────────────
-  // Helpers exposés au module src/gamification/index.js via le contexte.
-  // Ces méthodes lisent/écrivent dans streak_log, achievement, daily_goal.
-
-  /** Exécute une requête préparée par nom (natif) ou renvoie null (mémoire). */
   const runAsync = useCallback(async (queryName, params = []) => {
-    if (isMemory()) return null;
-    const { QUERIES } = require('./schema');
-    const sql = QUERIES[queryName];
-    if (!sql) throw new Error(`Query inconnue: ${queryName}`);
-    return db.runAsync(sql, params);
-  }, [db]);
+    return gamificationRepo().runAsync(queryName, params);
+  }, [gamificationRepo]);
 
-  /** Récupère la première ligne d'une requête par nom. */
   const getFirst = useCallback(async (queryName, params = []) => {
-    if (isMemory()) {
-      // Émulations minimales pour le mode mémoire
-      const s = store();
-      if (queryName === 'GET_TODAY_LOG' || queryName === 'GET_STREAK_LOG') {
-        const [lid, date] = params;
-        const log = s.streakLogs[date];
-        return log ? { ...log, learner_id: lid, activity_date: date } : null;
-      }
-      if (queryName === 'COUNT_PASSED_QUIZZES') return { cnt: s.quizAttempts.filter(a => a.passed).length };
-      if (queryName === 'COUNT_PERFECT_QUIZZES') return { cnt: s.quizAttempts.filter(a => a.score >= 1.0).length };
-      if (queryName === 'COUNT_STARTED_MODULES') return { cnt: Object.values(s.progress).filter(p => p.status !== 'not_started').length };
-      if (queryName === 'COUNT_COMPLETED_MODULES') return { cnt: Object.values(s.progress).filter(p => p.status === 'completed').length };
-      return null;
-    }
-    const { QUERIES } = require('./schema');
-    const sql = QUERIES[queryName];
-    if (!sql) throw new Error(`Query inconnue: ${queryName}`);
-    return db.getFirstAsync(sql, params);
-  }, [db]);
+    return gamificationRepo().getFirst(queryName, params);
+  }, [gamificationRepo]);
 
-  /** Liste les clés d'achievements débloqués. */
   const getAchievements = useCallback(async () => {
-    if (isMemory()) {
-      return store().achievements.map(a => a.achievement_key);
-    }
-    const { QUERIES } = require('./schema');
-    const rows = await db.getAllAsync(QUERIES.GET_ACHIEVEMENTS, [learner?.id]);
-    return rows.map(r => r.achievement_key);
-  }, [db, learner]);
+    return gamificationRepo().getAchievements(learner);
+  }, [learner, gamificationRepo]);
 
-  /** Récupère l'objectif quotidien. */
   const getDailyGoal = useCallback(async () => {
-    if (isMemory()) return store().dailyGoal;
-    const { QUERIES } = require('./schema');
-    const row = await db.getFirstAsync(QUERIES.GET_DAILY_GOAL, [learner?.id]);
-    return row;
-  }, [db, learner]);
+    return gamificationRepo().getDailyGoal(learner);
+  }, [learner, gamificationRepo]);
 
-  /** Définit l'objectif quotidien. */
   const setDailyGoal = useCallback(async (goalType, target) => {
-    const now = new Date().toISOString();
-    if (isMemory()) {
-      store().dailyGoal = { goal_type: goalType, goal_target: target, enabled: 1, updated_at: now };
-      return;
-    }
-    const { QUERIES } = require('./schema');
-    const id = `goal_${learner?.id}`;
-    await db.runAsync(QUERIES.UPSERT_DAILY_GOAL, [id, learner?.id, goalType, target, 1, now]);
-    enqueue('daily_goal', 'UPDATE', id, { learner_id: learner?.id, goal_type: goalType, goal_target: target, enabled: 1, updated_at: now });
-  }, [db, learner, enqueue]);
+    return gamificationRepo().setDailyGoal(learner, goalType, target);
+  }, [learner, gamificationRepo]);
 
   /**
    * Enregistre une leçon complétée et déclenche toute la gamification.
    * Wrapper autour de src/gamification/index.js::recordLessonCompleted.
-   * @returns {Promise<Object>} { streak, newAchievements, goalMet, ... }
    */
   const recordLessonCompleted = useCallback(async (payload) => {
     const gamification = require('../gamification');
@@ -456,59 +228,34 @@ export function DbProvider({ children }) {
   }, [learner, getFirst, getAllProgress, getAchievements, getDailyGoal]);
 
   // ── Sync helpers (exposés pour SyncEngine) ────────────────────────────
-
   const getPendingQueue = useCallback(async () => {
-    if (isMemory()) return store().syncQueue.slice(0, 50);
-    const { QUERIES } = require('./schema');
-    return db.getAllAsync(QUERIES.GET_PENDING_QUEUE);
-  }, [db]);
+    return getSyncRepo().getPendingQueue();
+  }, [getSyncRepo]);
 
   const removeFromQueue = useCallback(async (queueId) => {
-    if (isMemory()) {
-      store().syncQueue = store().syncQueue.filter(s => s.id !== queueId);
-      return;
-    }
-    const { QUERIES } = require('./schema');
-    await db.runAsync(QUERIES.DELETE_FROM_QUEUE, [queueId]);
-  }, [db]);
+    return getSyncRepo().removeFromQueue(queueId);
+  }, [getSyncRepo]);
 
   const incrementRetry = useCallback(async (queueId, errorMsg) => {
-    if (isMemory()) {
-      const item = store().syncQueue.find(s => s.id === queueId);
-      if (item) { item.retry_count = (item.retry_count || 0) + 1; item.last_error = errorMsg; }
-      return;
-    }
-    const { QUERIES } = require('./schema');
-    await db.runAsync(QUERIES.INCREMENT_RETRY, [errorMsg, queueId]);
-  }, [db]);
+    return getSyncRepo().incrementRetry(queueId, errorMsg);
+  }, [getSyncRepo]);
 
   const updateBadgeTx = useCallback(async (badgeId, txHash) => {
-    if (isMemory()) {
-      const b = store().badges.find(b => b.id === badgeId);
-      if (b) b.blockchain_tx = txHash;
-      return;
-    }
-    const { QUERIES } = require('./schema');
-    await db.runAsync(QUERIES.UPDATE_BADGE_TX, [txHash, badgeId]);
-  }, [db]);
+    return badgeRepo().updateTx(badgeId, txHash);
+  }, [badgeRepo]);
 
   const getSyncMeta = useCallback(async (key) => {
-    if (isMemory()) return store().syncMeta[key] ?? null;
-    const { QUERIES } = require('./schema');
-    const row = await db.getFirstAsync(QUERIES.GET_META, [key]);
-    return row?.value ?? null;
-  }, [db]);
+    return getSyncRepo().getMeta(key);
+  }, [getSyncRepo]);
 
   const setSyncMeta = useCallback(async (key, value) => {
-    if (isMemory()) { store().syncMeta[key] = String(value); return; }
-    const { QUERIES } = require('./schema');
-    await db.runAsync(QUERIES.SET_META, [key, String(value)]);
-  }, [db]);
+    return getSyncRepo().setMeta(key, value);
+  }, [getSyncRepo]);
 
   // ── Reset (utile pour déconnexion / tests) ────────────────────────────
   const resetAll = useCallback(async () => {
-    if (isMemory()) {
-      store().reset();
+    if (!db) {
+      storeRef.current.reset();
       setLearner(null);
       return;
     }
