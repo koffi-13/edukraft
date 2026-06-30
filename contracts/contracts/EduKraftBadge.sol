@@ -35,6 +35,12 @@ contract EduKraftBadge is ERC721, ERC721URIStorage, Ownable {
     // Compteur de badges par apprenant (par hash de learner)
     mapping(string => uint256) public learnerBadgeCount;
 
+    // ── Index inverse certHash → tokenId (O(1) lookup) ──────────────────────
+    // Corrige le O(n) linéaire de verifyCertHash. À l'échelle (10 000+ badges),
+    // la boucle originale consommait tout le gas disponible. Ce mapping permet
+    // une vérification en temps constant, indépendamment du nombre de badges.
+    mapping(bytes32 => uint256) private _certHashToTokenId;
+
     // Adresse autorisée à minter (le backend API)
     address public minter;
 
@@ -95,6 +101,13 @@ contract EduKraftBadge is ERC721, ERC721URIStorage, Ownable {
         require(score <= 100, "Score doit etre entre 0 et 100");
         require(bytes(certHash).length > 0, "CertHash requis");
 
+        // ── Anti-doublon : un certHash ne peut être minté qu'une fois ──────
+        // Sécurité additionnelle apportée par l'index inverse : sans cette
+        // vérification, un bug backend pourrait minte deux badges pour le
+        // même certHash, rendant verifyCertHash ambigu.
+        bytes32 hashKey = keccak256(bytes(certHash));
+        require(_certHashToTokenId[hashKey] == 0, "CertHash deja existant");
+
         tokenId = _nextTokenId++;
         _safeMint(to, tokenId);
 
@@ -106,6 +119,9 @@ contract EduKraftBadge is ERC721, ERC721URIStorage, Ownable {
             issuedAt:    block.timestamp,
             certHash:    certHash
         });
+
+        // Alimenter l'index inverse pour verifyCertHash O(1)
+        _certHashToTokenId[hashKey] = tokenId;
 
         learnerBadgeCount[learnerName]++;
 
@@ -125,16 +141,16 @@ contract EduKraftBadge is ERC721, ERC721URIStorage, Ownable {
     }
 
     /**
-     * @notice Vérifie si un certHash correspond à un token existant
+     * @notice Vérifie si un certHash correspond à un token existant (O(1))
+     * @dev Utilise le mapping inverse _certHashToTokenId. Complexité constante
+     *      indépendamment du nombre de badges mintés. L'ancienne version O(n)
+     *      itérait sur tous les tokens — à 10 000+ badges, elle dépassait la
+     *      limite de gas d'un view call et devenait inutilisable.
+     * @param certHash Le hash SHA-256 de certification à vérifier
      * @return tokenId Le token ID trouvé, ou 0 si non trouvé
      */
     function verifyCertHash(string calldata certHash) external view returns (uint256) {
-        for (uint256 i = 1; i < _nextTokenId; i++) {
-            if (keccak256(bytes(badges[i].certHash)) == keccak256(bytes(certHash))) {
-                return i;
-            }
-        }
-        return 0;
+        return _certHashToTokenId[keccak256(bytes(certHash))];
     }
 
     // ── Internal ────────────────────────────────────────────────────────────
