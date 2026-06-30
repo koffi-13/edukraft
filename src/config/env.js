@@ -1,35 +1,39 @@
 // src/config/env.js
 // Configuration centralisée de l'application EduKraft
 //
-// En mode développement : utilise EXPO_PUBLIC_API_URL ou localhost
-// En production : injecté via EAS build environment variables
-//
 // ⚠️ API_BASE doit pointer vers l'ORIGINE du serveur (sans suffixe de chemin).
 //    Les routes serveur sont toutes préfixées /api/* (ex: /api/sync, /api/auth/login).
 //    Les appelants ajoutent eux-mêmes le /api/... approprié.
 //
-// ⚠️ Web : sur plateforme web, API_BASE est TOUJOURS '' (vide) → URLs relatives.
-//    Les appels fetch('/api/...') vont sur la MÊME origine que la page web,
-//    ce qui permet à un reverse-proxy (Next.js/Caddy) de router vers le backend.
-//    EXPO_PUBLIC_API_URL est IGNORÉ sur web (même si défini dans .env) car
-//    le .env est partagé entre plateformes et l'IP LAN configurée pour le
-//    téléphone ne marcherait pas depuis un navigateur (CORS / accessibilité).
+// Résolution de API_BASE (par ordre de priorité) :
+//   1. EXPO_PUBLIC_API_URL (si défini ET non vide dans .env) — URL absolue
+//   2. Défaut selon plateforme :
+//      - web derrière proxy (Next.js port 3000) : '' (URL relative)
+//      - web standalone (npx expo start --web, port 8081) : http://localhost:3001
+//      - Android émulateur : http://10.0.2.2:3001
+//      - prod : https://api.edukraft.tg
 
 import { Platform } from 'react-native';
 
 const isWeb = Platform.OS === 'web';
 
-let API_BASE;
-if (isWeb) {
-  // Web : toujours URL relative (reverse proxy gère le routing)
-  API_BASE = '';
-} else {
-  // Natif (Android/iOS) : EXPO_PUBLIC_API_URL ou défaut selon l'environnement
-  const _apiBaseFromEnv = process.env.EXPO_PUBLIC_API_URL;
-  API_BASE = _apiBaseFromEnv !== undefined
-    ? _apiBaseFromEnv
-    : (__DEV__ ? 'http://10.0.2.2:3001' : 'https://api.edukraft.tg');
+function resolveApiBase() {
+  // 1. Variable d'environnement explicite (priorité maximale)
+  const fromEnv = process.env.EXPO_PUBLIC_API_URL;
+  if (fromEnv && fromEnv.trim() !== '') return fromEnv.trim();
+
+  // 2. Défaut selon plateforme
+  if (isWeb) {
+    // Détecter si on est derrière un proxy (Next.js sur port 3000)
+    if (typeof window !== 'undefined' && window.location && window.location.port === '3000') {
+      return '';  // proxy Next.js détecté
+    }
+    return 'http://localhost:3001';
+  }
+  return __DEV__ ? 'http://10.0.2.2:3001' : 'https://api.edukraft.tg';
 }
+
+const API_BASE = resolveApiBase();
 
 const ENV = {
   // ── API ───────────────────────────────────────────────────────────────────

@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useFocusEffect } from '@react-navigation/native';
 import { Colors, Typography, Spacing, Radius, Shadow, getLevel } from '../theme';
 import { useDb }              from '../database/DbProvider';
 import { MODULES } from '../content/moduleRegistry';
@@ -37,6 +38,13 @@ export default function DashboardScreen({ navigation }) {
   }, [getAllProgress, getGamificationState]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Recharger quand le Dashboard revient au premier plan (après un quiz par ex.)
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -202,7 +210,7 @@ export default function DashboardScreen({ navigation }) {
                   <Text style={[styles.ctaText, { color: module.color || Colors.primary }]}>
                     {status === 'not_started' ? t('module.start')
                       : status === 'completed' ? '✓ ' + t('module.completed')
-                      : t('module.resume')} →
+                      : t('module.resume')} >
                   </Text>
                 </View>
               </View>

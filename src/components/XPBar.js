@@ -46,7 +46,7 @@ export default function XPBar({ xp, compact = false }) {
           <Text style={styles.xpValue}>{xp} {t('dashboard.xp_label')}</Text>
         </View>
         {next && (
-          <Text style={styles.nextLabel}>{next.minXP - xp} XP → N{next.level}</Text>
+          <Text style={styles.nextLabel}>{next.minXP - xp} XP {">"} N{next.level}</Text>
         )}
       </View>
       <View style={styles.track}>

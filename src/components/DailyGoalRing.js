@@ -28,8 +28,8 @@ export default function DailyGoalRing({ goal, todayValue, onPress }) {
   }, [progress]);
 
   const goalMet = progress >= 1;
-  const size = 88;
-  const strokeWidth = 8;
+  const size = 72;
+  const strokeWidth = 7;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
 
@@ -129,7 +129,8 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
+    gap: Spacing.sm,
+    overflow: "hidden",
   },
   ringWrap: {
     position: 'relative',
@@ -156,7 +157,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.tiny,
     color: Colors.ink30,
   },
-  info: { flex: 1, gap: 2 },
+  info: { flex: 1, flexShrink: 1, gap: 2 },
   label: {
     fontSize: Typography.body,
     fontWeight: Typography.semibold,
@@ -177,7 +178,8 @@ const styles = StyleSheet.create({
   emptyContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
+    gap: Spacing.sm,
+    overflow: "hidden",
   },
   emptyIcon: { fontSize: 28 },
   emptyText: { flex: 1 },

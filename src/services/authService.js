@@ -60,7 +60,7 @@ const KEYS = {
 // Sur web, ENV.API_BASE peut être '' (vide) → URLs relatives (reverse proxy).
 // On garde un strip de /v1 par sécurité au cas où un opérateur configure
 // EXPO_PUBLIC_API_URL avec un suffixe /v1.
-const AUTH_BASE = (ENV.API_BASE !== undefined ? ENV.API_BASE : 'http://10.0.2.2:3001').replace(/\/v1\/?$/, '');
+const AUTH_BASE = (ENV.API_BASE || 'http://localhost:3001').replace(/\/v1\/?$/, '');
 
 // ── Gestion du refresh en cours (anti-boucle) ────────────────────────────────
 let refreshPromise = null;

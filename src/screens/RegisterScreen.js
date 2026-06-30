@@ -168,9 +168,11 @@ export default function RegisterScreen({ navigation }) {
   return (
     <KeyboardAvoidingView
       style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      enabled={Platform.OS !== 'web'}
     >
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={[styles.scroll, {
           paddingTop: insets.top + 32,
           paddingBottom: insets.bottom + 32,
