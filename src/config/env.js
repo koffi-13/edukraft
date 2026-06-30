@@ -8,21 +8,28 @@
 //    Les routes serveur sont toutes préfixées /api/* (ex: /api/sync, /api/auth/login).
 //    Les appelants ajoutent eux-mêmes le /api/... approprié.
 //
-// ⚠️ Web : sur plateforme web, API_BASE default = '' (vide) → URLs relatives.
+// ⚠️ Web : sur plateforme web, API_BASE est TOUJOURS '' (vide) → URLs relatives.
 //    Les appels fetch('/api/...') vont sur la MÊME origine que la page web,
 //    ce qui permet à un reverse-proxy (Next.js/Caddy) de router vers le backend.
+//    EXPO_PUBLIC_API_URL est IGNORÉ sur web (même si défini dans .env) car
+//    le .env est partagé entre plateformes et l'IP LAN configurée pour le
+//    téléphone ne marcherait pas depuis un navigateur (CORS / accessibilité).
 
 import { Platform } from 'react-native';
 
 const isWeb = Platform.OS === 'web';
-const DEFAULT_API_BASE = isWeb
-  ? ''   // web : URLs relatives (reverse proxy)
-  : (__DEV__ ? 'http://10.0.2.2:3001' : 'https://api.edukraft.tg');
 
-// Si EXPO_PUBLIC_API_URL est défini (même vide), on l'utilise tel quel.
-// Sinon, on prend le défaut selon la plateforme.
-const _apiBaseFromEnv = process.env.EXPO_PUBLIC_API_URL;
-const API_BASE = _apiBaseFromEnv !== undefined ? _apiBaseFromEnv : DEFAULT_API_BASE;
+let API_BASE;
+if (isWeb) {
+  // Web : toujours URL relative (reverse proxy gère le routing)
+  API_BASE = '';
+} else {
+  // Natif (Android/iOS) : EXPO_PUBLIC_API_URL ou défaut selon l'environnement
+  const _apiBaseFromEnv = process.env.EXPO_PUBLIC_API_URL;
+  API_BASE = _apiBaseFromEnv !== undefined
+    ? _apiBaseFromEnv
+    : (__DEV__ ? 'http://10.0.2.2:3001' : 'https://api.edukraft.tg');
+}
 
 const ENV = {
   // ── API ───────────────────────────────────────────────────────────────────

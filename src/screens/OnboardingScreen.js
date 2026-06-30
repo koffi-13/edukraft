@@ -33,7 +33,13 @@ export default function OnboardingScreen() {
         try { await setDailyGoal('lessons', 1); } catch (_) {}
       }
     } catch (e) {
-      Alert.alert('Erreur', 'Impossible de créer ton profil. Réessaie.');
+      console.error('[Onboarding] createLearner error:', e);
+      Alert.alert(
+        'Erreur',
+        'Impossible de créer ton profil.\n\n' +
+        'Détail : ' + (e.message || e) + '\n\n' +
+        'Si l\'erreur persiste, redémarre l\'app avec : npx expo start --clear',
+      );
     } finally {
       setLoading(false);
     }
