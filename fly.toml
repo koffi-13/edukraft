@@ -1,0 +1,27 @@
+# Fly.io configuration for EduKraft backend
+# IMPORTANT : ce fichier doit être à la RACINE du projet (pas dans server/)
+# car flyctl deploy est lancé depuis la racine.
+# Le Dockerfile est dans server/ et ne copie QUE les fichiers du backend.
+
+app = "edukraft"
+primary_region = "cdg"
+
+[build]
+  dockerfile = "server/Dockerfile"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+
+[mounts]
+  source = "edukraft_data"
+  destination = "/data"
+
+[env]
+  PORT = "8080"
+  DB_PATH = "/data/edukraft.db"
+  NODE_ENV = "production"
+  CORS_ORIGINS = "*"
