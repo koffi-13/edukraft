@@ -146,7 +146,12 @@ export function AuthProvider({ children }) {
   }, [handleAuthSuccess]);
 
   const skip = useCallback(async () => {
-    await authService.skip();
+    try {
+      await authService.skip();
+    } catch (e) {
+      console.warn('[Auth] skip storage error (non-fatal):', e.message);
+    }
+    // Même si le stockage échoue, on active le mode hors-ligne en mémoire
     setSkipAuth(true);
     setUser(null);
     setError(null);
