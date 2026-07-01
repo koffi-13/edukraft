@@ -1,0 +1,12 @@
+node_modules/
+data/
+.env
+.env.local
+*.log
+npm-debug.log*
+.git/
+.gitignore
+*.md
+README.md
+test-*.js
+run-e2e.sh
