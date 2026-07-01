@@ -463,7 +463,7 @@ app.patch('/api/learners/:clientId/profile', (req, res) => {
 
     const allowedFields = [
       'first_name', 'last_name', 'gender', 'birth_date', 'education_level',
-      'country', 'state', 'city', 'address', 'email', 'photo_url', 'bio', 'profession'
+      'country', 'state', 'city', 'address', 'email', 'phone', 'photo_url', 'bio', 'profession'
     ];
     const updates = {};
     for (const f of allowedFields) {

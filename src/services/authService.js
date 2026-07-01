@@ -14,12 +14,12 @@
 //   loginApple({identityToken, authorizationCode})
 //   loginFacebook(accessToken)
 //   loginPhone({phone, action, code?})
-//   me()                       → récupère l'utilisateur courant
-//   refresh()                  → rotation du refresh token
-//   logout()                   → révoque les tokens serveur + clear local
-//   skip()                     → mode hors-ligne sans compte
-//   getStoredAuth()            → {user, accessToken, skipAuth} depuis le storage
-//   authHeader()               → {Authorization: 'Bearer xxx'} ou {}
+//   me()                       > récupère l'utilisateur courant
+//   refresh()                  > rotation du refresh token
+//   logout()                   > révoque les tokens serveur + clear local
+//   skip()                     > mode hors-ligne sans compte
+//   getStoredAuth()            > {user, accessToken, skipAuth} depuis le storage
+//   authHeader()               > {Authorization: 'Bearer xxx'} ou {}
 //   authenticatedFetch(url, opts)
 
 import ENV from '../config/env';
@@ -57,7 +57,7 @@ const KEYS = {
 
 // ── Base URL ─────────────────────────────────────────────────────────────────
 // ENV.API_BASE pointe vers l'origine du serveur (ex: http://10.0.2.2:3001).
-// Sur web, ENV.API_BASE peut être '' (vide) → URLs relatives (reverse proxy).
+// Sur web, ENV.API_BASE peut être '' (vide) > URLs relatives (reverse proxy).
 // On garde un strip de /v1 par sécurité au cas où un opérateur configure
 // EXPO_PUBLIC_API_URL avec un suffixe /v1.
 const AUTH_BASE = (ENV.API_BASE || 'http://localhost:3001').replace(/\/v1\/?$/, '');
@@ -138,7 +138,7 @@ async function authFetch(url, options = {}) {
 
   let response = await fetch(url, { ...options, headers });
 
-  // Si 401 et qu'on a un refresh token → tenter le refresh puis retry
+  // Si 401 et qu'on a un refresh token > tenter le refresh puis retry
   if (response.status === 401 && !options._retried) {
     const { refreshToken } = await getStoredAuth();
     if (refreshToken) {
@@ -160,7 +160,7 @@ async function authFetch(url, options = {}) {
           _retried: true,
         });
       } catch (_refreshErr) {
-        // Refresh échoué → déconnexion
+        // Refresh échoué > déconnexion
         await clearAll();
         throw new AuthenticationError('Session expirée', 'SESSION_EXPIRED');
       }
@@ -284,7 +284,7 @@ export async function loginPhone({ phone, action, code }) {
   });
   const data = await parseResponse(response);
   if (data.success && data.data) {
-    // En mode verify, on reçoit les tokens → on les stocke
+    // En mode verify, on reçoit les tokens > on les stocke
     if (action === 'verify' && data.data.accessToken) {
       await saveAuth(data.data);
     }
@@ -304,7 +304,7 @@ export async function me() {
   throw new AuthenticationError(data.error || 'Utilisateur introuvable');
 }
 
-/** Rotation du refresh token → nouveaux tokens */
+/** Rotation du refresh token > nouveaux tokens */
 export async function refresh() {
   const { refreshToken } = await getStoredAuth();
   if (!refreshToken) {
@@ -320,7 +320,7 @@ export async function refresh() {
     await saveAuth(data.data);
     return data.data;
   }
-  // Refresh échoué → nettoyer
+  // Refresh échoué > nettoyer
   await clearAll();
   throw new AuthenticationError(data.error || 'Refresh échoué', 'REFRESH_FAILED');
 }

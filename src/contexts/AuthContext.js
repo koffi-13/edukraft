@@ -8,9 +8,9 @@
 //
 // Au montage :
 //   1. Lit les tokens depuis expo-secure-store (ou fallback mémoire)
-//   2. Si un access token existe → GET /api/auth/me pour valider et récupérer le user
-//   3. Si skipAuth est actif → mode hors-ligne (pas de token)
-//   4. Sinon → user = null (l'utilisateur devra se connecter)
+//   2. Si un access token existe > GET /api/auth/me pour valider et récupérer le user
+//   3. Si skipAuth est actif > mode hors-ligne (pas de token)
+//   4. Sinon > user = null (l'utilisateur devra se connecter)
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import * as authService from '../services/authService';
@@ -41,13 +41,13 @@ export function AuthProvider({ children }) {
           return;
         }
 
-        // Session existante → valider via /me
+        // Session existante > valider via /me
         if (stored.accessToken) {
           try {
             const freshUser = await authService.me();
             setUser(freshUser);
           } catch (err) {
-            // Token invalide/expiré et refresh échoué → déconnecté
+            // Token invalide/expiré et refresh échoué > déconnecté
             // (authService.me() tente déjà le refresh automatique)
             console.warn('[Auth] Session invalide:', err.message);
             setUser(null);
@@ -134,7 +134,7 @@ export function AuthProvider({ children }) {
     setError(null);
     try {
       const data = await authService.loginPhone(params);
-      // En mode "send", on ne reçoit pas de user → pas de handleAuthSuccess
+      // En mode "send", on ne reçoit pas de user > pas de handleAuthSuccess
       if (params.action === 'verify' && data.user) {
         handleAuthSuccess(data);
       }

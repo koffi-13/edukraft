@@ -89,19 +89,21 @@ export default function AchievementsScreen({ navigation }) {
   const currentGoal = state.goal;
 
   return (
-    <ScrollView
-      style={[styles.root, { paddingTop: insets.top, flex: 1 }]}
-      contentContainerStyle={{ paddingBottom: insets.bottom + 40, flexGrow: 1 }}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Header */}
-      <View style={styles.header}>
+    <View style={[styles.root, { paddingTop: insets.top }]}>
+      {/* Header fixe (sticky) */}
+      <View style={styles.stickyHeader}>
         <TouchableOpacity onPress={() => navigation?.goBack()}>
           <Text style={styles.backText}>{t('common.back')}</Text>
         </TouchableOpacity>
         <Text style={styles.title}>{t('gamification.screen_title')}</Text>
         <View style={{ width: 50 }} />
       </View>
+
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={{ paddingBottom: insets.bottom + 40, flexGrow: 1 }}
+      showsVerticalScrollIndicator={false}
+    >
 
       {/* Streak résumé */}
       <View style={styles.section}>
@@ -195,11 +197,22 @@ export default function AchievementsScreen({ navigation }) {
         </Text>
       </View>
     </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background },
+  stickyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

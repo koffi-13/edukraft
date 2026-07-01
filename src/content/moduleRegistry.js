@@ -11,7 +11,7 @@ import transformationAgro from './modules/transformation_agroalimentaire.json';
 import communityManager from './modules/community_manager.json';
 import agentMobileMoney from './modules/agent_mobile_money.json';
 
-// ── Transformation JSON riche → structure plate compatible Dashboard ─────
+// ── Transformation JSON riche > structure plate compatible Dashboard ─────
 function normalizeModule(json) {
   return {
     // Champs plate (utilisés par le Dashboard)

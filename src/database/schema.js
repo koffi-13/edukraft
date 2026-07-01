@@ -153,8 +153,8 @@ INSERT OR IGNORE INTO sync_meta (key, value) VALUES
   ('sync_cursor',    '0');
 `;
 
-// ── Migration v1 → v2 : ajoute les colonnes gamification au learner ─────────
-// SQLite ne supporte pas ADD COLUMN IF NOT EXISTS → DbProvider exécute chaque
+// ── Migration v1 > v2 : ajoute les colonnes gamification au learner ─────────
+// SQLite ne supporte pas ADD COLUMN IF NOT EXISTS > DbProvider exécute chaque
 // ALTER dans un try/catch (idempotent : une colonne déjà existante lève une
 // erreur qui est ignorée). Chaque instruction doit être lancée séparément.
 export const MIGRATE_LEARNER_V2 = [
@@ -164,7 +164,7 @@ export const MIGRATE_LEARNER_V2 = [
   'ALTER TABLE learner ADD COLUMN total_lessons_done INTEGER DEFAULT 0',
 ];
 
-// ── Migration v1 → v1.1 : ajoute les colonnes du profil étendu au learner ────
+// ── Migration v1 > v1.1 : ajoute les colonnes du profil étendu au learner ────
 export const MIGRATE_LEARNER_V3 = [
   'ALTER TABLE learner ADD COLUMN first_name TEXT',
   'ALTER TABLE learner ADD COLUMN last_name TEXT',

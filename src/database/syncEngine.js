@@ -7,7 +7,7 @@
 // Flux :
 //   1. Chaque écriture locale (DbProvider) enqueue dans sync_queue
 //   2. Ce moteur vérifie la file toutes les 30s quand online
-//   3. Envoie un batch → le serveur traite et renvoie les résultats
+//   3. Envoie un batch > le serveur traite et renvoie les résultats
 //   4. Pour les badges : récupère le tx hash blockchain du serveur
 //   5. Supprime les entrées syncées de la file
 
@@ -61,7 +61,7 @@ export function useSyncEngine() {
         return;
       }
 
-      console.log(`[Sync] ${queue.length} opération(s) en attente → envoi batch`);
+      console.log(`[Sync] ${queue.length} opération(s) en attente > envoi batch`);
 
       // Préparer le batch
       const operations = queue.map(item => ({

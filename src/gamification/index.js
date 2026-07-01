@@ -4,7 +4,7 @@
 // Flux principal : recordLessonCompleted(db, ctx, payload)
 //   1. Met à jour le streak (avec gels si besoin)
 //   2. Enregistre l'activité dans streak_log
-//   3. Évalue les achievements → débloque les nouveaux
+//   3. Évalue les achievements > débloque les nouveaux
 //   4. Retourne un résumé { streak, freezes, newAchievements, goalMet, ... }
 //      que l'UI peut utiliser pour une célébration discrète.
 //

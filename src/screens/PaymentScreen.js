@@ -103,7 +103,7 @@ export default function PaymentScreen({ route, navigation }) {
           setCurrentPayment(null);
           return;
         }
-        // Encore pending → re-poll
+        // Encore pending > re-poll
         if (attempt < maxAttempts) {
           setTimeout(poll, 3000);
         } else {

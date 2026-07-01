@@ -103,15 +103,17 @@ export default function BadgeWalletScreen() {
           </View>
         )}
 
-        {/* Badge list */}
-        {badges.map((badge) => (
-          <BadgeListItem
-            key={badge.id}
-            badge={badge}
-            onPress={() => setSelected(badge)}
-            onShare={() => handleShare(badge)}
-          />
-        ))}
+        {/* Badge grid (2 colonnes) */}
+        <View style={styles.badgeGrid}>
+          {badges.map((badge) => (
+            <BadgeListItem
+              key={badge.id}
+              badge={badge}
+              onPress={() => setSelected(badge)}
+              onShare={() => handleShare(badge)}
+            />
+          ))}
+        </View>
 
         {/* Info blockchain */}
         {badges.length > 0 && (
@@ -146,7 +148,7 @@ export default function BadgeWalletScreen() {
   );
 }
 
-// ── BadgeListItem ──────────────────────────────────────────────────────────────
+// ── BadgeListItem (carte compacte pour grille 2 colonnes) ──────────────────────
 function BadgeListItem({ badge, onPress, onShare }) {
   const tier      = getBadgeTier(badge.score);
   const isPending = badge.sync_status === 'pending';
@@ -158,34 +160,34 @@ function BadgeListItem({ badge, onPress, onShare }) {
       onPress={onPress}
       activeOpacity={0.88}
     >
+      {/* Share bouton flottant */}
+      <TouchableOpacity onPress={onShare} style={styles.shareBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <Text style={styles.shareIcon}>↗</Text>
+      </TouchableOpacity>
+
       {/* Tier icon */}
       <View style={[styles.tierCircle, { backgroundColor: tier.color + '22' }]}>
         <Text style={styles.tierEmoji}>{tier.emoji}</Text>
       </View>
 
-      {/* Info */}
-      <View style={styles.listInfo}>
-        <Text style={styles.listTitle} numberOfLines={1}>{badge.module_title}</Text>
-        <Text style={styles.listMeta}>
-          {formatDate(badge.issued_at)} · {badge.xp_total} XP
-        </Text>
-        <View style={styles.listBottom}>
-          <View style={[styles.scorePill, { backgroundColor: tier.color + '22' }]}>
-            <Text style={[styles.scorePillText, { color: tier.color }]}>{score}%</Text>
-          </View>
-          <View style={[styles.chainPill, { backgroundColor: isPending ? Colors.amberLight : Colors.tealLight }]}>
-            <View style={[styles.chainDot, { backgroundColor: isPending ? Colors.amber : Colors.teal }]} />
-            <Text style={[styles.chainPillText, { color: isPending ? Colors.amber : Colors.teal }]}>
-              {isPending ? 'Sync en attente' : 'Certifié Polygon'}
-            </Text>
-          </View>
+      {/* Title */}
+      <Text style={styles.listTitle} numberOfLines={2}>{badge.module_title}</Text>
+
+      {/* Score + XP inline */}
+      <View style={styles.listBottom}>
+        <View style={[styles.scorePill, { backgroundColor: tier.color + '22' }]}>
+          <Text style={[styles.scorePillText, { color: tier.color }]}>{score}%</Text>
         </View>
+        <Text style={styles.listXP}>+{badge.xp_total} XP</Text>
       </View>
 
-      {/* Share */}
-      <TouchableOpacity onPress={onShare} style={styles.shareBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Text style={styles.shareIcon}>↗</Text>
-      </TouchableOpacity>
+      {/* Statut blockchain compact */}
+      <View style={[styles.chainPill, { backgroundColor: isPending ? Colors.amberLight : Colors.tealLight }]}>
+        <View style={[styles.chainDot, { backgroundColor: isPending ? Colors.amber : Colors.teal }]} />
+        <Text style={[styles.chainPillText, { color: isPending ? Colors.amber : Colors.teal }]} numberOfLines={1}>
+          {isPending ? 'Sync en attente' : 'Certifié Polygon'}
+        </Text>
+      </View>
     </TouchableOpacity>
   );
 }
@@ -352,26 +354,26 @@ const styles = StyleSheet.create({
   emptyText:   { fontSize: Typography.body, color: Colors.ink60, textAlign: 'center', lineHeight: 22 },
 
   listItem: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    backgroundColor: Colors.surface,
-    borderRadius:    Radius.lg,
-    padding:         Spacing.md,
-    gap:             Spacing.sm,
+    width:             '48%',
+    backgroundColor:   Colors.surface,
+    borderRadius:      Radius.lg,
+    padding:           Spacing.md,
+    alignItems:        'center',
+    gap:               Spacing.xs,
+    position:          'relative',
   },
   tierCircle: {
-    width:          52,
-    height:         52,
-    borderRadius:   26,
+    width:          44,
+    height:         44,
+    borderRadius:   22,
     alignItems:     'center',
     justifyContent: 'center',
     flexShrink:     0,
   },
-  tierEmoji: { fontSize: 24 },
-  listInfo:  { flex: 1, gap: 3 },
-  listTitle: { fontSize: Typography.body, fontWeight: Typography.bold, color: Colors.ink },
-  listMeta:  { fontSize: Typography.caption, color: Colors.ink60 },
-  listBottom: { flexDirection: 'row', gap: Spacing.xs, flexWrap: 'wrap', marginTop: 2 },
+  tierEmoji: { fontSize: 22 },
+  listTitle: { fontSize: Typography.caption, fontWeight: Typography.bold, color: Colors.ink, textAlign: 'center', minHeight: 34 },
+  listBottom: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flexWrap: 'wrap', justifyContent: 'center', marginTop: 2 },
+  listXP:     { fontSize: Typography.tiny, color: Colors.xpGold, fontWeight: Typography.semibold },
   scorePill: {
     paddingHorizontal: 8,
     paddingVertical:   2,
@@ -385,12 +387,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical:   2,
     borderRadius:      Radius.full,
+    marginTop:         Spacing.xs,
+    alignSelf:         'center',
+    maxWidth:          '100%',
   },
   chainDot:      { width: 5, height: 5, borderRadius: 3 },
-  chainPillText: { fontSize: Typography.tiny, fontWeight: Typography.medium },
-  shareBtn:      { padding: Spacing.xs },
-  shareIcon:     { fontSize: 18, color: Colors.ink30 },
-
+  chainPillText: { fontSize: Typography.tiny, fontWeight: Typography.medium, flexShrink: 1 },
+  shareBtn:      { position: 'absolute', top: Spacing.xs, right: Spacing.xs, padding: Spacing.xs, zIndex: 1 },
+  shareIcon:     { fontSize: 16, color: Colors.ink30 },
   chainInfo: {
     flexDirection:  'row',
     alignItems:     'flex-start',
@@ -402,6 +406,14 @@ const styles = StyleSheet.create({
   },
   chainInfoIcon: { fontSize: 18 },
   chainInfoText: { flex: 1, fontSize: Typography.caption, color: Colors.ink60, lineHeight: 18 },
+
+  // Conteneur de la grille 2 colonnes
+  badgeGrid: {
+    flexDirection:   'row',
+    flexWrap:        'wrap',
+    justifyContent:  'space-between',
+    gap:             Spacing.sm,
+  },
 });
 
 const detailStyles = StyleSheet.create({

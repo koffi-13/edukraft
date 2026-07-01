@@ -42,7 +42,7 @@
           },
           {
             "heading": "Exemples togolais qui marchent",
-            "body":    "• Manioc → gari, attiéké, tapioca (groupements féminins des Plateaux)\n• Soja → lait de soja, tofu, farine (coopératives de la Kara)\n• Anacarde → noix décortiquées exportées (Centrale et Nord)\n• Mangue → jus, séchage (Kpalimé)\n• Tomate → purée, séchage (région Centrale)\n\nLe FSRP et l'IFDC accompagnent ces filières avec formation, équipements et débouchés."
+            "body":    "• Manioc > gari, attiéké, tapioca (groupements féminins des Plateaux)\n• Soja > lait de soja, tofu, farine (coopératives de la Kara)\n• Anacarde > noix décortiquées exportées (Centrale et Nord)\n• Mangue > jus, séchage (Kpalimé)\n• Tomate > purée, séchage (région Centrale)\n\nLe FSRP et l'IFDC accompagnent ces filières avec formation, équipements et débouchés."
           },
           {
             "heading": "Le calcul rapide de rentabilité",
@@ -73,10 +73,10 @@
             "text": "Parmi ces transformations, laquelle multiplie le plus la valeur brute au Togo ?",
             "type": "single_choice",
             "options": [
-              { "id": "a", "text": "Manioc frais → gari (×2,8)" },
-              { "id": "b", "text": "Soja → lait de soja (×3)" },
-              { "id": "c", "text": "Anacarde → noix décortiquée (×4)" },
-              { "id": "d", "text": "Mangue → mangue séchée (×5)", "correct": true }
+              { "id": "a", "text": "Manioc frais > gari (×2,8)" },
+              { "id": "b", "text": "Soja > lait de soja (×3)" },
+              { "id": "c", "text": "Anacarde > noix décortiquée (×4)" },
+              { "id": "d", "text": "Mangue > mangue séchée (×5)", "correct": true }
             ],
             "explanation": "La mangue séchée atteint une multiplication par 5 car elle combine produit à forte valeur marchande, longue conservation et débouchés d'export."
           },
@@ -262,7 +262,7 @@
           },
           {
             "heading": "Le calcul du coût d'emballage",
-            "body":    "Exemple pour 500 g de gari en sachet imprimé :\n• Sachet vierge : 60 F\n• Impression étiquette (1000 unités) : 15 F/étiquette\n• Thermoscelleur amorti : 5 F/unité\nTotal emballage : 80 F pour un sachet vendu 500 F → 16 % (trop élevé !)\n\nPour descendre sous 10 % :\n• Achète les sachets par 1000 (prix divisé par 2)\n• Imprime toi-même avec un tampon encreur (5 F/étiquette)\n• Vise un sachet à 50 F max pour un gari à 500 F = 10 %"
+            "body":    "Exemple pour 500 g de gari en sachet imprimé :\n• Sachet vierge : 60 F\n• Impression étiquette (1000 unités) : 15 F/étiquette\n• Thermoscelleur amorti : 5 F/unité\nTotal emballage : 80 F pour un sachet vendu 500 F > 16 % (trop élevé !)\n\nPour descendre sous 10 % :\n• Achète les sachets par 1000 (prix divisé par 2)\n• Imprime toi-même avec un tampon encreur (5 F/étiquette)\n• Vise un sachet à 50 F max pour un gari à 500 F = 10 %"
           }
         ],
         "key_takeaway": "Emballage propre + étiquette conforme = +30 % de prix de vente. Vise un coût d'emballage sous 10 % du prix de vente."
@@ -354,7 +354,7 @@
               { "id": "c", "text": "Marché de quartier avec négociation dure" },
               { "id": "d", "text": "Vente au détail à perte pour faire du volume" }
             ],
-            "explanation": "Le circuit direct (producteur → consommateur) supprime les intermédiaires et leurs marges. La vente WhatsApp + livraison maximise le prix de vente final, mais demande de gérer la relation client."
+            "explanation": "Le circuit direct (producteur > consommateur) supprime les intermédiaires et leurs marges. La vente WhatsApp + livraison maximise le prix de vente final, mais demande de gérer la relation client."
           },
           {
             "id":   "q4_1",
@@ -402,7 +402,7 @@
           },
           {
             "heading": "Fermentation et salage",
-            "body":    "La fermentation crée un milieu acide qui empêche les microbes pathogènes.\n\n• Manioc fermenté : attiéké, gari, foufou, placali (conservation 1 à 2 semaines pour le frais, plusieurs mois pour le sec).\n• Lait de soja → yaourt par fermentation lactique (conservation 3 à 5 jours au frais).\n• Piment fermenté en saumure (sel + eau) : conservation 3 mois.\n\nLe salage : 200 g de sel par kg de produit. Convient à la viande séchée, au poisson, à certains légumes."
+            "body":    "La fermentation crée un milieu acide qui empêche les microbes pathogènes.\n\n• Manioc fermenté : attiéké, gari, foufou, placali (conservation 1 à 2 semaines pour le frais, plusieurs mois pour le sec).\n• Lait de soja > yaourt par fermentation lactique (conservation 3 à 5 jours au frais).\n• Piment fermenté en saumure (sel + eau) : conservation 3 mois.\n\nLe salage : 200 g de sel par kg de produit. Convient à la viande séchée, au poisson, à certains légumes."
           },
           {
             "heading": "Stockage et lutte contre les insectes",

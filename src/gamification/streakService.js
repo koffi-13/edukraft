@@ -77,7 +77,7 @@ export function computeStreak({ today, lastActiveDate, currentStreak, bestStreak
 
   const gap = daysBetween(lastActiveDate, today);
 
-  // Même jour (activité multiple) → pas de changement de streak
+  // Même jour (activité multiple) > pas de changement de streak
   if (gap === 0) {
     return {
       newStreak: currentStreak,
@@ -88,7 +88,7 @@ export function computeStreak({ today, lastActiveDate, currentStreak, bestStreak
     };
   }
 
-  // Journée précédente → streak +1 (cas normal, idéal)
+  // Journée précédente > streak +1 (cas normal, idéal)
   if (gap === 1) {
     const newStreak = currentStreak + 1;
     return {
@@ -102,11 +102,11 @@ export function computeStreak({ today, lastActiveDate, currentStreak, bestStreak
 
   // gap >= 2 : il y a des jours manqués.
   // Combien de gels faudrait-il ? gap - 1 (les jours entre les deux dates, excluant today).
-  // Par exemple gap=2 → 1 jour manqué → 1 gel nécessaire.
+  // Par exemple gap=2 > 1 jour manqué > 1 gel nécessaire.
   const freezesNeeded = gap - 1;
 
   if (freezesNeeded <= currentFreezes) {
-    // On a assez de gels → la série continue, streak += 1 (le jour today),
+    // On a assez de gels > la série continue, streak += 1 (le jour today),
     // les jours manqués sont "pardonnés".
     return {
       newStreak: currentStreak + 1,
@@ -117,7 +117,7 @@ export function computeStreak({ today, lastActiveDate, currentStreak, bestStreak
     };
   }
 
-  // Pas assez de gels → la série est cassée. On redémarre à 1.
+  // Pas assez de gels > la série est cassée. On redémarre à 1.
   return {
     newStreak: 1,
     newBestStreak: bestStreak,

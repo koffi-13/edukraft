@@ -330,7 +330,7 @@
           },
           {
             "heading": "Les cas fréquents et leurs solutions",
-            "body":    "• SMS de confirmation non reçu → patienter 5 min, vérifier le solde du client sur son téléphone, appeler le service client opérateur.\n• Retrait effectué mais destinataire n'a rien reçu → vérifier le numéro destinataire, contacter le service client (911 ou numéro court opérateur).\n• Le client conteste le montant → sortir le reçu signé, recompter ensemble.\n• Réseau down → afficher un mot d'excuse, prendre le contact du client, le rappeler dès le retour du réseau."
+            "body":    "• SMS de confirmation non reçu > patienter 5 min, vérifier le solde du client sur son téléphone, appeler le service client opérateur.\n• Retrait effectué mais destinataire n'a rien reçu > vérifier le numéro destinataire, contacter le service client (911 ou numéro court opérateur).\n• Le client conteste le montant > sortir le reçu signé, recompter ensemble.\n• Réseau down > afficher un mot d'excuse, prendre le contact du client, le rappeler dès le retour du réseau."
           },
           {
             "heading": "Quand et comment escalader",

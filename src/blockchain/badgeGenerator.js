@@ -118,7 +118,7 @@ export function generateBadge({ learnerId, learnerName, moduleId, moduleTitle, s
   const badgeId  = uuidv4();
   const issuedAt = new Date().toISOString();
 
-  // Seed déterministe : même apprenant + module + timestamp → hash unique
+  // Seed déterministe : même apprenant + module + timestamp > hash unique
   const seed    = `${learnerId}|${moduleId}|${score}|${issuedAt}|edukraft_v1`;
   const hash    = sha256(seed);
 

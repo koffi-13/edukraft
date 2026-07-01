@@ -29,13 +29,13 @@ const DbContext = createContext(null);
 class MemoryStore {
   constructor() {
     this.learner = null;
-    this.progress = {};    // moduleId → progress object
+    this.progress = {};    // moduleId > progress object
     this.quizAttempts = [];
     this.badges = [];
     this.syncQueue = [];
     this.syncMeta = { schema_version: '2', last_sync_at: null, sync_cursor: '0' };
     // Gamification (v2)
-    this.streakLogs = {};      // activityDate → { lessons_done, xp_earned, goal_met, streak_freeze_used }
+    this.streakLogs = {};      // activityDate > { lessons_done, xp_earned, goal_met, streak_freeze_used }
     this.achievements = [];    // [{ achievement_key, unlocked_at }]
     this.dailyGoal = null;     // { goal_type, goal_target, enabled }
   }
@@ -82,12 +82,12 @@ export function DbProvider({ children }) {
           await nativeDb.execAsync(CREATE_TABLES);
           await nativeDb.execAsync(INITIAL_SYNC_META);
 
-          // Migration v1 → v2 : ajoute les colonnes gamification au learner
+          // Migration v1 > v2 : ajoute les colonnes gamification au learner
           // (idempotent : chaque ALTER échoue silencieusement si la colonne existe)
           for (const stmt of MIGRATE_LEARNER_V2) {
             try { await nativeDb.execAsync(stmt); } catch (_) { /* colonne déjà là */ }
           }
-          // Migration v1 → v1.1 : ajoute les colonnes du profil étendu
+          // Migration v1 > v1.1 : ajoute les colonnes du profil étendu
           for (const stmt of MIGRATE_LEARNER_V3) {
             try { await nativeDb.execAsync(stmt); } catch (_) { /* colonne déjà là */ }
           }
@@ -99,7 +99,7 @@ export function DbProvider({ children }) {
           setDb(nativeDb);
           console.log('[DB] SQLite natif initialisé');
         } catch (sqliteErr) {
-          // expo-sqlite non disponible (web, etc.) → fallback mémoire
+          // expo-sqlite non disponible (web, etc.) > fallback mémoire
           console.log('[DB] SQLite non disponible, mode mémoire activé');
 
           // Restaurer le learner depuis le store mémoire
@@ -171,7 +171,7 @@ export function DbProvider({ children }) {
     if (!learner) return 0;
     const fields = [
       'first_name', 'last_name', 'gender', 'birth_date', 'education_level',
-      'country', 'city', 'phone', 'email', 'profession',
+      'country', 'state', 'city', 'address', 'phone', 'email', 'profession',
     ];
     const filled = fields.filter(f => learner[f] && String(learner[f]).trim() !== '').length;
     return Math.round((filled / fields.length) * 100);

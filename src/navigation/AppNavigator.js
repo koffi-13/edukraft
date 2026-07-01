@@ -14,6 +14,7 @@ import DashboardScreen  from '../screens/DashboardScreen';
 import LessonScreen     from '../screens/LessonScreen';
 import QuizScreen       from '../screens/QuizScreen';
 import BadgeWalletScreen from '../screens/BadgeWalletScreen';
+import CommunityScreen  from '../screens/CommunityScreen';
 import ProfileScreen    from '../screens/ProfileScreen';
 import PaymentScreen     from '../screens/PaymentScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
@@ -34,6 +35,7 @@ function TabIcon({ name, focused, color }) {
       ? '⬛' : '□',
     learn:   focused ? '📖' : '📄',
     badges:  focused ? '🏅' : '🏷️',
+    community: focused ? '👥' : '👥',
     profile: focused ? '👤' : '◯',
   };
   return (
@@ -87,6 +89,14 @@ function MainTabs() {
         }}
       />
       <Tab.Screen
+        name="Community"
+        component={CommunityScreen}
+        options={{
+          tabBarLabel: 'Communauté',
+          tabBarIcon: (props) => <TabIcon name="community" {...props} />,
+        }}
+      />
+      <Tab.Screen
         name="Profile"
         component={ProfileScreen}
         options={{
@@ -134,11 +144,11 @@ function AuthStack() {
 
 // ── App Navigator : gère auth-gating + onboarding ────────────────────────────
 // Logique de navigation :
-//   1. DB pas prête           → splash screen
-//   2. Auth en cours de chargement → splash screen
-//   3. Pas authentifié & !skipAuth → AuthStack (Login / Register)
-//   4. Authentifié ou skipAuth, mais pas de learner local → Onboarding
-//   5. Authentifié/skipAuth + learner → RootStack (app principale)
+//   1. DB pas prête           > splash screen
+//   2. Auth en cours de chargement > splash screen
+//   3. Pas authentifié & !skipAuth > AuthStack (Login / Register)
+//   4. Authentifié ou skipAuth, mais pas de learner local > Onboarding
+//   5. Authentifié/skipAuth + learner > RootStack (app principale)
 export default function AppNavigator() {
   const { learner, ready } = useDb();
   const { loading: authLoading, isAuthenticated, skipAuth } = useAuth();

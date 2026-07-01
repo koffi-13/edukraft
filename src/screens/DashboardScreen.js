@@ -182,10 +182,14 @@ export default function DashboardScreen({ navigation }) {
             <TouchableOpacity
               key={module.id}
               style={[styles.moduleCard, Shadow.card]}
-              onPress={() => navigation.navigate('Lesson', {
-                moduleId: module.id,
-                lessonIndex: status === 'not_started' ? 0 : (prog?.current_lesson ?? 0),
-              })}
+              onPress={() => {
+                // Cap lessonIndex à lessons.length - 1 (évite "Leçon introuvable"
+                // quand current_lesson = lessons.length après completion)
+                const totalLessons = module.lessons?.length || 1;
+                const rawLesson = status === 'not_started' ? 0 : (prog?.current_lesson ?? 0);
+                const lessonIndex = Math.min(rawLesson, totalLessons - 1);
+                navigation.navigate('Lesson', { moduleId: module.id, lessonIndex });
+              }}
               activeOpacity={0.88}
             >
               {/* Color band */}

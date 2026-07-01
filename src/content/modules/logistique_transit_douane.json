@@ -46,7 +46,7 @@
           },
           {
             "heading": "Les flux de conteneurs et la chaîne logistique",
-            "body":    "Un conteneur qui arrive à Lomé suit ce parcours : déchargement du navire → mise en parc au terminal → visite douanière éventuelle → déclaration D15 par le transitaire → liquidation des droits (T-Money/Flooz ou espèces) → bon à enlever (BAE) → sortie du port → transport routier vers Lomé, Adétikopé ou les pays enclavés via le corridor Lomé-Ouagadougou."
+            "body":    "Un conteneur qui arrive à Lomé suit ce parcours : déchargement du navire > mise en parc au terminal > visite douanière éventuelle > déclaration D15 par le transitaire > liquidation des droits (T-Money/Flooz ou espèces) > bon à enlever (BAE) > sortie du port > transport routier vers Lomé, Adétikopé ou les pays enclavés via le corridor Lomé-Ouagadougou."
           }
         ],
         "key_takeaway": "Le Port de Lomé est la porte d'entrée naturelle de l'Afrique de l'Ouest — le maîtriser, c'est maîtriser le commerce régional."
@@ -190,10 +190,10 @@
           },
           {
             "heading": "Vérifier le code SH et utiliser les outils OTR",
-            "body":    "Le code SH (Système Harmonisé, 8 chiffres au Togo) détermine le taux applicable à chaque produit (SKU). Une erreur de classification = surcoût ou amende. Avant toute commande :\n1. Identifie le code SH exact de chaque SKU (utilise la nomenclature OTR ou demande à ton transitaire).\n2. Vérifie le taux sur le site de l'OTR ou via SYDONIA.\n3. Calcule la valeur CIF (FOB + assurance + fret maritime).\n4. Applique les taxes dans l'ordre (DD → RI → PC → TVA).\n5. Paiement : T-Money, Flooz/Moov Money, ou virement bancaire."
+            "body":    "Le code SH (Système Harmonisé, 8 chiffres au Togo) détermine le taux applicable à chaque produit (SKU). Une erreur de classification = surcoût ou amende. Avant toute commande :\n1. Identifie le code SH exact de chaque SKU (utilise la nomenclature OTR ou demande à ton transitaire).\n2. Vérifie le taux sur le site de l'OTR ou via SYDONIA.\n3. Calcule la valeur CIF (FOB + assurance + fret maritime).\n4. Applique les taxes dans l'ordre (DD > RI > PC > TVA).\n5. Paiement : T-Money, Flooz/Moov Money, ou virement bancaire."
           }
         ],
-        "key_takeaway": "Calcule la valeur CIF puis applique DD → RI → PC → TVA (18 %) — toujours dans cet ordre."
+        "key_takeaway": "Calcule la valeur CIF puis applique DD > RI > PC > TVA (18 %) — toujours dans cet ordre."
       },
 
       "quiz": {
@@ -325,7 +325,7 @@
         "sections": [
           {
             "heading": "Les 4 étapes à tracker",
-            "body":    "1. Embarquement (port de départ) : numéro BL, ETA (Estimated Time of Arrival) à Lomé.\n2. Arrivée à Lomé : confirmation par le consignataire, visite éventuelle OTR.\n3. Dédouanement : dépôt D15 sur SYDONIA World, liquidation, BAE émis.\n4. Sortie et livraison : transport terminal → entrepôt, signature du récepissé.\n\nÀ chaque étape, exige une preuve écrite (capture écran SYDONIA, email consignataire, bon de livraison signé)."
+            "body":    "1. Embarquement (port de départ) : numéro BL, ETA (Estimated Time of Arrival) à Lomé.\n2. Arrivée à Lomé : confirmation par le consignataire, visite éventuelle OTR.\n3. Dédouanement : dépôt D15 sur SYDONIA World, liquidation, BAE émis.\n4. Sortie et livraison : transport terminal > entrepôt, signature du récepissé.\n\nÀ chaque étape, exige une preuve écrite (capture écran SYDONIA, email consignataire, bon de livraison signé)."
           },
           {
             "heading": "Gérer les incidents les plus fréquents",

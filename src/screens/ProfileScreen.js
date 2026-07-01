@@ -198,33 +198,32 @@ export default function ProfileScreen({ navigation }) {
             <Text style={styles.emptyText}>{t('badge.empty_text')}</Text>
           </View>
         ) : (
-          badges.map((badge) => (
-            <TouchableOpacity
-              key={badge.id}
-              style={[styles.badgeItem, Shadow.card]}
-              activeOpacity={0.85}
-              onPress={() => Alert.alert(
-                badge.module_title,
-                'Score : ' + Math.round(badge.score * 100) + '%\n' +
-                'XP : ' + badge.xp_total + '\n' +
-                'Date : ' + new Date(badge.issued_at).toLocaleDateString('fr-TG') + '\n' +
-                'Hash : ' + (badge.badge_hash || 'N/A').substring(0, 20) + '...\n' +
-                'Blockchain : ' + (badge.blockchain_tx || 'En attente de sync'),
-              )}
-            >
-              <View style={styles.badgeLeft}>
+          <View style={styles.badgeGrid}>
+            {badges.map((badge) => (
+              <TouchableOpacity
+                key={badge.id}
+                style={[styles.badgeItem, Shadow.card]}
+                activeOpacity={0.85}
+                onPress={() => Alert.alert(
+                  badge.module_title,
+                  'Score : ' + Math.round(badge.score * 100) + '%\n' +
+                  'XP : ' + badge.xp_total + '\n' +
+                  'Date : ' + new Date(badge.issued_at).toLocaleDateString('fr-TG') + '\n' +
+                  'Hash : ' + (badge.badge_hash || 'N/A').substring(0, 20) + '...\n' +
+                  'Blockchain : ' + (badge.blockchain_tx || 'En attente de sync'),
+                )}
+              >
                 <Text style={styles.badgeIcon}>🏅</Text>
-                <View>
-                  <Text style={styles.badgeTitle}>{badge.module_title}</Text>
-                  <Text style={styles.badgeDate}>{t('badge.earned_on')} {new Date(badge.issued_at).toLocaleDateString('fr-TG')}</Text>
+                <Text style={styles.badgeTitle} numberOfLines={2}>
+                  {badge.module_title}
+                </Text>
+                <View style={styles.badgeRow}>
+                  <Text style={styles.badgeScore}>{Math.round(badge.score * 100)}%</Text>
+                  <Text style={styles.badgeXP}>+{badge.xp_total} XP</Text>
                 </View>
-              </View>
-              <View style={styles.badgeRight}>
-                <Text style={styles.badgeScore}>{Math.round(badge.score * 100)}%</Text>
-                <Text style={styles.badgeXP}>+{badge.xp_total} XP</Text>
-              </View>
-            </TouchableOpacity>
-          ))
+              </TouchableOpacity>
+            ))}
+          </View>
         )}
       </View>
 
@@ -452,39 +451,39 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
+  badgeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+  },
   badgeItem: {
     backgroundColor: Colors.surface,
     padding: Spacing.md,
     borderRadius: Radius.md,
-    marginBottom: Spacing.sm,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    width: '48%',
     alignItems: 'center',
-  },
-  badgeLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    flex: 1,
+    gap: Spacing.xs,
   },
   badgeIcon: {
-    fontSize: 28,
+    fontSize: 24,
   },
   badgeTitle: {
-    fontSize: Typography.body,
+    fontSize: Typography.caption,
     fontWeight: Typography.semibold,
     color: Colors.ink,
+    textAlign: 'center',
+    minHeight: 34,
   },
-  badgeDate: {
-    fontSize: Typography.tiny,
-    color: Colors.ink30,
-    marginTop: 2,
-  },
-  badgeRight: {
-    alignItems: 'flex-end',
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    marginTop: Spacing.xs,
   },
   badgeScore: {
-    fontSize: Typography.body,
+    fontSize: Typography.caption,
     fontWeight: Typography.bold,
     color: Colors.teal,
   },

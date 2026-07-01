@@ -109,16 +109,16 @@
         "sections": [
           {
             "heading": "Étape 1 : Configure ton profil professionnel",
-            "body":    "Dans WhatsApp Business → Paramètres → Profil :\n• Nom de l'entreprise (ex: 'Couture Ama Lomé')\n• Description courte (ex: 'Tailleur femme et enfant, livraison Lomé')\n• Adresse de ta boutique\n• Heures d'ouverture\n• Email professionnel (optionnel)\n\nUn profil complet inspire confiance. Les clients hésitent moins à contacter un commerce bien présenté."
+            "body":    "Dans WhatsApp Business > Paramètres > Profil :\n• Nom de l'entreprise (ex: 'Couture Ama Lomé')\n• Description courte (ex: 'Tailleur femme et enfant, livraison Lomé')\n• Adresse de ta boutique\n• Heures d'ouverture\n• Email professionnel (optionnel)\n\nUn profil complet inspire confiance. Les clients hésitent moins à contacter un commerce bien présenté."
           },
           {
             "heading": "Étape 2 : Crée ton catalogue de produits",
-            "body":    "WhatsApp Business → Outils Business → Catalogue.\nAjoute tes 5 produits ou services les plus demandés avec :\n• Une photo claire prise en bonne lumière naturelle\n• Un nom précis et descriptif\n• Un prix (si tu veux le mentionner)\n• Une courte description",
+            "body":    "WhatsApp Business > Outils Business > Catalogue.\nAjoute tes 5 produits ou services les plus demandés avec :\n• Une photo claire prise en bonne lumière naturelle\n• Un nom précis et descriptif\n• Un prix (si tu veux le mentionner)\n• Une courte description",
             "highlight": true
           },
           {
             "heading": "Étape 3 : Configure une réponse automatique",
-            "body":    "Paramètres → Outils Business → Message d'absence.\nExemple : 'Bonjour ! Merci de me contacter. Je vous réponds dans les 2 heures. Consultez mon catalogue ici : [lien]'\n\nCette automatisation te fait paraître professionnel même quand tu travailles."
+            "body":    "Paramètres > Outils Business > Message d'absence.\nExemple : 'Bonjour ! Merci de me contacter. Je vous réponds dans les 2 heures. Consultez mon catalogue ici : [lien]'\n\nCette automatisation te fait paraître professionnel même quand tu travailles."
           }
         ],
         "key_takeaway": "Un profil WhatsApp Business complet peut doubler le nombre de contacts entrants en 2 semaines."
@@ -145,8 +145,8 @@
             "text":     "Où configures-tu les heures d'ouverture de ta boutique dans WhatsApp Business ?",
             "type":     "single_choice",
             "options":  [
-              { "id": "a", "text": "Dans les Paramètres → Profil", "correct": true },
-              { "id": "b", "text": "Dans les Outils Business → Catalogue" },
+              { "id": "a", "text": "Dans les Paramètres > Profil", "correct": true },
+              { "id": "b", "text": "Dans les Outils Business > Catalogue" },
               { "id": "c", "text": "En écrivant un statut WhatsApp chaque matin" },
               { "id": "d", "text": "Il n'est pas possible de le faire" }
             ],
@@ -181,7 +181,7 @@
         "sections": [
           {
             "heading": "La méthode AIDA expliquée simplement",
-            "body":    "A — Attention : la première ligne doit forcer le client à s'arrêter de défiler.\nEx: '🔴 PROMO ce weekend seulement à Lomé-Nord'\n\nI — Intérêt : explique le bénéfice principal en une phrase.\nEx: 'Robes sur mesure livrées en 48h dans tout Lomé'\n\nD — Désir : crée l'envie avec un détail émotionnel ou une preuve sociale.\nEx: 'Plus de 200 clientes satisfaites depuis 2020'\n\nA — Action : dis exactement quoi faire.\nEx: 'Envoie 'COMMANDE' sur WhatsApp → 90 XX XX XX'",
+            "body":    "A — Attention : la première ligne doit forcer le client à s'arrêter de défiler.\nEx: '🔴 PROMO ce weekend seulement à Lomé-Nord'\n\nI — Intérêt : explique le bénéfice principal en une phrase.\nEx: 'Robes sur mesure livrées en 48h dans tout Lomé'\n\nD — Désir : crée l'envie avec un détail émotionnel ou une preuve sociale.\nEx: 'Plus de 200 clientes satisfaites depuis 2020'\n\nA — Action : dis exactement quoi faire.\nEx: 'Envoie 'COMMANDE' sur WhatsApp > 90 XX XX XX'",
             "highlight": true
           },
           {

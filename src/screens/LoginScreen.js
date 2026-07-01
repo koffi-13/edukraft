@@ -6,7 +6,7 @@
 //   2. Google     — WebBrowser.openAuthSessionAsync (approche impérative, pas de hook)
 //   3. Facebook   — WebBrowser.openAuthSessionAsync
 //   4. Apple      — expo-apple-authentication.signInAsync (iOS uniquement)
-//   5. Phone OTP  — saisie numéro → envoi code → saisie code 6 chiffres → vérif
+//   5. Phone OTP  — saisie numéro > envoi code > saisie code 6 chiffres > vérif
 //
 // + Bouton "Continuer sans compte" (mode hors-ligne, skipAuth)
 

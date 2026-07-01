@@ -46,7 +46,7 @@ export default function LessonScreen({ route, navigation }) {
 
   const goNextLesson = () => {
     if (isLast) {
-      // Toutes les leçons terminées → quiz ou retour
+      // Toutes les leçons terminées > quiz ou retour
       navigation.navigate('Quiz', { moduleId, lessonIndex });
     } else {
       navigation.replace('Lesson', { moduleId, lessonIndex: lessonIndex + 1 });
@@ -64,14 +64,14 @@ export default function LessonScreen({ route, navigation }) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TouchableOpacity onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate("Main")}>
             <Text style={styles.backText}>{t('common.back')}</Text>
           </TouchableOpacity>
           <Text style={styles.title}>{t('lesson.no_lesson')}</Text>
         </View>
         <View style={styles.emptyContent}>
           <Text style={styles.emptyText}>{t('lesson.no_lesson')}</Text>
-          <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.goBack()}>
+          <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate("Main")}>
             <Text style={styles.primaryBtnText}>{t('common.back')}</Text>
           </TouchableOpacity>
         </View>
@@ -87,7 +87,7 @@ export default function LessonScreen({ route, navigation }) {
     <View style={styles.container}>
       {/* Header fixe */}
       <View style={[styles.header, { paddingTop: insets.top }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
+        <TouchableOpacity onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate("Main")} hitSlop={8}>
           <Text style={styles.backText}>{t('common.back')}</Text>
         </TouchableOpacity>
         <View style={styles.headerCenter}>

@@ -39,7 +39,7 @@ export default function QuizScreen({ route, navigation }) {
   const quiz     = getQuizForLesson(moduleId, lessonIndex);
 
   // ── Versioning des questions : randomiser l'ordre des questions ET des options ──
-  // Chaque instance de quiz a un ordre différent → empêche la mémorisation de position.
+  // Chaque instance de quiz a un ordre différent > empêche la mémorisation de position.
   // Les questions fill_blank (saisie texte) sont aussi supportées.
   const [shuffledQuestions] = useState(() => {
     const rawQuestions = quiz?.questions || [];
@@ -241,7 +241,7 @@ export default function QuizScreen({ route, navigation }) {
       setTextAnswer('');
       setStep(STEP_QUESTION);
     } else {
-      // Dernière question → afficher résultat
+      // Dernière question > afficher résultat
       handleFinish();
     }
   }, [qIndex, totalQ, handleFinish]);
@@ -281,14 +281,14 @@ export default function QuizScreen({ route, navigation }) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TouchableOpacity onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate("Main")}>
             <Text style={styles.backText}>{t('common.back')}</Text>
           </TouchableOpacity>
           <Text style={styles.title}>Quiz</Text>
         </View>
         <View style={styles.content}>
           <Text style={styles.message}>{t('lesson.no_lesson')}</Text>
-          <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.goBack()}>
+          <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate("Main")}>
             <Text style={styles.primaryBtnText}>{t('common.back')}</Text>
           </TouchableOpacity>
         </View>
@@ -305,7 +305,7 @@ export default function QuizScreen({ route, navigation }) {
       <View style={styles.container}>
         {/* Header */}
         <View style={[styles.header, { paddingTop: insets.top }]}>
-          <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
+          <TouchableOpacity onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate("Main")} hitSlop={8}>
             <Text style={styles.backText}>{t('common.back')}</Text>
           </TouchableOpacity>
           <Text style={styles.title}>{module?.title}</Text>

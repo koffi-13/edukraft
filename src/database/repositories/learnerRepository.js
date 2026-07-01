@@ -92,7 +92,7 @@ export function createLearnerRepository(db, store, enqueue) {
     const now = new Date().toISOString();
     const allowedFields = [
       'first_name', 'last_name', 'gender', 'birth_date', 'education_level',
-      'country', 'state', 'city', 'address', 'email', 'photo_url', 'bio', 'profession',
+      'country', 'state', 'city', 'address', 'email', 'phone', 'photo_url', 'bio', 'profession',
     ];
 
     if (isMemory()) {
