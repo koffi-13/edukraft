@@ -1,0 +1,33 @@
+# Ignorer tout ce qui n'est pas le backend server/
+node_modules/
+**/node_modules/
+server/data/
+**/.env
+**/.env.local
+*.log
+**/.git/
+.gitignore
+**/*.md
+**/README.md
+**/test-*.js
+**/run-e2e.sh
+# Frontend (Expo) — pas besoin dans le backend
+src/
+assets/
+android/
+ios/
+.expo/
+dist/
+web-build/
+contracts/
+docs/
+scripts/
+.babelrc
+tsconfig.json
+babel.config.js
+eas.json
+app.json
+metro.config.js
+package-lock.json
+# Garder server/package-lock.json (ne pas l'ignorer)
+!server/package-lock.json
