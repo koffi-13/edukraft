@@ -1,23 +1,27 @@
-# fly.toml app configuration file generated for edukraft on 2026-07-01T21:43:35Z
-#
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
+# Fly.io configuration for EduKraft backend
+# IMPORTANT : ce fichier doit être à la RACINE du projet (pas dans server/)
+# car flyctl deploy est lancé depuis la racine.
+# Le Dockerfile est dans server/ et ne copie QUE les fichiers du backend.
 
-app = 'edukraft'
-primary_region = 'iad'
+app = "edukraft"
+primary_region = "cdg"
 
 [build]
+  dockerfile = "server/Dockerfile"
 
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = 'stop'
+  auto_stop_machines = true
   auto_start_machines = true
   min_machines_running = 0
-  processes = ['app']
 
-[[vm]]
-  memory = '1gb'
-  cpu_kind = 'shared'
-  cpus = 1
-  memory_mb = 256
+[mounts]
+  source = "edukraft_data"
+  destination = "/data"
+
+[env]
+  PORT = "8080"
+  DB_PATH = "/data/edukraft.db"
+  NODE_ENV = "production"
+  CORS_ORIGINS = "*"
