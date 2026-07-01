@@ -45,28 +45,15 @@ jobs:
       - name: Install EAS CLI
         run: npm install -g eas-cli
 
-      - name: Debug — verify EXPO_TOKEN is set
+      - name: Verify EXPO_TOKEN is set
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           if [ -z "$EXPO_TOKEN" ]; then
-            echo "❌ EXPO_TOKEN is NOT set in GitHub Secrets!"
-            echo "Go to: https://github.com/koffi-13/edukraft/settings/secrets/actions"
-            echo "Add a secret named EXPO_TOKEN with your Expo access token"
-            echo "Get your token from: https://expo.dev/accounts/[your-account]/settings/access-tokens"
+            echo "EXPO_TOKEN is NOT set in GitHub Secrets!"
             exit 1
           fi
-          echo "✅ EXPO_TOKEN is set (length: ${#EXPO_TOKEN})"
-          # Verify the token works with Expo API
-          echo "Verifying token with Expo API..."
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $EXPO_TOKEN" "https://api.expo.dev/v2/accounts/me")
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "✅ Token is valid — Expo API returned 200"
-          else
-            echo "❌ Token is INVALID — Expo API returned $HTTP_CODE"
-            echo "The token in GitHub Secrets must be an EXPO token (starts with 'exp_'), not a GitHub token (starts with 'ghp_')"
-            exit 1
-          fi
+          echo "EXPO_TOKEN is set (length: ${#EXPO_TOKEN})"
 
       - name: Initialize EAS project
         env:
@@ -77,8 +64,7 @@ jobs:
           echo "=== eas.json after init ==="
           cat eas.json
           if ! grep -q "projectId" eas.json; then
-            echo "❌ projectId not found in eas.json after eas init"
-            echo "Trying alternative: eas build:configure..."
+            echo "projectId not found — trying eas build:configure..."
             eas build:configure --non-interactive || true
             cat eas.json
           fi
