@@ -79,13 +79,16 @@ jobs:
         run: |
           echo "Waiting for EAS build to complete..."
           while true; do
-            STATUS=$(eas build:view ${{ env.BUILD_ID }} --json 2>/dev/null | jq -r '.status')
+            STATUS=$(eas build:view ${{ env.BUILD_ID }} --json 2>/dev/null | jq -r '.status' | tr '[:upper:]' '[:lower:]')
             echo "Build status: $STATUS"
             if [ "$STATUS" = "finished" ]; then
               echo "Build finished!"
               break
             elif [ "$STATUS" = "errored" ]; then
-              echo "Build failed!"
+              echo "Build FAILED! Fetching error details..."
+              eas build:view ${{ env.BUILD_ID }} --json 2>/dev/null | jq '.'
+              echo "=== Full build log URL ==="
+              eas build:view ${{ env.BUILD_ID }} --json 2>/dev/null | jq -r '.metadata.buildLogsUrl // "N/A"'
               exit 1
             fi
             sleep 30
