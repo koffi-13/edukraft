@@ -1,0 +1,64 @@
+# Build Android APK — validation + build EAS sur chaque PR
+# Corrige les bugs de l'ancienne version : npm ci → --legacy-peer-deps,
+# syntaxe YAML, Node 18 → 20.
+
+name: Build Android APK
+
+on:
+  pull_request:
+    branches: [main, feat/phase1-functional]
+    paths:
+      - 'src/**'
+      - 'app.json'
+      - 'package.json'
+      - 'package-lock.json'
+
+jobs:
+  validate-and-build:
+    name: Validate modules + Build APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Validate JSON modules
+        run: |
+          node -e "
+            const fs = require('fs');
+            const path = require('path');
+            const dir = 'src/content/modules';
+            const files = fs.readdirSync(dir).filter(f => f.endsWith('.json'));
+            let errors = 0;
+            for (const f of files) {
+              try {
+                const d = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+                if (!d.id || !d.meta || !d.lessons || d.lessons.length === 0) {
+                  throw new Error('Structure invalide');
+                }
+                console.log('OK ' + f + ' -> ' + d.lessons.length + ' lecons');
+              } catch(e) {
+                console.error('FAIL ' + f + ': ' + e.message);
+                errors++;
+              }
+            }
+            if (errors > 0) { process.exit(1); }
+            console.log(files.length + ' modules valides');
+          "
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: '50'
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build APK (EAS preview)
+        run: npx eas-cli build --profile preview --platform android --non-interactive --no-wait
+        continue-on-error: true
