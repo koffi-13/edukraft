@@ -85,7 +85,8 @@
   },
 
   "module": {
-    "lessons_count":  "{{count}} leçons",
+    "lessons_count":  "{{count}} leçon(s)",
+    "lessons_count_one":  "{{count}} leçon",
     "duration":       "{{min}} min",
     "difficulty":     "Niveau",
     "start":          "Commencer",
@@ -283,7 +284,26 @@
     "reset_confirm":    "Effacer toutes les données locales ?",
     "premium_section":  "Contenu premium",
     "go_premium":       "Débloquer le contenu premium",
-    "premium_desc":     "Accède à tous les modules et certifie tes badges sur la blockchain."
+    "premium_desc":     "Accède à tous les modules et certifie tes badges sur la blockchain.",
+    "edit_title":       "Mes informations",
+    "edit_desc":        "Complète ton profil pour de meilleurs certificats",
+    "photo_hint":       "Touche pour changer la photo",
+    "section_identity": "Identité",
+    "section_contact":  "Coordonnées",
+    "section_bio":      "À propos",
+    "first_name":       "Prénom",
+    "last_name":        "Nom",
+    "gender":           "Sexe",
+    "birth_date":       "Date de naissance",
+    "education_level":  "Niveau d'étude",
+    "profession":       "Profession",
+    "country":          "Pays",
+    "state":            "Région / État",
+    "city":             "Ville",
+    "address":          "Adresse",
+    "phone":            "Téléphone",
+    "email":            "Email",
+    "bio":              "Bio"
   },
 
   "common": {

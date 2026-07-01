@@ -78,13 +78,17 @@ export function DbProvider({ children }) {
           `);
 
           // Création des tables
-          const { CREATE_TABLES, INITIAL_SYNC_META, MIGRATE_LEARNER_V2 } = require('./schema');
+          const { CREATE_TABLES, INITIAL_SYNC_META, MIGRATE_LEARNER_V2, MIGRATE_LEARNER_V3 } = require('./schema');
           await nativeDb.execAsync(CREATE_TABLES);
           await nativeDb.execAsync(INITIAL_SYNC_META);
 
           // Migration v1 → v2 : ajoute les colonnes gamification au learner
           // (idempotent : chaque ALTER échoue silencieusement si la colonne existe)
           for (const stmt of MIGRATE_LEARNER_V2) {
+            try { await nativeDb.execAsync(stmt); } catch (_) { /* colonne déjà là */ }
+          }
+          // Migration v1 → v1.1 : ajoute les colonnes du profil étendu
+          for (const stmt of MIGRATE_LEARNER_V3) {
             try { await nativeDb.execAsync(stmt); } catch (_) { /* colonne déjà là */ }
           }
 
@@ -151,6 +155,27 @@ export function DbProvider({ children }) {
     setLearner(updated);
     return totalXp;
   }, [learner, learnerRepo]);
+
+  /** Met à jour les champs du profil étendu (v1.1). */
+  const updateProfile = useCallback(async (fields) => {
+    if (!learner) return null;
+    const updated = await learnerRepo().updateProfile(learner.id, fields);
+    setLearner(updated);
+    // Enqueue pour sync (type 'learner' avec operation UPDATE)
+    if (enqueue) await enqueue('learner', 'UPDATE', learner.id, updated);
+    return updated;
+  }, [learner, learnerRepo, enqueue]);
+
+  /** Calcule le pourcentage de complétion du profil. */
+  const getProfileCompletion = useCallback(() => {
+    if (!learner) return 0;
+    const fields = [
+      'first_name', 'last_name', 'gender', 'birth_date', 'education_level',
+      'country', 'city', 'phone', 'email', 'profession',
+    ];
+    const filled = fields.filter(f => learner[f] && String(learner[f]).trim() !== '').length;
+    return Math.round((filled / fields.length) * 100);
+  }, [learner]);
 
   // ── Progress ──────────────────────────────────────────────────────────
   const getProgress = useCallback(async (moduleId) => {
@@ -265,10 +290,10 @@ export function DbProvider({ children }) {
     const SQLite = require('expo-sqlite');
     await SQLite.deleteDatabaseAsync('edukraft.db');
     const newDb = await SQLite.openDatabaseAsync('edukraft.db');
-    const { CREATE_TABLES, INITIAL_SYNC_META, MIGRATE_LEARNER_V2 } = require('./schema');
+    const { CREATE_TABLES, INITIAL_SYNC_META, MIGRATE_LEARNER_V2, MIGRATE_LEARNER_V3 } = require('./schema');
     await newDb.execAsync(CREATE_TABLES);
     await newDb.execAsync(INITIAL_SYNC_META);
-    for (const stmt of MIGRATE_LEARNER_V2) {
+    for (const stmt of [...MIGRATE_LEARNER_V2, ...MIGRATE_LEARNER_V3]) {
       try { await newDb.execAsync(stmt); } catch (_) {}
     }
     setDb(newDb);
@@ -280,7 +305,7 @@ export function DbProvider({ children }) {
     db, ready, error,
     learner, setLearner,
     // Learner
-    createLearner, addXP,
+    createLearner, addXP, updateProfile, getProfileCompletion,
     // Progress
     getProgress, getAllProgress, updateProgress,
     // Quiz

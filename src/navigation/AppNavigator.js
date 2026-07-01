@@ -20,6 +20,7 @@ import OnboardingScreen from '../screens/OnboardingScreen';
 import LoginScreen      from '../screens/LoginScreen';
 import RegisterScreen   from '../screens/RegisterScreen';
 import AchievementsScreen from '../screens/AchievementsScreen';
+import EditProfileScreen from '../screens/EditProfileScreen';
 import { useDb }        from '../database/DbProvider';
 import { useAuth }      from '../contexts/AuthContext';
 
@@ -112,6 +113,9 @@ function RootStack() {
         options={{ presentation: 'modal', gestureEnabled: false }}
       />
       <Stack.Screen name="Achievements" component={AchievementsScreen}
+        options={{ presentation: 'card', gestureEnabled: true }}
+      />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen}
         options={{ presentation: 'card', gestureEnabled: true }}
       />
     </Stack.Navigator>

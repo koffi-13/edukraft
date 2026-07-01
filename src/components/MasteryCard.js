@@ -7,13 +7,16 @@
 //     plutôt qu'un seul chiffre global — l'apprenant voit où il est fort.
 //   - Une filière partiellement complétée affiche "en cours", pas "incomplet".
 //   - Pas de comparaison entre filières (chacune a sa valeur).
+//   - Collapsible : masquer/afficher le détail pour économiser l'espace.
 
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../theme';
 import { t } from '../i18n';
 
 export default function MasteryCard({ mastery = [] }) {
+  const [expanded, setExpanded] = useState(true);
+
   if (!mastery || mastery.length === 0) {
     return (
       <View style={[styles.card, Shadow.card]}>
@@ -25,37 +28,50 @@ export default function MasteryCard({ mastery = [] }) {
 
   return (
     <View style={[styles.card, Shadow.card]}>
-      <Text style={styles.title}>{t('gamification.mastery_title')}</Text>
-      <Text style={styles.subtitle}>{t('gamification.mastery_subtitle')}</Text>
+      <TouchableOpacity
+        style={styles.header}
+        onPress={() => setExpanded(!expanded)}
+        activeOpacity={0.85}
+      >
+        <View>
+          <Text style={styles.title}>{t('gamification.mastery_title')}</Text>
+          <Text style={styles.subtitle}>{t('gamification.mastery_subtitle')}</Text>
+        </View>
+        <Text style={[styles.chevron, !expanded && styles.chevronCollapsed]}>
+          {expanded ? '▲' : '▼'}
+        </Text>
+      </TouchableOpacity>
 
-      <View style={styles.filiereList}>
-        {mastery.map((f, i) => {
-          const pct = f.total > 0 ? f.completed / f.total : 0;
-          return (
-            <View key={i} style={styles.filiere}>
-              <View style={styles.filiereHeader}>
-                <Text style={styles.filiereName}>{f.filiere}</Text>
-                <Text style={styles.filiereCount}>
-                  {f.completed}/{f.total}
+      {expanded && (
+        <View style={styles.filiereList}>
+          {mastery.map((f, i) => {
+            const pct = f.total > 0 ? f.completed / f.total : 0;
+            return (
+              <View key={i} style={styles.filiere}>
+                <View style={styles.filiereHeader}>
+                  <Text style={styles.filiereName}>{f.filiere}</Text>
+                  <Text style={styles.filiereCount}>
+                    {f.completed}/{f.total}
+                  </Text>
+                </View>
+                <View style={styles.barTrack}>
+                  <View style={[styles.barFill, {
+                    width: `${Math.round(pct * 100)}%`,
+                    backgroundColor: pct === 1 ? Colors.teal : pct > 0 ? Colors.primary : Colors.border,
+                  }]} />
+                </View>
+                <Text style={styles.filiereStatus}>
+                  {pct === 1
+                    ? t('gamification.mastery_mastered')
+                    : f.inProgress > 0
+                      ? t('gamification.mastery_in_progress')
+                      : t('gamification.mastery_not_started')}
                 </Text>
               </View>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, {
-                  width: `${Math.round(pct * 100)}%`,
-                  backgroundColor: pct === 1 ? Colors.teal : pct > 0 ? Colors.primary : Colors.border,
-                }]} />
-              </View>
-              <Text style={styles.filiereStatus}>
-                {pct === 1
-                  ? t('gamification.mastery_mastered')
-                  : f.inProgress > 0
-                    ? t('gamification.mastery_in_progress')
-                    : t('gamification.mastery_not_started')}
-              </Text>
-            </View>
-          );
-        })}
-      </View>
+            );
+          })}
+        </View>
+      )}
     </View>
   );
 }
@@ -67,6 +83,11 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     gap: Spacing.xs,
   },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   title: {
     fontSize: Typography.h3,
     fontWeight: Typography.bold,
@@ -75,7 +96,15 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: Typography.caption,
     color: Colors.ink60,
-    marginBottom: Spacing.sm,
+    marginTop: 2,
+  },
+  chevron: {
+    fontSize: 12,
+    color: Colors.ink30,
+    padding: Spacing.sm,
+  },
+  chevronCollapsed: {
+    color: Colors.primary,
   },
   empty: {
     fontSize: Typography.caption,
@@ -83,7 +112,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     textAlign: 'center',
   },
-  filiereList: { gap: Spacing.md },
+  filiereList: { gap: Spacing.md, marginTop: Spacing.md },
   filiere: { gap: 4 },
   filiereHeader: {
     flexDirection: 'row',

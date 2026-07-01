@@ -47,7 +47,21 @@ function initDatabase() {
       streak_days     INTEGER DEFAULT 0,
       last_active_at  TEXT,
       created_at      TEXT NOT NULL,
-      updated_at      TEXT NOT NULL
+      updated_at      TEXT NOT NULL,
+      -- ── Profil étendu (v1.1) ───────────────────────────────────────────
+      first_name      TEXT,
+      last_name       TEXT,
+      gender          TEXT,
+      birth_date      TEXT,
+      education_level TEXT,
+      country         TEXT,
+      state           TEXT,
+      city            TEXT,
+      address         TEXT,
+      email           TEXT,
+      photo_url       TEXT,
+      bio             TEXT,
+      profession      TEXT
     );
 
     CREATE TABLE IF NOT EXISTS module_progress (
@@ -439,6 +453,66 @@ app.get('/api/learners/:clientId', (req, res) => {
   const learner = db.prepare('SELECT * FROM learner WHERE client_id = ?').get(req.params.clientId);
   if (!learner) return fail(res, 'Learner non trouvé', 404);
   success(res, { learner });
+});
+
+/** Mettre à jour le profil étendu d'un learner (v1.1) */
+app.patch('/api/learners/:clientId/profile', (req, res) => {
+  try {
+    const learner = db.prepare('SELECT id FROM learner WHERE client_id = ?').get(req.params.clientId);
+    if (!learner) return fail(res, 'Learner non trouvé', 404);
+
+    const allowedFields = [
+      'first_name', 'last_name', 'gender', 'birth_date', 'education_level',
+      'country', 'state', 'city', 'address', 'email', 'photo_url', 'bio', 'profession'
+    ];
+    const updates = {};
+    for (const f of allowedFields) {
+      if (req.body[f] !== undefined) updates[f] = req.body[f];
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return fail(res, 'Aucun champ à mettre à jour');
+    }
+
+    // Construire dynamiquement la requête UPDATE
+    const setClauses = Object.keys(updates).map(f => `${f} = @${f}`);
+    setClauses.push('updated_at = @updated_at');
+    updates.updated_at = new Date().toISOString();
+    updates.id = learner.id;
+
+    db.prepare(`UPDATE learner SET ${setClauses.join(', ')} WHERE id = @id`).run(updates);
+
+    const updated = db.prepare('SELECT * FROM learner WHERE id = ?').get(learner.id);
+    success(res, { learner: updated });
+  } catch (err) {
+    console.error('[PATCH profile]', err);
+    fail(res, err.message, 500);
+  }
+});
+
+/** Upload photo de profil (base64, limité à 200 Ko) */
+app.post('/api/learners/:clientId/photo', (req, res) => {
+  try {
+    const learner = db.prepare('SELECT id FROM learner WHERE client_id = ?').get(req.params.clientId);
+    if (!learner) return fail(res, 'Learner non trouvé', 404);
+
+    const { photoBase64 } = req.body || {};
+    if (!photoBase64) return fail(res, 'photoBase64 requis');
+
+    // Limite ~200 Ko (base64 ~270 Ko)
+    if (photoBase64.length > 300000) {
+      return fail(res, 'Photo trop volumineuse (max 200 Ko)', 413);
+    }
+
+    // Stocker en base (pour MVP — en prod : stockage objet S3/Minio + URL)
+    const now = new Date().toISOString();
+    db.prepare('UPDATE learner SET photo_url = ?, updated_at = ? WHERE id = ?')
+      .run(photoBase64, now, learner.id);
+
+    success(res, { photo_url: photoBase64 });
+  } catch (err) {
+    fail(res, err.message, 500);
+  }
 });
 
 // ── Progress endpoints ───────────────────────────────────────────────────────

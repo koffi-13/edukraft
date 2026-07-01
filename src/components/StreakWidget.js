@@ -8,17 +8,34 @@
 //   - Pas de message culpabilisant si streak = 0 ou cassé : on encourage juste
 //     à "reprendre aujourd'hui".
 
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../theme';
 import { t } from '../i18n';
 import { MAX_FREEZES } from '../gamification';
 
 export default function StreakWidget({ streak, freezes = MAX_FREEZES, bestStreak = 0, compact = false }) {
+  // Animation : la flamme pulse si streak > 0 (feu qui crépite)
+  const flameAnim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (streak > 0) {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(flameAnim, { toValue: 1.15, duration: 600, easing: Easing.ease, useNativeDriver: true }),
+          Animated.timing(flameAnim, { toValue: 0.95, duration: 400, easing: Easing.ease, useNativeDriver: true }),
+          Animated.timing(flameAnim, { toValue: 1.1, duration: 500, easing: Easing.ease, useNativeDriver: true }),
+          Animated.timing(flameAnim, { toValue: 1, duration: 700, easing: Easing.ease, useNativeDriver: true }),
+        ])
+      );
+      loop.start();
+      return () => loop.stop();
+    }
+  }, [streak]);
+
   if (compact) {
     return (
       <View style={styles.compact}>
-        <Text style={styles.flameCompact}>🔥</Text>
+        <Animated.Text style={[styles.flameCompact, { transform: [{ scale: flameAnim }] }]}>🔥</Animated.Text>
         <Text style={styles.streakNumCompact}>{streak}</Text>
         {freezes > 0 && (
           <Text style={styles.freezeCompact}>❄{freezes}</Text>
@@ -32,7 +49,7 @@ export default function StreakWidget({ streak, freezes = MAX_FREEZES, bestStreak
   return (
     <View style={[styles.card, Shadow.card]}>
       <View style={styles.header}>
-        <Text style={[styles.flame, { fontSize: flameSize }]}>🔥</Text>
+        <Animated.Text style={[styles.flame, { fontSize: flameSize, transform: [{ scale: flameAnim }] }]}>🔥</Animated.Text>
         <View style={styles.info}>
           <Text style={styles.streakNum}>{streak}</Text>
           <Text style={styles.streakLabel}>

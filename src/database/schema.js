@@ -20,7 +20,21 @@ CREATE TABLE IF NOT EXISTS learner (
   created_at      TEXT NOT NULL,
   server_id       TEXT,                        -- ID côté API après sync
   sync_status     TEXT DEFAULT 'pending',      -- pending | synced | error
-  updated_at      TEXT NOT NULL
+  updated_at      TEXT NOT NULL,
+  -- ── Profil étendu (v1.1) — nullable, rempli progressivement ──────────
+  first_name      TEXT,
+  last_name       TEXT,
+  gender          TEXT,
+  birth_date      TEXT,
+  education_level TEXT,
+  country         TEXT,
+  state           TEXT,
+  city            TEXT,
+  address         TEXT,
+  email           TEXT,
+  photo_url       TEXT,
+  bio             TEXT,
+  profession      TEXT
 );
 
 -- Progression par module
@@ -148,6 +162,23 @@ export const MIGRATE_LEARNER_V2 = [
   'ALTER TABLE learner ADD COLUMN best_streak INTEGER DEFAULT 0',
   'ALTER TABLE learner ADD COLUMN last_active_date TEXT',
   'ALTER TABLE learner ADD COLUMN total_lessons_done INTEGER DEFAULT 0',
+];
+
+// ── Migration v1 → v1.1 : ajoute les colonnes du profil étendu au learner ────
+export const MIGRATE_LEARNER_V3 = [
+  'ALTER TABLE learner ADD COLUMN first_name TEXT',
+  'ALTER TABLE learner ADD COLUMN last_name TEXT',
+  'ALTER TABLE learner ADD COLUMN gender TEXT',
+  'ALTER TABLE learner ADD COLUMN birth_date TEXT',
+  'ALTER TABLE learner ADD COLUMN education_level TEXT',
+  'ALTER TABLE learner ADD COLUMN country TEXT',
+  'ALTER TABLE learner ADD COLUMN state TEXT',
+  'ALTER TABLE learner ADD COLUMN city TEXT',
+  'ALTER TABLE learner ADD COLUMN address TEXT',
+  'ALTER TABLE learner ADD COLUMN email TEXT',
+  'ALTER TABLE learner ADD COLUMN photo_url TEXT',
+  'ALTER TABLE learner ADD COLUMN bio TEXT',
+  'ALTER TABLE learner ADD COLUMN profession TEXT',
 ];
 
 // ── Requêtes préparées fréquentes ───────────────────────────────────────────

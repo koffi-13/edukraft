@@ -9,6 +9,7 @@ import { useDb } from '../database/DbProvider';
 import { getModuleById, getLessonById, getQuizForLesson } from '../content/moduleRegistry';
 import { t } from '../i18n';
 import CelebrationModal from '../components/CelebrationModal';
+import feedback from '../services/feedbackService';
 
 // ── Écrans du quiz ──────────────────────────────────────────────────────
 const STEP_QUESTION  = 'question';
@@ -62,6 +63,9 @@ export default function QuizScreen({ route, navigation }) {
 
     const correctOption = currentQ.options.find(o => o.correct);
     const isCorrect = selectedId === correctOption?.id;
+
+    // Feedback haptique selon la réponse
+    if (isCorrect) feedback.success(); else feedback.error();
 
     const answer = {
       qId: currentQ.id,
@@ -154,6 +158,14 @@ export default function QuizScreen({ route, navigation }) {
                 xp,
               });
               setShowCelebration(true);
+              // Feedback haptique de célébration
+              if (gResult.newAchievements?.length > 0) {
+                feedback.achievement();
+              } else if (gResult.streak?.current > 1) {
+                feedback.streak();
+              } else {
+                feedback.completion();
+              }
             }
           } catch (gErr) {
             console.warn('[Quiz] Gamification error (non-fatal):', gErr.message);

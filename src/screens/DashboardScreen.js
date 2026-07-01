@@ -18,7 +18,7 @@ import { t }                  from '../i18n';
 
 export default function DashboardScreen({ navigation }) {
   const insets          = useSafeAreaInsets();
-  const { learner, getAllProgress, getGamificationState } = useDb();
+  const { learner, getAllProgress, getGamificationState, getProfileCompletion } = useDb();
   const [allProgress, setAllProgress] = useState([]);
   const [refreshing, setRefreshing]   = useState(false);
   const [gamo, setGamo]               = useState(null);  // état gamification
@@ -87,6 +87,30 @@ export default function DashboardScreen({ navigation }) {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
         showsVerticalScrollIndicator={false}
       >
+        {/* Bannière complétion profil */}
+        {(() => {
+          const completion = getProfileCompletion ? getProfileCompletion() : 0;
+          if (completion >= 100) return null;
+          return (
+            <TouchableOpacity
+              style={styles.profileBanner}
+              onPress={() => navigation.navigate('EditProfile')}
+              activeOpacity={0.85}
+            >
+              <View style={styles.profileBannerLeft}>
+                <Text style={styles.profileBannerTitle}>Complète ton profil ({completion}%)</Text>
+                <Text style={styles.profileBannerSub}>
+                  {completion < 50 ? 'Plus d\'infos = meilleurs certificats' : 'Presque fini !'}
+                </Text>
+                <View style={styles.profileBarTrack}>
+                  <View style={[styles.profileBarFill, { width: `${completion}%` }]} />
+                </View>
+              </View>
+              <Text style={styles.profileBannerArrow}>›</Text>
+            </TouchableOpacity>
+          );
+        })()}
+
         {/* XP Card */}
         <View style={[styles.xpCard, Shadow.card]}>
           <XPBar xp={learner?.total_xp ?? 0} />
@@ -180,7 +204,7 @@ export default function DashboardScreen({ navigation }) {
                 {/* Stats */}
                 <View style={styles.moduleStats}>
                   <Text style={styles.statText}>
-                    📚 {totalLessons} {t('module.lessons_count', { count: totalLessons })}
+                    📚 {t('module.lessons_count', { count: totalLessons })}
                   </Text>
                   <Text style={styles.statText}>
                     ⏱ {module.duration} {t('lesson.read_time')}
@@ -272,6 +296,29 @@ const styles = StyleSheet.create({
     backgroundColor:      Colors.surfaceAlt,
   },
   content:      { padding: Spacing.lg, gap: Spacing.md },
+  // Bannière complétion profil
+  profileBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.tealLight,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.teal,
+    gap: Spacing.sm,
+  },
+  profileBannerLeft: { flex: 1, gap: 4 },
+  profileBannerTitle: { fontSize: Typography.body, fontWeight: Typography.bold, color: Colors.tealDark },
+  profileBannerSub: { fontSize: Typography.caption, color: Colors.tealDark },
+  profileBarTrack: {
+    height: 4,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.full,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  profileBarFill: { height: 4, backgroundColor: Colors.teal, borderRadius: Radius.full },
+  profileBannerArrow: { fontSize: 24, color: Colors.tealDark, fontWeight: '300' },
   xpCard: {
     backgroundColor: Colors.surface,
     borderRadius:    Radius.lg,

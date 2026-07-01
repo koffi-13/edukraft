@@ -246,6 +246,24 @@ export default function ProfileScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
+      {/* Section Mes informations (profil étendu) */}
+      <View style={styles.section}>
+        <TouchableOpacity
+          style={[styles.premiumCard, Shadow.card, { borderColor: Colors.primary }]}
+          onPress={() => navigation.navigate('EditProfile')}
+          activeOpacity={0.85}
+        >
+          <View style={styles.premiumLeft}>
+            <Text style={styles.premiumIcon}>👤</Text>
+            <View>
+              <Text style={styles.premiumTitle}>{t('profile.edit_title')}</Text>
+              <Text style={styles.premiumDesc}>{t('profile.edit_desc')}</Text>
+            </View>
+          </View>
+          <Text style={styles.premiumArrow}>›</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Section Compte / Authentification */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{t('auth.account_section')}</Text>

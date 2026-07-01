@@ -87,5 +87,45 @@ export function createLearnerRepository(db, store, enqueue) {
     return db.getFirstAsync(QUERIES.GET_LEARNER);
   }
 
-  return { create, addXP, updateStreakCache, get };
+  /** Met à jour les champs du profil étendu (v1.1). */
+  async function updateProfile(learnerId, fields) {
+    const now = new Date().toISOString();
+    const allowedFields = [
+      'first_name', 'last_name', 'gender', 'birth_date', 'education_level',
+      'country', 'state', 'city', 'address', 'email', 'photo_url', 'bio', 'profession',
+    ];
+
+    if (isMemory()) {
+      const current = store.learner || {};
+      for (const f of allowedFields) {
+        if (fields[f] !== undefined) current[f] = fields[f];
+      }
+      current.updated_at = now;
+      store.learner = current;
+      return current;
+    }
+
+    // SQLite natif : construire la requête UPDATE dynamiquement
+    const setParts = [];
+    const values = [];
+    for (const f of allowedFields) {
+      if (fields[f] !== undefined) {
+        setParts.push(`${f} = ?`);
+        values.push(fields[f]);
+      }
+    }
+    if (setParts.length === 0) return db.getFirstAsync(QUERIES.GET_LEARNER);
+
+    setParts.push('updated_at = ?');
+    values.push(now);
+    values.push(learnerId);
+
+    await db.runAsync(
+      `UPDATE learner SET ${setParts.join(', ')} WHERE id = ?`,
+      values
+    );
+    return db.getFirstAsync(QUERIES.GET_LEARNER);
+  }
+
+  return { create, addXP, updateStreakCache, get, updateProfile };
 }
