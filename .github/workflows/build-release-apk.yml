@@ -45,6 +45,20 @@ jobs:
       - name: Install EAS CLI
         run: npm install -g eas-cli
 
+      - name: Initialize EAS project (auto-creates if needed)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          # eas init: lie le projet à un projet EAS (crée automatiquement si nécessaire)
+          eas init --non-interactive || true
+          # Vérifier que le projectId est maintenant dans eas.json
+          if ! grep -q "projectId" eas.json; then
+            # Si eas init n'a pas fonctionné, essayer de créer le projet manuellement
+            eas init --non-interactive --id="" || true
+          fi
+          echo "=== eas.json after init ==="
+          cat eas.json
+
       - name: Build APK (EAS)
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
