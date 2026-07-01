@@ -49,17 +49,21 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Build APK (EAS)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          npx eas-cli build --profile preview --platform android --non-interactive --no-wait --json > build_info.json
+          eas build --profile preview --platform android --non-interactive --no-wait --json > build_info.json
           BUILD_ID=$(cat build_info.json | jq -r '.[0].id')
           echo "BUILD_ID=$BUILD_ID" >> $GITHUB_ENV
           echo "Building APK with ID: $BUILD_ID"
 
       - name: Wait for build to complete
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           echo "Waiting for EAS build to complete..."
           while true; do
-            STATUS=$(npx eas-cli build:view ${{ env.BUILD_ID }} --json 2>/dev/null | jq -r '.status')
+            STATUS=$(eas build:view ${{ env.BUILD_ID }} --json 2>/dev/null | jq -r '.status')
             echo "Build status: $STATUS"
             if [ "$STATUS" = "finished" ]; then
               echo "Build finished!"
@@ -72,8 +76,10 @@ jobs:
           done
 
       - name: Get build URL and download APK
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          BUILD_URL=$(npx eas-cli build:view ${{ env.BUILD_ID }} --json | jq -r '.artifacts.buildUrl')
+          BUILD_URL=$(eas build:view ${{ env.BUILD_ID }} --json | jq -r '.artifacts.buildUrl')
           echo "Downloading APK from: $BUILD_URL"
           curl -L -o edukraft.apk "$BUILD_URL"
           ls -lh edukraft.apk
