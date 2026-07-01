@@ -59,15 +59,10 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          echo "Running eas init..."
-          eas init --non-interactive
+          echo "Running eas init --force (creates project on first run)..."
+          eas init --non-interactive --force
           echo "=== eas.json after init ==="
           cat eas.json
-          if ! grep -q "projectId" eas.json; then
-            echo "projectId not found — trying eas build:configure..."
-            eas build:configure --non-interactive || true
-            cat eas.json
-          fi
 
       - name: Build APK (EAS)
         env:
