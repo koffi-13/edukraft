@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Copier package.json et installer les dépendances
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev --legacy-peer-deps
 
 # Copier le code serveur
 COPY . .
