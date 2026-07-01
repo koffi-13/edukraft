@@ -1,0 +1,114 @@
+# Build APK + Publish to GitHub Releases
+# Déclenché manuellement (workflow_dispatch) ou sur tag v*
+#
+# Ce workflow :
+#   1. Build l'APK via EAS (sur les serveurs Expo, gratuit)
+#   2. Télécharge l'APK
+#   3. Crée une GitHub Release avec l'APK en pièce jointe
+#
+# ⚠️ Prérequis :
+#   - EXPO_TOKEN en secret GitHub (https://expo.dev/accounts/[user]/settings/access-tokens)
+#   - Le backend doit être déployé (Fly.io) avec l'URL dans eas.json
+#
+# Une fois le workflow terminé, l'APK est téléchargeable depuis :
+#   https://github.com/koffi-13/edukraft/releases
+
+name: Build & Release APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (ex: v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build APK and Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: '50'
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build APK (EAS)
+        run: |
+          npx eas-cli build --profile preview --platform android --non-interactive --no-wait --json > build_info.json
+          BUILD_ID=$(cat build_info.json | jq -r '.[0].id')
+          echo "BUILD_ID=$BUILD_ID" >> $GITHUB_ENV
+          echo "Building APK with ID: $BUILD_ID"
+
+      - name: Wait for build to complete
+        run: |
+          echo "Waiting for EAS build to complete..."
+          while true; do
+            STATUS=$(npx eas-cli build:view ${{ env.BUILD_ID }} --json 2>/dev/null | jq -r '.status')
+            echo "Build status: $STATUS"
+            if [ "$STATUS" = "finished" ]; then
+              echo "Build finished!"
+              break
+            elif [ "$STATUS" = "errored" ]; then
+              echo "Build failed!"
+              exit 1
+            fi
+            sleep 30
+          done
+
+      - name: Get build URL and download APK
+        run: |
+          BUILD_URL=$(npx eas-cli build:view ${{ env.BUILD_ID }} --json | jq -r '.artifacts.buildUrl')
+          echo "Downloading APK from: $BUILD_URL"
+          curl -L -o edukraft.apk "$BUILD_URL"
+          ls -lh edukraft.apk
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name: EduKraft ${{ steps.version.outputs.VERSION }}
+          body: |
+            # EduKraft ${{ steps.version.outputs.VERSION }}
+
+            ## Installation
+            1. Téléchargez le fichier APK ci-dessous
+            2. Ouvrez-le sur votre téléphone Android
+            3. Autorisez "Sources inconnues" si demandé
+            4. Ouvrez EduKraft
+
+            ## Nouveautés
+            - 8 parcours de formation (42 leçons)
+            - Authentification (email, Google, SMS)
+            - Gamification (streaks, succès, badges blockchain)
+            - Mode hors-ligne (offline-first)
+            - Profil étendu (photo, coordonnées, bio)
+          files: edukraft.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
