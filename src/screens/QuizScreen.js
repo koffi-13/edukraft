@@ -1,7 +1,7 @@
 // src/screens/QuizScreen.js
 // Moteur de quiz complet — scoring, XP, passage/échec, badge
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Animated, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Animated, Alert, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors, Typography, Spacing, Radius, Shadow, getLevel } from '../theme';
@@ -25,6 +25,7 @@ export default function QuizScreen({ route, navigation }) {
   const [step, setStep]             = useState(STEP_QUESTION);
   const [qIndex, setQIndex]         = useState(0);
   const [selectedId, setSelectedId] = useState(null);
+  const [textAnswer, setTextAnswer] = useState('');     // pour fill_blank
   const [answers, setAnswers]       = useState([]);     // [{ qId, selectedId, correct }]
   const [showExplanation, setShowExplanation] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(1));
@@ -36,7 +37,33 @@ export default function QuizScreen({ route, navigation }) {
   const module   = getModuleById(moduleId);
   const lesson   = getLessonById(moduleId, lessonIndex);
   const quiz     = getQuizForLesson(moduleId, lessonIndex);
-  const questions = quiz?.questions || [];
+
+  // ── Versioning des questions : randomiser l'ordre des questions ET des options ──
+  // Chaque instance de quiz a un ordre différent → empêche la mémorisation de position.
+  // Les questions fill_blank (saisie texte) sont aussi supportées.
+  const [shuffledQuestions] = useState(() => {
+    const rawQuestions = quiz?.questions || [];
+    if (rawQuestions.length === 0) return [];
+    // Mélanger l'ordre des questions (Fisher-Yates)
+    const shuffled = [...rawQuestions];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    // Pour chaque question single_choice, mélanger aussi l'ordre des options
+    return shuffled.map(q => {
+      if (q.type === 'single_choice' && q.options) {
+        const opts = [...q.options];
+        for (let i = opts.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [opts[i], opts[j]] = [opts[j], opts[i]];
+        }
+        return { ...q, options: opts };
+      }
+      return q;
+    });
+  });
+  const questions = shuffledQuestions;
   const currentQ  = questions[qIndex];
   const passingScore = quiz?.passing_score ?? 0.67;
   const totalQ   = questions.length;
@@ -59,17 +86,32 @@ export default function QuizScreen({ route, navigation }) {
 
   // ── Valider la réponse ────────────────────────────────────────────────
   const handleValidate = useCallback(async () => {
-    if (!selectedId || !currentQ) return;
+    if (!currentQ) return;
 
-    const correctOption = currentQ.options.find(o => o.correct);
-    const isCorrect = selectedId === correctOption?.id;
+    let isCorrect = false;
+    let selectedVal = null;
+
+    if (currentQ.type === 'fill_blank') {
+      // Saisie texte : comparer (insensible à la casse, espaces trimés)
+      const userAnswer = (textAnswer || '').trim().toLowerCase();
+      const acceptedAnswers = currentQ.accepted_answers || (currentQ.options ? currentQ.options.map(o => o.text) : []);
+      isCorrect = acceptedAnswers.some(a => String(a).trim().toLowerCase() === userAnswer);
+      selectedVal = textAnswer;
+      if (!textAnswer.trim()) return; // ne rien faire si vide
+    } else {
+      // single_choice (défaut)
+      if (!selectedId) return;
+      const correctOption = currentQ.options.find(o => o.correct);
+      isCorrect = selectedId === correctOption?.id;
+      selectedVal = selectedId;
+    }
 
     // Feedback haptique selon la réponse
     if (isCorrect) feedback.success(); else feedback.error();
 
     const answer = {
       qId: currentQ.id,
-      selectedId,
+      selectedId: selectedVal,
       correct: isCorrect,
     };
     const newAnswers = [...answers, answer];
@@ -196,6 +238,7 @@ export default function QuizScreen({ route, navigation }) {
     if (qIndex + 1 < totalQ) {
       setQIndex(qIndex + 1);
       setSelectedId(null);
+      setTextAnswer('');
       setStep(STEP_QUESTION);
     } else {
       // Dernière question → afficher résultat
@@ -208,6 +251,7 @@ export default function QuizScreen({ route, navigation }) {
     setStep(STEP_QUESTION);
     setQIndex(0);
     setSelectedId(null);
+    setTextAnswer('');
     setAnswers([]);
     setShowExplanation(false);
   }, []);
@@ -287,8 +331,33 @@ export default function QuizScreen({ route, navigation }) {
             {/* Question */}
             <Text style={styles.questionText}>{currentQ.text}</Text>
 
-            {/* Options */}
-            {currentQ.options.map((option) => {
+            {/* Champ de saisie (fill_blank) */}
+            {currentQ.type === 'fill_blank' ? (
+              <View>
+                <TextInput
+                  style={styles.textInput}
+                  value={textAnswer}
+                  onChangeText={setTextAnswer}
+                  placeholder={currentQ.placeholder || 'Tape ta réponse...'}
+                  placeholderTextColor={Colors.ink30}
+                  editable={step === STEP_QUESTION}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                {step === STEP_FEEDBACK && (
+                  <View style={[styles.feedbackBox, answers[answers.length - 1]?.correct ? styles.feedbackCorrect : styles.feedbackWrong]}>
+                    <Text style={styles.feedbackText}>
+                      {answers[answers.length - 1]?.correct ? '✓ Correct !' : '✗ Réponse attendue : ' + (currentQ.accepted_answers?.[0] || currentQ.options?.[0]?.text || '')}
+                    </Text>
+                  </View>
+                )}
+                {currentQ.explanation && step === STEP_FEEDBACK && (
+                  <Text style={styles.explanationText}>{currentQ.explanation}</Text>
+                )}
+              </View>
+            ) : (
+              /* Options (single_choice) */
+              currentQ.options && currentQ.options.map((option) => {
               const isSelected = selectedId === option.id;
               const isCorrectOption = option.id === correctOption?.id;
 
@@ -331,10 +400,11 @@ export default function QuizScreen({ route, navigation }) {
                   </View>
                 </TouchableOpacity>
               );
-            })}
+            })
+            )}
 
-            {/* Feedback */}
-            {step === STEP_FEEDBACK && (
+            {/* Feedback (single_choice only — fill_blank a son propre feedback) */}
+            {step === STEP_FEEDBACK && currentQ.type !== 'fill_blank' && (
               <View style={styles.feedbackBox}>
                 <Text style={[styles.feedbackTitle, { color: isCorrect ? Colors.teal : Colors.error }]}>
                   {isCorrect ? t('lesson.correct') : t('lesson.incorrect')}
@@ -693,6 +763,36 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.border,
+  },
+  feedbackCorrect: {
+    backgroundColor: Colors.tealLight,
+    borderColor: Colors.teal,
+  },
+  feedbackWrong: {
+    backgroundColor: Colors.coralLight,
+    borderColor: Colors.error,
+  },
+  feedbackText: {
+    fontSize: Typography.body,
+    fontWeight: Typography.semibold,
+    color: Colors.ink,
+  },
+  explanationText: {
+    fontSize: Typography.caption,
+    color: Colors.ink60,
+    marginTop: Spacing.xs,
+    fontStyle: 'italic',
+  },
+  // Text input (fill_blank)
+  textInput: {
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    fontSize: Typography.bodyLg,
+    color: Colors.ink,
+    backgroundColor: Colors.surface,
   },
   feedbackTitle: {
     fontSize: Typography.bodyLg,

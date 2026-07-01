@@ -90,8 +90,8 @@ export default function AchievementsScreen({ navigation }) {
 
   return (
     <ScrollView
-      style={[styles.root, { paddingTop: insets.top }]}
-      contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+      style={[styles.root, { paddingTop: insets.top, flex: 1 }]}
+      contentContainerStyle={{ paddingBottom: insets.bottom + 40, flexGrow: 1 }}
       showsVerticalScrollIndicator={false}
     >
       {/* Header */}

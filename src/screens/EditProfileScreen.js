@@ -97,12 +97,45 @@ export default function EditProfileScreen({ navigation }) {
       if (!result.canceled && result.assets && result.assets[0]) {
         const asset = result.assets[0];
         if (asset.base64) {
-          // Limite ~150 Ko (base64 ~200 Ko)
-          if (asset.base64.length > 250000) {
-            Alert.alert('Photo trop volumineuse', 'Veuillez choisir une photo plus petite (max 200 Ko).');
+          const base64Data = asset.base64;
+          // Si la photo est trop volumineuse (> 200 Ko), proposer de la compresser
+          if (base64Data.length > 250000) {
+            Alert.alert(
+              'Photo volumineuse',
+              'Cette photo fait ' + Math.round(base64Data.length / 1024) + ' Ko. ' +
+              'Voulez-vous la compresser automatiquement (recommandé) ou en choisir une autre ?',
+              [
+                { text: 'Choisir une autre', style: 'cancel', onPress: () => pickPhoto() },
+                {
+                  text: 'Compresser',
+                  onPress: async () => {
+                    try {
+                      // Relancer le picker avec une qualité plus faible
+                      const compressed = await ImagePicker.launchImageLibraryAsync({
+                        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                        allowsEditing: true,
+                        aspect: [1, 1],
+                        quality: 0.3,  // qualité beaucoup plus basse
+                        base64: true,
+                      });
+                      if (!compressed.canceled && compressed.assets?.[0]?.base64) {
+                        const cBase64 = compressed.assets[0].base64;
+                        if (cBase64.length > 250000) {
+                          Alert.alert('Toujours trop volumineuse', 'Veuillez choisir une photo plus petite.');
+                          return;
+                        }
+                        setField('photo_url', `data:image/jpeg;base64,${cBase64}`);
+                      }
+                    } catch (e) {
+                      Alert.alert('Erreur', 'Compression impossible : ' + e.message);
+                    }
+                  },
+                },
+              ]
+            );
             return;
           }
-          setField('photo_url', `data:image/jpeg;base64,${asset.base64}`);
+          setField('photo_url', `data:image/jpeg;base64,${base64Data}`);
         }
       }
     } catch (e) {

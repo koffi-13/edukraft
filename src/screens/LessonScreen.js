@@ -1,6 +1,9 @@
 // src/screens/LessonScreen.js
 // Lecteur de leçon complet — rend le contenu JSON riche
-import React, { useEffect, useCallback } from 'react';
+// Sections révélées progressivement : l'apprenant lit l'intro, puis
+// chaque section apparaît une par une après un bouton "Continuer".
+// Cette approche améliore la concentration et la rétention.
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -8,11 +11,20 @@ import { Colors, Typography, Spacing, Radius, Shadow } from '../theme';
 import { useDb } from '../database/DbProvider';
 import { getModuleById, getLessonById } from '../content/moduleRegistry';
 import { t } from '../i18n';
+import feedback from '../services/feedbackService';
 
 export default function LessonScreen({ route, navigation }) {
   const { moduleId, lessonIndex: li } = route.params || {};
   const insets = useSafeAreaInsets();
   const { learner, updateProgress } = useDb();
+
+  // Sections révélées progressivement (0 = intro visible, 1 = section 1, etc.)
+  const [visibleSections, setVisibleSections] = useState(0);
+
+  // Reset quand on change de leçon
+  useEffect(() => {
+    setVisibleSections(0);
+  }, [moduleId, lessonIndex]);
 
   
   const lessonIndex = typeof li === 'number' ? li : 0;
@@ -112,22 +124,41 @@ export default function LessonScreen({ route, navigation }) {
           </View>
         )}
 
-        {/* Sections */}
-        {sections.map((section, idx) => (
-          <View
-            key={idx}
-            style={[
-              styles.sectionCard,
-              section.highlight ? styles.sectionHighlight : null,
-            ]}
-          >
-            <Text style={styles.sectionHeading}>{section.heading}</Text>
-            <Text style={styles.sectionBody}>{section.body}</Text>
-          </View>
-        ))}
+        {/* Sections — révélées progressivement */}
+        {sections.map((section, idx) => {
+          if (idx >= visibleSections) return null;  // section pas encore révélée
+          return (
+            <View
+              key={idx}
+              style={[
+                styles.sectionCard,
+                section.highlight ? styles.sectionHighlight : null,
+              ]}
+            >
+              <Text style={styles.sectionHeading}>{section.heading}</Text>
+              <Text style={styles.sectionBody}>{section.body}</Text>
+            </View>
+          );
+        })}
 
-        {/* Key takeaway */}
-        {content.key_takeaway && (
+        {/* Bouton "Continuer la lecture" pour révéler la section suivante */}
+        {visibleSections < sections.length && (
+          <TouchableOpacity
+            style={styles.continueReadingBtn}
+            onPress={() => {
+              setVisibleSections(visibleSections + 1);
+              feedback.light();
+            }}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.continueReadingText}>
+              {visibleSections === 0 ? '📖 Commencer la lecture' : '👇 Continuer'}
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Key takeaway — visible uniquement quand toutes les sections sont lues */}
+        {content.key_takeaway && visibleSections >= sections.length && (
           <View style={[styles.takeawayCard, Shadow.card]}>
             <Text style={styles.takeawayLabel}>💡 {t('lesson.key_takeaway')}</Text>
             <Text style={styles.takeawayText}>{content.key_takeaway}</Text>
@@ -146,14 +177,18 @@ export default function LessonScreen({ route, navigation }) {
           </TouchableOpacity>
         )}
 
-        <TouchableOpacity
-          style={[styles.primaryBtn, { backgroundColor: module.color || Colors.primary }]}
-          onPress={goNextLesson}
-        >
-          <Text style={styles.primaryBtnText}>
-            {isLast ? t('lesson.start_quiz') : t('common.next')}
-          </Text>
-        </TouchableOpacity>
+        {visibleSections >= sections.length ? (
+          <TouchableOpacity
+            style={[styles.primaryBtn, { backgroundColor: module.color || Colors.primary }]}
+            onPress={goNextLesson}
+          >
+            <Text style={styles.primaryBtnText}>
+              {isLast ? t('lesson.start_quiz') : t('common.next')}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={styles.readHint}>📖 Lis toutes les sections pour continuer</Text>
+        )}
       </View>
     </View>
   );
@@ -304,6 +339,30 @@ const styles = StyleSheet.create({
     fontWeight: Typography.semibold,
     color: Colors.ink,
     lineHeight: 22,
+  },
+
+  // Bouton "Continuer la lecture"
+  continueReadingBtn: {
+    backgroundColor: Colors.primaryLight,
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    borderStyle: 'dashed',
+  },
+  continueReadingText: {
+    fontSize: Typography.body,
+    fontWeight: Typography.semibold,
+    color: Colors.primary,
+  },
+  readHint: {
+    fontSize: Typography.caption,
+    color: Colors.ink30,
+    fontStyle: 'italic',
+    flex: 1,
+    textAlign: 'center',
   },
 
   // Footer
