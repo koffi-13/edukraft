@@ -45,19 +45,43 @@ jobs:
       - name: Install EAS CLI
         run: npm install -g eas-cli
 
-      - name: Initialize EAS project (auto-creates if needed)
+      - name: Debug — verify EXPO_TOKEN is set
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          # eas init: lie le projet à un projet EAS (crée automatiquement si nécessaire)
-          eas init --non-interactive || true
-          # Vérifier que le projectId est maintenant dans eas.json
-          if ! grep -q "projectId" eas.json; then
-            # Si eas init n'a pas fonctionné, essayer de créer le projet manuellement
-            eas init --non-interactive --id="" || true
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "❌ EXPO_TOKEN is NOT set in GitHub Secrets!"
+            echo "Go to: https://github.com/koffi-13/edukraft/settings/secrets/actions"
+            echo "Add a secret named EXPO_TOKEN with your Expo access token"
+            echo "Get your token from: https://expo.dev/accounts/[your-account]/settings/access-tokens"
+            exit 1
           fi
+          echo "✅ EXPO_TOKEN is set (length: ${#EXPO_TOKEN})"
+          # Verify the token works with Expo API
+          echo "Verifying token with Expo API..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $EXPO_TOKEN" "https://api.expo.dev/v2/accounts/me")
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Token is valid — Expo API returned 200"
+          else
+            echo "❌ Token is INVALID — Expo API returned $HTTP_CODE"
+            echo "The token in GitHub Secrets must be an EXPO token (starts with 'exp_'), not a GitHub token (starts with 'ghp_')"
+            exit 1
+          fi
+
+      - name: Initialize EAS project
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          echo "Running eas init..."
+          eas init --non-interactive
           echo "=== eas.json after init ==="
           cat eas.json
+          if ! grep -q "projectId" eas.json; then
+            echo "❌ projectId not found in eas.json after eas init"
+            echo "Trying alternative: eas build:configure..."
+            eas build:configure --non-interactive || true
+            cat eas.json
+          fi
 
       - name: Build APK (EAS)
         env:
