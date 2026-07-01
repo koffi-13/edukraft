@@ -1,28 +1,22 @@
-# Fly.io configuration for EduKraft backend
-# Déploiement gratuit avec volume persistant pour SQLite
-# Docs : https://fly.io/docs/hello-fly/
-
-app = "edukraft-api"
-primary_region = "cdg"  # Paris — proche du Togo
+app = "edukraft"
+primary_region = "cdg"
 
 [build]
-  # Build depuis le dossier server/
   dockerfile = "Dockerfile"
 
 [http_service]
-  internal_port = 3001
+  internal_port = 8080
   force_https = true
   auto_stop_machines = true
   auto_start_machines = true
   min_machines_running = 0
 
-# Volume persistant pour SQLite (gratuit, 3GB max)
 [mounts]
   source = "edukraft_data"
   destination = "/data"
 
 [env]
-  PORT = "3001"
+  PORT = "8080"
   DB_PATH = "/data/edukraft.db"
   NODE_ENV = "production"
   CORS_ORIGINS = "*"
