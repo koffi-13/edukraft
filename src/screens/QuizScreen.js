@@ -102,34 +102,47 @@ export default function QuizScreen({ route, navigation }) {
     // Sauvegarder la tentative
     if (learner) {
       try {
+        // ── Vérifier la progression existante (anti-double XP) ──────────
+        // Si la leçon a DÉJÀ été réussie (lessons_done > lessonIndex),
+        // on ne redistribue PAS l'XP ni la gamification. Le module reste
+        // accessible pour révision mais ne génère plus de récompense.
+        const existingProgress = await getProgress(moduleId);
+        const alreadyPassedThisLesson = existingProgress &&
+          (existingProgress.lessons_done ?? 0) > lessonIndex;
+        const moduleAlreadyCompleted = existingProgress?.status === 'completed';
+
         await saveQuizAttempt({
           moduleId, lessonIndex,
           score: finalScore,
           answers: ans,
-          xpAwarded: xp,
+          xpAwarded: alreadyPassedThisLesson ? 0 : xp,
           passed: finalPassed,
         });
 
-        // Attribuer XP si réussi
-        if (xp > 0) {
+        // Attribuer XP UNIQUEMENT si la leçon n'avait pas déjà été réussie
+        if (xp > 0 && !alreadyPassedThisLesson) {
           await addXP(xp);
         }
 
         // Mettre à jour la progression
-        const lessonsDone = finalPassed ? lessonIndex + 1 : lessonIndex;
+        const lessonsDone = finalPassed
+          ? Math.max(lessonIndex + 1, existingProgress?.lessons_done ?? 0)
+          : (existingProgress?.lessons_done ?? 0);
         const moduleCompleted = finalPassed && isLastLesson;
 
         await updateProgress(moduleId, {
-          status: moduleCompleted ? 'completed' : 'in_progress',
-          current_lesson: finalPassed ? lessonIndex + 1 : lessonIndex,
+          status: (moduleCompleted || moduleAlreadyCompleted) ? 'completed' : 'in_progress',
+          current_lesson: finalPassed ? Math.max(lessonIndex + 1, existingProgress?.current_lesson ?? 0) : lessonIndex,
           lessons_done: lessonsDone,
           total_xp_earned: (module?.xp || 0),
-          best_score: finalScore,
-          completed_at: moduleCompleted ? new Date().toISOString() : undefined,
+          best_score: Math.max(finalScore, existingProgress?.best_score ?? 0),
+          completed_at: (moduleCompleted || moduleAlreadyCompleted)
+            ? (existingProgress?.completed_at || new Date().toISOString())
+            : undefined,
         });
 
-        // Émettre le badge si module terminé
-        if (moduleCompleted && module) {
+        // Émettre le badge UNIQUEMENT si module terminé ET pas déjà badgé
+        if (moduleCompleted && module && !moduleAlreadyCompleted) {
           await issueBadge({
             moduleId: module.id,
             moduleTitle: module.badge_title || module.title,
@@ -139,9 +152,8 @@ export default function QuizScreen({ route, navigation }) {
         }
 
         // ── Gamification : enregistrer la leçon complétée ──────────────
-        // Met à jour le streak, débloque les succès, vérifie l'objectif du jour.
-        // Ne s'affiche QUE si la leçon est réussie (pas de célébration sur échec).
-        if (finalPassed && recordLessonCompleted) {
+        // UNIQUEMENT si c'est une NOUVELLE leçon réussie (pas de double XP/streak).
+        if (finalPassed && !alreadyPassedThisLesson && recordLessonCompleted) {
           try {
             const gResult = await recordLessonCompleted({
               xpEarned: xp,

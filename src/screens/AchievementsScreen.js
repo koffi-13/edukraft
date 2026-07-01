@@ -13,6 +13,7 @@ import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../theme';
 import { useDb } from '../database/DbProvider';
 import { t } from '../i18n';
@@ -45,6 +46,13 @@ export default function AchievementsScreen({ navigation }) {
   }, [getGamificationState]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Recharger quand l'écran revient au premier plan (après un quiz par ex.)
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   const handlePresetSelect = (preset) => {
     Alert.alert(

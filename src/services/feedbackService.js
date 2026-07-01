@@ -1,86 +1,64 @@
 // src/services/feedbackService.js
-// Service de feedback haptique (vibration) + sonore pour les interactions clés.
+// Service de feedback haptique (vibration) pour les interactions clés.
 //
-// Utilise expo-haptics (vibration native, disponible sur Expo Go) et
-// expo-av (sons — non disponible sur Expo Go SDK 50, désactivé par défaut).
-// Sur web : désactivé (pas de vibration/son natif).
+// Utilise Vibration de react-native (API native, zéro dépendance externe).
+// Sur web : désactivé (pas d'API vibration).
+// Sur iOS : Vibration.vibrate() ne supporte pas les patterns complexes,
+//   on utilise donc des vibrations simples.
 //
 // API publique :
-//   feedback.success()       — vibration légère + son succès (quiz réussi)
-//   feedback.error()         — vibration forte + son erreur (mauvaise réponse)
+//   feedback.success()       — vibration légère (quiz réponse correcte)
+//   feedback.error()         — vibration forte (mauvaise réponse)
 //   feedback.warning()       — vibration moyenne (avertissement)
 //   feedback.completion()    — pattern de célébration (module terminé)
 //   feedback.streak()        — pattern streak (jour consécutif)
 //   feedback.achievement()   — pattern succès débloqué
 //   feedback.light()         — tap léger (feedback bouton)
 
-import { Platform } from 'react-native';
+import { Platform, Vibration } from 'react-native';
 
-let Haptics = null;
-try {
-  if (Platform.OS !== 'web') {
-    Haptics = require('expo-haptics');
-  }
-} catch (_) {
-  Haptics = null;
+const enabled = Platform.OS !== 'web';
+
+// Patterns de vibration (Android : [vibre, pause, vibre, pause...])
+// iOS ignore le pattern et vibre juste la durée du premier élément.
+const PATTERNS = {
+  light: [50],
+  success: [100],
+  error: [200, 100, 200],
+  warning: [150, 50, 150],
+  completion: [80, 60, 80, 60, 120],
+  streak: [60, 40, 60, 40, 60],
+  achievement: [100, 80, 150],
+};
+
+function vibrate(pattern) {
+  if (!enabled) return;
+  try {
+    Vibration.vibrate(pattern);
+  } catch (_) {}
 }
-
-const enabled = !!Haptics && Platform.OS !== 'web';
 
 export const feedback = {
   /** Tap léger — feedback bouton générique */
-  light() {
-    if (!enabled) return;
-    try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch (_) {}
-  },
+  light() { vibrate(PATTERNS.light); },
 
   /** Réussite — quiz réponse correcte */
-  success() {
-    if (!enabled) return;
-    try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch (_) {}
-  },
+  success() { vibrate(PATTERNS.success); },
 
   /** Erreur — quiz mauvaise réponse */
-  error() {
-    if (!enabled) return;
-    try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); } catch (_) {}
-  },
+  error() { vibrate(PATTERNS.error); },
 
   /** Avertissement — quiz échoué */
-  warning() {
-    if (!enabled) return;
-    try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); } catch (_) {}
-  },
+  warning() { vibrate(PATTERNS.warning); },
 
   /** Célébration — module terminé */
-  completion() {
-    if (!enabled) return;
-    try {
-      // Pattern : 3 vibrations successives croissantes
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium), 150);
-      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 300);
-    } catch (_) {}
-  },
+  completion() { vibrate(PATTERNS.completion); },
 
   /** Streak — jour consécutif (pattern feu qui crépite) */
-  streak() {
-    if (!enabled) return;
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light), 100);
-      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light), 200);
-    } catch (_) {}
-  },
+  streak() { vibrate(PATTERNS.streak); },
 
   /** Succès débloqué — achievement */
-  achievement() {
-    if (!enabled) return;
-    try {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 200);
-    } catch (_) {}
-  },
+  achievement() { vibrate(PATTERNS.achievement); },
 };
 
 export default feedback;
