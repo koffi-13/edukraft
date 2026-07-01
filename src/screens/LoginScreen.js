@@ -71,7 +71,19 @@ export default function LoginScreen({ navigation }) {
     try {
       await login({ email: email.trim(), password });
     } catch (e) {
-      Alert.alert(t('auth.error_invalid_credentials'), e.message);
+      const msg = e.message || '';
+      // Message plus clair pour les erreurs réseau
+      if (msg.includes('Network') || msg.includes('fetch') || msg.includes('Failed')) {
+        Alert.alert(
+          'Serveur indisponible',
+          'Impossible de joindre le serveur.\n\n' +
+          'Vérifiez votre connexion internet.\n' +
+          'Si le problème persiste, le serveur backend n\'est peut-être pas encore déployé.\n\n' +
+          'Vous pouvez utiliser "Continuer sans compte" pour apprendre hors ligne.',
+        );
+      } else {
+        Alert.alert(t('auth.error_invalid_credentials'), msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -209,7 +221,11 @@ export default function LoginScreen({ navigation }) {
 
   // ── Skip (mode hors-ligne) ───────────────────────────────────────────────
   const handleSkip = async () => {
-    await skip();
+    try {
+      await skip();
+    } catch (e) {
+      console.warn('[Login] skip error:', e.message);
+    }
   };
 
   return (
