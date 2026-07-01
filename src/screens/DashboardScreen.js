@@ -5,30 +5,46 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useFocusEffect } from '@react-navigation/native';
 import { Colors, Typography, Spacing, Radius, Shadow, getLevel } from '../theme';
 import { useDb }              from '../database/DbProvider';
-import { MODULES, getTotalXP, getTotalDuration } from '../content/moduleRegistry';
+import { MODULES } from '../content/moduleRegistry';
 import XPBar                  from '../components/XPBar';
 import OfflineIndicator       from '../components/OfflineIndicator';
+import StreakWidget           from '../components/StreakWidget';
+import DailyGoalRing          from '../components/DailyGoalRing';
+import MasteryCard            from '../components/MasteryCard';
 import { t }                  from '../i18n';
 
 export default function DashboardScreen({ navigation }) {
   const insets          = useSafeAreaInsets();
-  const { learner, getAllProgress } = useDb();
+  const { learner, getAllProgress, getGamificationState, getProfileCompletion } = useDb();
   const [allProgress, setAllProgress] = useState([]);
   const [refreshing, setRefreshing]   = useState(false);
+  const [gamo, setGamo]               = useState(null);  // état gamification
 
   const load = useCallback(async () => {
     try {
-      const prog = await getAllProgress();
-      setAllProgress(prog);
+      const [prog, gState] = await Promise.all([
+        getAllProgress(),
+        getGamificationState ? getGamificationState() : Promise.resolve(null),
+      ]);
+      setAllProgress(prog || []);
+      if (gState) setGamo(gState);
     } catch (error) {
       console.error('Erreur chargement progression:', error);
       setAllProgress([]);
     }
-  }, [getAllProgress]);
+  }, [getAllProgress, getGamificationState]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Recharger quand le Dashboard revient au premier plan (après un quiz par ex.)
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -71,15 +87,87 @@ export default function DashboardScreen({ navigation }) {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
         showsVerticalScrollIndicator={false}
       >
+        {/* Bannière complétion profil */}
+        {(() => {
+          const completion = getProfileCompletion ? getProfileCompletion() : 0;
+          if (completion >= 100) return null;
+          return (
+            <TouchableOpacity
+              style={styles.profileBanner}
+              onPress={() => navigation.navigate('EditProfile')}
+              activeOpacity={0.85}
+            >
+              <View style={styles.profileBannerLeft}>
+                <Text style={styles.profileBannerTitle}>Complète ton profil ({completion}%)</Text>
+                <Text style={styles.profileBannerSub}>
+                  {completion < 50 ? 'Plus d\'infos = meilleurs certificats' : 'Presque fini !'}
+                </Text>
+                <View style={styles.profileBarTrack}>
+                  <View style={[styles.profileBarFill, { width: `${completion}%` }]} />
+                </View>
+              </View>
+              <Text style={styles.profileBannerArrow}>›</Text>
+            </TouchableOpacity>
+          );
+        })()}
+
         {/* XP Card */}
         <View style={[styles.xpCard, Shadow.card]}>
           <XPBar xp={learner?.total_xp ?? 0} />
           <View style={styles.statsRow}>
             <StatBox value={completedCount} label={t('dashboard.completed')} color={Colors.teal} />
-            <StatBox value={allProgress.filter(p => p.status === 'in_progress').length} label="En cours" color={Colors.amber} />
+            <StatBox value={allProgress.filter(p => p.status === 'in_progress').length} label={t('dashboard.in_progress')} color={Colors.amber} />
             <StatBox value={learner?.streak_days ?? 0} label={t('dashboard.streak_label')} color={Colors.coral} />
           </View>
         </View>
+
+        {/* Gamification : Objectif quotidien + Streak (côte à côte) */}
+        {gamo && (
+          <View style={styles.gamoRow}>
+            <View style={styles.gamoColLeft}>
+              <DailyGoalRing
+                goal={gamo.goal}
+                todayValue={gamo.goal?.type === 'xp' ? gamo.todayXp : gamo.todayLessons}
+                onPress={() => navigation.navigate('Achievements')}
+              />
+            </View>
+            <View style={styles.gamoColRight}>
+              <StreakWidget
+                streak={gamo.streak}
+                freezes={gamo.freezes}
+                bestStreak={gamo.bestStreak}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Gamification : Maîtrise par filière */}
+        {gamo?.mastery?.length > 0 && (
+          <MasteryCard mastery={gamo.mastery} />
+        )}
+
+        {/* Lien vers tous les succès */}
+        {gamo && (
+          <TouchableOpacity
+            style={styles.achievementsLink}
+            onPress={() => navigation.navigate('Achievements')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.achievementsLinkIcon}>🏆</Text>
+            <View style={styles.achievementsLinkText}>
+              <Text style={styles.achievementsLinkTitle}>
+                {t('gamification.achievements_link_title')}
+              </Text>
+              <Text style={styles.achievementsLinkSub}>
+                {t('gamification.achievements_link_sub', {
+                  unlocked: gamo.achievements.unlocked.length,
+                  total: gamo.achievements.total,
+                })}
+              </Text>
+            </View>
+            <Text style={styles.achievementsLinkArrow}>›</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Modules */}
         <Text style={styles.sectionTitle}>{t('dashboard.modules_available')}</Text>
@@ -87,13 +175,21 @@ export default function DashboardScreen({ navigation }) {
         {MODULES.map(module => {
           const prog   = getModuleProgress(module.id);
           const status = prog?.status ?? 'not_started';
-          const pct    = prog ? (prog.lessons_done / module.lessons.length) : 0;
+          const totalLessons = module.lessons?.length || 1;
+          const pct    = prog ? (prog.lessons_done / totalLessons) : 0;
 
           return (
             <TouchableOpacity
               key={module.id}
               style={[styles.moduleCard, Shadow.card]}
-              onPress={() => navigation.navigate('Lesson', { moduleId: module.id, lessonIndex: prog?.current_lesson ?? 0 })}
+              onPress={() => {
+                // Cap lessonIndex à lessons.length - 1 (évite "Leçon introuvable"
+                // quand current_lesson = lessons.length après completion)
+                const totalLessons = module.lessons?.length || 1;
+                const rawLesson = status === 'not_started' ? 0 : (prog?.current_lesson ?? 0);
+                const lessonIndex = Math.min(rawLesson, totalLessons - 1);
+                navigation.navigate('Lesson', { moduleId: module.id, lessonIndex });
+              }}
               activeOpacity={0.88}
             >
               {/* Color band */}
@@ -102,8 +198,9 @@ export default function DashboardScreen({ navigation }) {
               <View style={styles.moduleBody}>
                 <View style={styles.moduleTop}>
                   <View style={styles.moduleMeta}>
+                    <Text style={styles.moduleFiliere}>{module.filiere}</Text>
                     <Text style={styles.moduleTitle}>{module.title}</Text>
-                    <Text style={styles.moduleSubtitle}>{module.description}</Text>
+                    <Text style={styles.moduleSubtitle}>{module.subtitle}</Text>
                   </View>
                   <StatusChip status={status} />
                 </View>
@@ -111,10 +208,10 @@ export default function DashboardScreen({ navigation }) {
                 {/* Stats */}
                 <View style={styles.moduleStats}>
                   <Text style={styles.statText}>
-                    📚 {module.lessons?.length || 2} leçons
+                    📚 {t('module.lessons_count', { count: totalLessons })}
                   </Text>
                   <Text style={styles.statText}>
-                    ⏱ {module.duration} min
+                    ⏱ {module.duration} {t('lesson.read_time')}
                   </Text>
                   <Text style={styles.statText}>
                     ⭐ {module.xp} XP
@@ -131,7 +228,7 @@ export default function DashboardScreen({ navigation }) {
                       }]} />
                     </View>
                     <Text style={styles.progressLabel}>
-                      {prog.lessons_done}/{module.lessons?.length || 2} {t('dashboard.lessons_done')}
+                      {prog.lessons_done}/{totalLessons} {t('dashboard.lessons_done')}
                     </Text>
                   </View>
                 )}
@@ -141,7 +238,7 @@ export default function DashboardScreen({ navigation }) {
                   <Text style={[styles.ctaText, { color: module.color || Colors.primary }]}>
                     {status === 'not_started' ? t('module.start')
                       : status === 'completed' ? '✓ ' + t('module.completed')
-                      : t('module.resume')} →
+                      : t('module.resume')} >
                   </Text>
                 </View>
               </View>
@@ -203,11 +300,69 @@ const styles = StyleSheet.create({
     backgroundColor:      Colors.surfaceAlt,
   },
   content:      { padding: Spacing.lg, gap: Spacing.md },
+  // Bannière complétion profil
+  profileBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.tealLight,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.teal,
+    gap: Spacing.sm,
+  },
+  profileBannerLeft: { flex: 1, gap: 4 },
+  profileBannerTitle: { fontSize: Typography.body, fontWeight: Typography.bold, color: Colors.tealDark },
+  profileBannerSub: { fontSize: Typography.caption, color: Colors.tealDark },
+  profileBarTrack: {
+    height: 4,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.full,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  profileBarFill: { height: 4, backgroundColor: Colors.teal, borderRadius: Radius.full },
+  profileBannerArrow: { fontSize: 24, color: Colors.tealDark, fontWeight: '300' },
   xpCard: {
     backgroundColor: Colors.surface,
     borderRadius:    Radius.lg,
     padding:         Spacing.md,
     gap:             Spacing.md,
+  },
+  // Gamification row (objectif + streak)
+  gamoRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  gamoColLeft:   { flex: 1 },
+  gamoColRight:  { flex: 1 },
+  // Lien Succès
+  achievementsLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  achievementsLinkIcon: { fontSize: 28 },
+  achievementsLinkText: { flex: 1 },
+  achievementsLinkTitle: {
+    fontSize: Typography.body,
+    fontWeight: Typography.bold,
+    color: Colors.ink,
+  },
+  achievementsLinkSub: {
+    fontSize: Typography.caption,
+    color: Colors.ink60,
+    marginTop: 2,
+  },
+  achievementsLinkArrow: {
+    fontSize: 24,
+    color: Colors.ink30,
+    fontWeight: '300',
   },
   statsRow:     { flexDirection: 'row', gap: Spacing.sm },
   sectionTitle: {
@@ -226,11 +381,17 @@ const styles = StyleSheet.create({
   moduleBody:      { flex: 1, padding: Spacing.md, gap: Spacing.sm },
   moduleTop:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   moduleMeta:      { flex: 1 },
+  moduleFiliere:   {
+    fontSize:   Typography.tiny,
+    color:      Colors.ink30,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
   moduleTitle: {
     fontSize:   Typography.h3,
     fontWeight: Typography.bold,
     color:      Colors.ink,
-    marginTop:  2,
   },
   moduleSubtitle: {
     fontSize: Typography.caption,

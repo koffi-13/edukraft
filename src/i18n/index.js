@@ -29,7 +29,7 @@ export function getLanguage() {
 
 /**
  * Traduit une clé dotée (ex: "lesson.complete") avec interpolation {{key}}
- * Fallback : clé manquante dans la langue courante → français → clé brute
+ * Fallback : clé manquante dans la langue courante > français > clé brute
  *
  * @param {string} key   - Chemin dotté dans le catalogue
  * @param {Object} vars  - Variables d'interpolation { count: 3, min: 2 }

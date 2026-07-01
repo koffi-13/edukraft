@@ -14,9 +14,16 @@ import DashboardScreen  from '../screens/DashboardScreen';
 import LessonScreen     from '../screens/LessonScreen';
 import QuizScreen       from '../screens/QuizScreen';
 import BadgeWalletScreen from '../screens/BadgeWalletScreen';
+import CommunityScreen  from '../screens/CommunityScreen';
 import ProfileScreen    from '../screens/ProfileScreen';
+import PaymentScreen     from '../screens/PaymentScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
+import LoginScreen      from '../screens/LoginScreen';
+import RegisterScreen   from '../screens/RegisterScreen';
+import AchievementsScreen from '../screens/AchievementsScreen';
+import EditProfileScreen from '../screens/EditProfileScreen';
 import { useDb }        from '../database/DbProvider';
+import { useAuth }      from '../contexts/AuthContext';
 
 const Tab   = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -28,6 +35,7 @@ function TabIcon({ name, focused, color }) {
       ? '⬛' : '□',
     learn:   focused ? '📖' : '📄',
     badges:  focused ? '🏅' : '🏷️',
+    community: focused ? '👥' : '👥',
     profile: focused ? '👤' : '◯',
   };
   return (
@@ -81,6 +89,14 @@ function MainTabs() {
         }}
       />
       <Tab.Screen
+        name="Community"
+        component={CommunityScreen}
+        options={{
+          tabBarLabel: 'Communauté',
+          tabBarIcon: (props) => <TabIcon name="community" {...props} />,
+        }}
+      />
+      <Tab.Screen
         name="Profile"
         component={ProfileScreen}
         options={{
@@ -100,18 +116,44 @@ function RootStack() {
       <Stack.Screen name="Lesson"  component={LessonScreen}
         options={{ presentation: 'card', gestureEnabled: true }}
       />
+      <Stack.Screen name="Payment" component={PaymentScreen}
+        options={{ presentation: 'card', gestureEnabled: true }}
+      />
       <Stack.Screen name="Quiz"    component={QuizScreen}
         options={{ presentation: 'modal', gestureEnabled: false }}
+      />
+      <Stack.Screen name="Achievements" component={AchievementsScreen}
+        options={{ presentation: 'card', gestureEnabled: true }}
+      />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen}
+        options={{ presentation: 'card', gestureEnabled: true }}
       />
     </Stack.Navigator>
   );
 }
 
-// ── App Navigator : gère l'onboarding ────────────────────────────────────────
+// ── Auth Stack (Login / Register) ────────────────────────────────────────────
+function AuthStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Login"    component={LoginScreen} />
+      <Stack.Screen name="Register" component={RegisterScreen} />
+    </Stack.Navigator>
+  );
+}
+
+// ── App Navigator : gère auth-gating + onboarding ────────────────────────────
+// Logique de navigation :
+//   1. DB pas prête           > splash screen
+//   2. Auth en cours de chargement > splash screen
+//   3. Pas authentifié & !skipAuth > AuthStack (Login / Register)
+//   4. Authentifié ou skipAuth, mais pas de learner local > Onboarding
+//   5. Authentifié/skipAuth + learner > RootStack (app principale)
 export default function AppNavigator() {
   const { learner, ready } = useDb();
+  const { loading: authLoading, isAuthenticated, skipAuth } = useAuth();
 
-  if (!ready) {
+  if (!ready || authLoading) {
     return (
       <View style={styles.splash}>
         <Text style={styles.splashTitle}>EduKraft</Text>
@@ -120,10 +162,15 @@ export default function AppNavigator() {
     );
   }
 
+  // Phase 1 : auth-gating
+  const isAuthed = isAuthenticated || skipAuth;
+
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!learner ? (
+        {!isAuthed ? (
+          <Stack.Screen name="Auth" component={AuthStack} />
+        ) : !learner ? (
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         ) : (
           <Stack.Screen name="Root" component={RootStack} />

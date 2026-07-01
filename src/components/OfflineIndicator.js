@@ -35,7 +35,7 @@ export default function OfflineIndicator() {
         toValue: -48, duration: 300, useNativeDriver: true,
       }).start(() => setShow(false));
     }
-  }, [isOnline]);
+  }, [isOnline, show, slideAnim]);
 
   if (!show) return null;
 
@@ -66,10 +66,10 @@ const styles = StyleSheet.create({
     width:           8,
     height:          8,
     borderRadius:    4,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
   },
   text: {
-    color:      Colors.white,
+    color:      Colors.surface,
     fontSize:   Typography.caption,
     fontWeight: Typography.semibold,
   },

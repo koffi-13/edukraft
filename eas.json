@@ -18,7 +18,10 @@
         "gradleCommand": ":app:assembleRelease"
       },
       "env": {
-        "APP_ENV": "preview"
+        "APP_ENV": "preview",
+        "EXPO_PUBLIC_API_URL": "https://edukraft-api.fly.dev",
+        "EXPO_PUBLIC_API_KEY": "dev-key",
+        "EXPO_PUBLIC_PHONE_OTP_ENABLED": "true"
       }
     },
     "demo": {
@@ -29,7 +32,7 @@
       },
       "env": {
         "APP_ENV": "demo",
-        "API_BASE_URL": "https://demo.api.edukraft.tg"
+        "EXPO_PUBLIC_API_URL": "https://demo.api.edukraft.tg"
       }
     },
     "production": {
@@ -39,7 +42,7 @@
       },
       "env": {
         "APP_ENV": "production",
-        "API_BASE_URL": "https://api.edukraft.tg"
+        "EXPO_PUBLIC_API_URL": "https://api.edukraft.tg"
       }
     }
   },

@@ -1,0 +1,800 @@
+// server/auth.js
+// Module d'authentification EduKraft — 5 providers + JWT + refresh rotation
+//
+// Providers supportés :
+//   1. Email + mot de passe (bcrypt)
+//   2. Google OAuth (vérification id_token côté serveur)
+//   3. Apple Sign-In (vérification JWT via jose)
+//   4. Facebook OAuth (vérification access_token via Graph API)
+//   5. Phone OTP (code unique par téléphone, mock en dev)
+//
+// Sécurité :
+//   - Mots de passe hachés avec bcrypt (rounds configurables)
+//   - Access token JWT court (7j par défaut) signé avec JWT_SECRET
+//   - Refresh token longue durée (30j) stocké haché en DB, rotation à chaque usage
+//   - Nettoyage automatique des refresh tokens expirés/révoqués
+//
+// ⚠️ Production : JWT_SECRET DOIT être défini (openssl rand -hex 32).
+//    Sans cette variable, un secret aléatoire est généré à chaque redémarrage,
+//    invalidant tous les tokens existants.
+
+'use strict';
+
+const crypto = require('crypto');
+const { v4: uuidv4 } = require('uuid');
+const bcrypt = require('bcryptjs');
+const {
+  SignJWT,
+  jwtVerify,
+  createRemoteJWKSet,
+} = require('jose');
+
+// ── Configuration ────────────────────────────────────────────────────────────
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
+const JWT_ISSUER = 'edukraft';
+const JWT_AUDIENCE = 'edukraft-app';
+const JWT_EXPIRES = process.env.JWT_EXPIRES || '7d';
+const REFRESH_EXPIRES_DAYS = parseInt(process.env.REFRESH_EXPIRES || '30', 10);
+const REFRESH_EXPIRES_MS = REFRESH_EXPIRES_DAYS * 24 * 60 * 60 * 1000;
+const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || '10', 10);
+
+// OAuth config
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+const APPLE_BUNDLE_ID = process.env.APPLE_BUNDLE_ID || 'com.edukraft.app';
+const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID || '';
+
+// Phone OTP
+const PHONE_OTP_ENABLED = process.env.PHONE_OTP_ENABLED !== 'false';
+const OTP_MOCK_CODE = process.env.OTP_MOCK_CODE || null; // ex: '123456' en dev
+const OTP_TTL_MS = 5 * 60 * 1000;       // 5 minutes
+const OTP_MAX_ATTEMPTS = 5;
+const OTP_LENGTH = 6;
+
+// Apple JWKS (clés publiques d'Apple pour vérifier les identityToken)
+const APPLE_JWKS_URL = 'https://appleid.apple.com/auth/keys';
+const appleJWKS = createRemoteJWKSet(new URL(APPLE_JWKS_URL));
+
+// Stores en mémoire (⚠️ utiliser Redis/SQLite en production)
+const otpStore = new Map();     // phone → { code, expiresAt, attempts }
+const refreshTokensIssued = new Set(); // anti-rejeu simple
+
+// ── Helper : durée JWT → secondes ────────────────────────────────────────────
+function durationToSeconds(duration) {
+  if (typeof duration === 'number') return duration;
+  const match = String(duration).match(/^(\d+)([smhd])$/);
+  if (!match) return 7 * 24 * 3600;
+  const n = parseInt(match[1], 10);
+  const unit = match[2];
+  const multipliers = { s: 1, m: 60, h: 3600, d: 86400 };
+  return n * multipliers[unit];
+}
+
+const JWT_EXPIRES_SECONDS = durationToSeconds(JWT_EXPIRES);
+
+// ── Création des tables ──────────────────────────────────────────────────────
+function initAuthTables(db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user (
+      id            TEXT PRIMARY KEY,
+      email         TEXT UNIQUE,
+      phone         TEXT UNIQUE,
+      password_hash TEXT,
+      display_name  TEXT NOT NULL,
+      avatar_url    TEXT,
+      provider      TEXT NOT NULL DEFAULT 'email',
+      provider_uid  TEXT,
+      language      TEXT DEFAULT 'fr',
+      created_at    TEXT NOT NULL,
+      updated_at    TEXT NOT NULL,
+      last_login_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS refresh_token (
+      id          TEXT PRIMARY KEY,
+      user_id     TEXT NOT NULL REFERENCES user(id) ON DELETE CASCADE,
+      token_hash  TEXT NOT NULL UNIQUE,
+      device_info TEXT,
+      expires_at  TEXT NOT NULL,
+      revoked_at  TEXT,
+      created_at  TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_refresh_user    ON refresh_token(user_id);
+    CREATE INDEX IF NOT EXISTS idx_user_email      ON user(email);
+    CREATE INDEX IF NOT EXISTS idx_user_phone      ON user(phone);
+    CREATE INDEX IF NOT EXISTS idx_user_provider   ON user(provider, provider_uid);
+  `);
+  console.log('[AUTH] Tables user + refresh_token initialisées');
+}
+
+// ── Nettoyage périodique des refresh tokens expirés ──────────────────────────
+function cleanupExpiredTokens(db) {
+  const now = new Date().toISOString();
+  try {
+    const result = db.prepare(
+      `DELETE FROM refresh_token WHERE expires_at < ? OR revoked_at IS NOT NULL`
+    ).run(now);
+    if (result.changes > 0) {
+      console.log(`[AUTH] ${result.changes} refresh token(s) obsolète(s) supprimé(s)`);
+    }
+  } catch (e) {
+    console.warn('[AUTH] cleanup error:', e.message);
+  }
+}
+
+// ── JWT : signature & vérification ───────────────────────────────────────────
+async function signAccessToken(user) {
+  const secretBytes = Buffer.from(JWT_SECRET, 'utf-8');
+  const token = await new SignJWT({
+    sub: user.id,
+    email: user.email || null,
+    phone: user.phone || null,
+    name: user.display_name,
+    provider: user.provider,
+  })
+    .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
+    .setIssuedAt()
+    .setIssuer(JWT_ISSUER)
+    .setAudience(JWT_AUDIENCE)
+    .setExpirationTime(`${JWT_EXPIRES_SECONDS}s`)
+    .sign(secretBytes);
+  return token;
+}
+
+async function verifyAccessToken(token) {
+  const secretBytes = Buffer.from(JWT_SECRET, 'utf-8');
+  const { payload } = await jwtVerify(token, secretBytes, {
+    issuer: JWT_ISSUER,
+    audience: JWT_AUDIENCE,
+  });
+  return payload;
+}
+
+// ── Refresh tokens : génération, stockage (haché), rotation ──────────────────
+function hashToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+function generateRefreshToken() {
+  return crypto.randomBytes(48).toString('base64url');
+}
+
+function storeRefreshToken(db, userId, token, deviceInfo) {
+  const id = uuidv4();
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + REFRESH_EXPIRES_MS).toISOString();
+  db.prepare(`
+    INSERT INTO refresh_token (id, user_id, token_hash, device_info, expires_at, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(id, userId, hashToken(token), deviceInfo || null, expiresAt, now.toISOString());
+  return { id, expiresAt };
+}
+
+function findRefreshToken(db, token) {
+  return db.prepare(
+    'SELECT * FROM refresh_token WHERE token_hash = ?'
+  ).get(hashToken(token));
+}
+
+function revokeRefreshToken(db, tokenId) {
+  db.prepare('UPDATE refresh_token SET revoked_at = ? WHERE id = ?')
+    .run(new Date().toISOString(), tokenId);
+}
+
+function revokeAllUserTokens(db, userId) {
+  db.prepare('UPDATE refresh_token SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL')
+    .run(new Date().toISOString(), userId);
+}
+
+// ── Utilisateurs : recherche / création ──────────────────────────────────────
+function findUserById(db, id) {
+  return db.prepare('SELECT * FROM user WHERE id = ?').get(id);
+}
+
+function findUserByEmail(db, email) {
+  if (!email) return null;
+  return db.prepare('SELECT * FROM user WHERE email = ?').get(String(email).toLowerCase().trim());
+}
+
+function findUserByPhone(db, phone) {
+  if (!phone) return null;
+  return db.prepare('SELECT * FROM user WHERE phone = ?').get(String(phone).trim());
+}
+
+function findUserByProvider(db, provider, providerUid) {
+  return db.prepare(
+    'SELECT * FROM user WHERE provider = ? AND provider_uid = ?'
+  ).get(provider, providerUid);
+}
+
+function sanitizeUser(user) {
+  if (!user) return null;
+  const { password_hash, ...safe } = user;
+  return safe;
+}
+
+function createUser(db, { email, phone, password, displayName, avatarUrl, provider, providerUid, language }) {
+  const id = uuidv4();
+  const now = new Date().toISOString();
+  const passwordHash = password ? bcrypt.hashSync(password, BCRYPT_ROUNDS) : null;
+  db.prepare(`
+    INSERT INTO user (id, email, phone, password_hash, display_name, avatar_url, provider, provider_uid, language, created_at, updated_at, last_login_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    email ? String(email).toLowerCase().trim() : null,
+    phone ? String(phone).trim() : null,
+    passwordHash,
+    displayName,
+    avatarUrl || null,
+    provider || 'email',
+    providerUid || null,
+    language || 'fr',
+    now, now, now
+  );
+  return findUserById(db, id);
+}
+
+function updateLastLogin(db, userId) {
+  db.prepare('UPDATE user SET last_login_at = ?, updated_at = ? WHERE id = ?')
+    .run(new Date().toISOString(), new Date().toISOString(), userId);
+}
+
+// ── Réponse auth standardisée ────────────────────────────────────────────────
+async function buildAuthResponse(db, user, deviceInfo) {
+  const accessToken = await signAccessToken(user);
+  const refreshToken = generateRefreshToken();
+  storeRefreshToken(db, user.id, refreshToken, deviceInfo);
+  updateLastLogin(db, user.id);
+  return {
+    accessToken,
+    refreshToken,
+    expiresIn: JWT_EXPIRES_SECONDS,
+    user: sanitizeUser(user),
+  };
+}
+
+// ── Vérification des providers OAuth ─────────────────────────────────────────
+
+/** Google : vérifie l'id_token via les clés publiques Google */
+async function verifyGoogleIdToken(idToken) {
+  // Google fournit les claims directement dans le JWT signé avec RS256.
+  // On vérifie la signature via les clés publiques de Google.
+  const googleJWKS = createRemoteJWKSet(new URL('https://www.googleapis.com/oauth2/v3/certs'));
+  const { payload } = await jwtVerify(idToken, googleJWKS, {
+    issuer: ['https://accounts.google.com', 'accounts.google.com'],
+  });
+
+  // Vérifier l'audience (client_id)
+  if (GOOGLE_CLIENT_ID && payload.aud !== GOOGLE_CLIENT_ID) {
+    throw new Error('audience mismatch');
+  }
+
+  return {
+    providerUid: payload.sub,
+    email: payload.email,
+    emailVerified: payload.email_verified === true || payload.email_verified === 'true',
+    displayName: payload.name || (payload.email ? payload.email.split('@')[0] : 'Google User'),
+    avatarUrl: payload.picture || null,
+  };
+}
+
+/** Apple : vérifie l'identityToken via les clés publiques Apple */
+async function verifyAppleIdentityToken(identityToken) {
+  const { payload } = await jwtVerify(identityToken, appleJWKS, {
+    issuer: 'https://appleid.apple.com',
+  });
+
+  // Vérifier l'audience (bundle ID)
+  if (APPLE_BUNDLE_ID && payload.aud !== APPLE_BUNDLE_ID) {
+    throw new Error('apple audience mismatch');
+  }
+
+  return {
+    providerUid: payload.sub,
+    email: payload.email || null,
+    emailVerified: !!payload.email_verified,
+    displayName: payload.name || 'Apple User',
+    avatarUrl: null,
+  };
+}
+
+/** Facebook : vérifie l'access_token via le Graph API */
+async function verifyFacebookAccessToken(accessToken) {
+  const url = new URL('https://graph.facebook.com/v18.0/me');
+  url.searchParams.set('fields', 'id,name,email,picture');
+  url.searchParams.set('access_token', accessToken);
+
+  const resp = await fetch(url.toString());
+  if (!resp.ok) {
+    const body = await resp.text();
+    throw new Error(`Facebook API error: ${resp.status} ${body}`);
+  }
+  const data = await resp.json();
+  if (data.error) throw new Error(data.error.message);
+
+  // Vérifier l'app_id si configuré
+  if (FACEBOOK_APP_ID) {
+    const appUrl = new URL('https://graph.facebook.com/v18.0/app');
+    appUrl.searchParams.set('access_token', accessToken);
+    const appResp = await fetch(appUrl.toString());
+    const appData = await appResp.json();
+    if (appData.id && appData.id !== FACEBOOK_APP_ID) {
+      throw new Error('facebook app mismatch');
+    }
+  }
+
+  return {
+    providerUid: data.id,
+    email: data.email || null,
+    emailVerified: !!data.email,
+    displayName: data.name || 'Facebook User',
+    avatarUrl: data.picture?.data?.url || null,
+  };
+}
+
+// ── Phone OTP ────────────────────────────────────────────────────────────────
+function generateOtp() {
+  if (OTP_MOCK_CODE) return OTP_MOCK_CODE;
+  // Code à 6 chiffres
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function sendOtp(phone, code) {
+  // En dev (OTP_MOCK_CODE défini), on log simplement le code.
+  // En prod : remplacer par Twilio / Vonage / provider SMS local togolais.
+  console.log(`[AUTH/OTP] SMS vers ${phone} — code: ${code}`);
+  // TODO prod : await twilioClient.messages.create({ ... })
+}
+
+function validatePhone(phone) {
+  // Format attendu : numéro international sans '+', ex: 22890123456 (Togo)
+  const cleaned = String(phone).replace(/[\s+()-]/g, '');
+  return /^\d{8,15}$/.test(cleaned);
+}
+
+// ── Middlewares ──────────────────────────────────────────────────────────────
+
+/** Exige un access token JWT valide */
+function requireAuth(db) {
+  return async (req, res, next) => {
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+    if (!token) {
+      return res.status(401).json({ success: false, error: 'Token manquant' });
+    }
+
+    try {
+      const payload = await verifyAccessToken(token);
+      const user = findUserById(db, payload.sub);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Utilisateur introuvable' });
+      }
+      req.user = user;
+      req.accessToken = token;
+      next();
+    } catch (err) {
+      // Token expiré ou invalide
+      return res.status(401).json({
+        success: false,
+        error: 'Token invalide ou expiré',
+        code: 'TOKEN_EXPIRED',
+      });
+    }
+  };
+}
+
+/** Accepte soit un Bearer JWT, soit une clé API (x-api-key) */
+function requireAuthOrApiKey(db, apiKey) {
+  return async (req, res, next) => {
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const key = req.headers['x-api-key'] || req.query.api_key;
+
+    // Clé API valide
+    if (key && key === apiKey) {
+      return next();
+    }
+
+    // Bearer token valide
+    if (token) {
+      try {
+        const payload = await verifyAccessToken(token);
+        const user = findUserById(db, payload.sub);
+        if (user) {
+          req.user = user;
+          req.accessToken = token;
+          return next();
+        }
+      } catch (_) {
+        // tombe dans le 401 ci-dessous
+      }
+    }
+
+    return res.status(401).json({ success: false, error: 'Authentification requise' });
+  };
+}
+
+// ── Routes ───────────────────────────────────────────────────────────────────
+
+/**
+ * Montage de toutes les routes /api/auth/* sur l'app Express.
+ * @param {import('express').Express} app
+ * @param {import('better-sqlite3').Database} db
+ */
+function mountAuthRoutes(app, db) {
+  // Nettoyage au démarrage, puis toutes les heures
+  cleanupExpiredTokens(db);
+  setInterval(() => cleanupExpiredTokens(db), 60 * 60 * 1000);
+
+  // ── POST /api/auth/register ──────────────────────────────────────────────
+  app.post('/api/auth/register', async (req, res) => {
+    try {
+      const { email, password, displayName, language } = req.body || {};
+
+      if (!email || !password || !displayName) {
+        return res.status(400).json({
+          success: false,
+          error: 'Champs requis: email, password, displayName',
+        });
+      }
+      if (password.length < 6) {
+        return res.status(400).json({
+          success: false,
+          error: 'Le mot de passe doit faire au moins 6 caractères',
+        });
+      }
+      if (findUserByEmail(db, email)) {
+        return res.status(409).json({
+          success: false,
+          error: 'Un compte existe déjà avec cet email',
+        });
+      }
+
+      const user = createUser(db, {
+        email,
+        password,
+        displayName,
+        provider: 'email',
+        language: language || 'fr',
+      });
+
+      const authResponse = await buildAuthResponse(
+        db, user, req.headers['user-agent']
+      );
+      return res.status(201).json({ success: true, data: authResponse });
+    } catch (err) {
+      console.error('[AUTH/register]', err);
+      return res.status(500).json({ success: false, error: 'Erreur serveur' });
+    }
+  });
+
+  // ── POST /api/auth/login ─────────────────────────────────────────────────
+  app.post('/api/auth/login', async (req, res) => {
+    try {
+      const { email, password } = req.body || {};
+
+      if (!email || !password) {
+        return res.status(400).json({
+          success: false,
+          error: 'Email et mot de passe requis',
+        });
+      }
+
+      const user = findUserByEmail(db, email);
+      if (!user || !user.password_hash) {
+        return res.status(401).json({
+          success: false,
+          error: 'Identifiants invalides',
+        });
+      }
+
+      const ok = bcrypt.compareSync(password, user.password_hash);
+      if (!ok) {
+        return res.status(401).json({
+          success: false,
+          error: 'Identifiants invalides',
+        });
+      }
+
+      const authResponse = await buildAuthResponse(
+        db, user, req.headers['user-agent']
+      );
+      return res.json({ success: true, data: authResponse });
+    } catch (err) {
+      console.error('[AUTH/login]', err);
+      return res.status(500).json({ success: false, error: 'Erreur serveur' });
+    }
+  });
+
+  // ── POST /api/auth/google ────────────────────────────────────────────────
+  app.post('/api/auth/google', async (req, res) => {
+    try {
+      const { idToken } = req.body || {};
+      if (!idToken) {
+        return res.status(400).json({ success: false, error: 'idToken requis' });
+      }
+
+      const profile = await verifyGoogleIdToken(idToken);
+
+      let user = profile.email
+        ? findUserByEmail(db, profile.email)
+        : findUserByProvider(db, 'google', profile.providerUid);
+
+      if (user) {
+        // Lier le provider si ce n'était pas déjà fait
+        if (user.provider !== 'google' && !user.provider_uid) {
+          db.prepare('UPDATE user SET provider = ?, provider_uid = ?, updated_at = ? WHERE id = ?')
+            .run('google', profile.providerUid, new Date().toISOString(), user.id);
+          user = findUserById(db, user.id);
+        }
+      } else {
+        user = createUser(db, {
+          email: profile.email,
+          displayName: profile.displayName,
+          avatarUrl: profile.avatarUrl,
+          provider: 'google',
+          providerUid: profile.providerUid,
+        });
+      }
+
+      const authResponse = await buildAuthResponse(
+        db, user, req.headers['user-agent']
+      );
+      return res.json({ success: true, data: authResponse });
+    } catch (err) {
+      console.error('[AUTH/google]', err.message);
+      return res.status(401).json({
+        success: false,
+        error: 'Authentification Google échouée',
+      });
+    }
+  });
+
+  // ── POST /api/auth/apple ─────────────────────────────────────────────────
+  app.post('/api/auth/apple', async (req, res) => {
+    try {
+      const { identityToken, authorizationCode } = req.body || {};
+      if (!identityToken) {
+        return res.status(400).json({ success: false, error: 'identityToken requis' });
+      }
+
+      const profile = await verifyAppleIdentityToken(identityToken);
+
+      let user = profile.email
+        ? findUserByEmail(db, profile.email)
+        : findUserByProvider(db, 'apple', profile.providerUid);
+
+      if (user) {
+        if (user.provider !== 'apple' && !user.provider_uid) {
+          db.prepare('UPDATE user SET provider = ?, provider_uid = ?, updated_at = ? WHERE id = ?')
+            .run('apple', profile.providerUid, new Date().toISOString(), user.id);
+          user = findUserById(db, user.id);
+        }
+      } else {
+        user = createUser(db, {
+          email: profile.email,
+          displayName: profile.displayName,
+          avatarUrl: profile.avatarUrl,
+          provider: 'apple',
+          providerUid: profile.providerUid,
+        });
+      }
+
+      const authResponse = await buildAuthResponse(
+        db, user, req.headers['user-agent']
+      );
+      return res.json({ success: true, data: authResponse });
+    } catch (err) {
+      console.error('[AUTH/apple]', err.message);
+      return res.status(401).json({
+        success: false,
+        error: 'Authentification Apple échouée',
+      });
+    }
+  });
+
+  // ── POST /api/auth/facebook ──────────────────────────────────────────────
+  app.post('/api/auth/facebook', async (req, res) => {
+    try {
+      const { accessToken } = req.body || {};
+      if (!accessToken) {
+        return res.status(400).json({ success: false, error: 'accessToken requis' });
+      }
+
+      const profile = await verifyFacebookAccessToken(accessToken);
+
+      let user = profile.email
+        ? findUserByEmail(db, profile.email)
+        : findUserByProvider(db, 'facebook', profile.providerUid);
+
+      if (user) {
+        if (user.provider !== 'facebook' && !user.provider_uid) {
+          db.prepare('UPDATE user SET provider = ?, provider_uid = ?, updated_at = ? WHERE id = ?')
+            .run('facebook', profile.providerUid, new Date().toISOString(), user.id);
+          user = findUserById(db, user.id);
+        }
+      } else {
+        user = createUser(db, {
+          email: profile.email,
+          displayName: profile.displayName,
+          avatarUrl: profile.avatarUrl,
+          provider: 'facebook',
+          providerUid: profile.providerUid,
+        });
+      }
+
+      const authResponse = await buildAuthResponse(
+        db, user, req.headers['user-agent']
+      );
+      return res.json({ success: true, data: authResponse });
+    } catch (err) {
+      console.error('[AUTH/facebook]', err.message);
+      return res.status(401).json({
+        success: false,
+        error: 'Authentification Facebook échouée',
+      });
+    }
+  });
+
+  // ── POST /api/auth/phone ─────────────────────────────────────────────────
+  // Deux actions : "send" (envoi du code) et "verify" (vérification + login)
+  app.post('/api/auth/phone', async (req, res) => {
+    try {
+      const { phone, action, code } = req.body || {};
+
+      if (!phone || !validatePhone(phone)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Numéro de téléphone invalide',
+        });
+      }
+      if (!PHONE_OTP_ENABLED) {
+        return res.status(403).json({
+          success: false,
+          error: 'Authentification par téléphone désactivée',
+        });
+      }
+      if (!action || !['send', 'verify'].includes(action)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Action requise: "send" ou "verify"',
+        });
+      }
+
+      // ── Action : send ──────────────────────────────────────────────────
+      if (action === 'send') {
+        const otpCode = generateOtp();
+        const expiresAt = Date.now() + OTP_TTL_MS;
+        otpStore.set(phone, { code: otpCode, expiresAt, attempts: 0 });
+        sendOtp(phone, otpCode);
+
+        return res.json({
+          success: true,
+          data: {
+            otpSent: true,
+            // En mode mock, on renvoie le code pour faciliter les tests
+            devCode: OTP_MOCK_CODE ? otpCode : undefined,
+            expiresIn: OTP_TTL_MS / 1000,
+          },
+        });
+      }
+
+      // ── Action : verify ────────────────────────────────────────────────
+      if (action === 'verify') {
+        const entry = otpStore.get(phone);
+        if (!entry) {
+          return res.status(400).json({
+            success: false,
+            error: 'Aucun code envoyé à ce numéro. Demandez un nouveau code.',
+          });
+        }
+        if (Date.now() > entry.expiresAt) {
+          otpStore.delete(phone);
+          return res.status(400).json({
+            success: false,
+            error: 'Code expiré. Demandez un nouveau code.',
+          });
+        }
+        if (entry.attempts >= OTP_MAX_ATTEMPTS) {
+          otpStore.delete(phone);
+          return res.status(429).json({
+            success: false,
+            error: 'Trop de tentatives. Demandez un nouveau code.',
+          });
+        }
+        if (!code || String(code).trim() !== entry.code) {
+          entry.attempts++;
+          return res.status(400).json({
+            success: false,
+            error: 'Code incorrect',
+          });
+        }
+
+        // Code valide → créer/trouver l'utilisateur
+        otpStore.delete(phone);
+        let user = findUserByPhone(db, phone);
+        if (!user) {
+          user = createUser(db, {
+            phone,
+            displayName: `+${phone}`,
+            provider: 'phone',
+            providerUid: phone,
+          });
+        }
+
+        const authResponse = await buildAuthResponse(
+          db, user, req.headers['user-agent']
+        );
+        return res.json({ success: true, data: authResponse });
+      }
+    } catch (err) {
+      console.error('[AUTH/phone]', err);
+      return res.status(500).json({ success: false, error: 'Erreur serveur' });
+    }
+  });
+
+  // ── GET /api/auth/me ─────────────────────────────────────────────────────
+  app.get('/api/auth/me', requireAuth(db), (req, res) => {
+    res.json({ success: true, data: { user: sanitizeUser(req.user) } });
+  });
+
+  // ── POST /api/auth/refresh ───────────────────────────────────────────────
+  app.post('/api/auth/refresh', async (req, res) => {
+    try {
+      const { refreshToken } = req.body || {};
+      if (!refreshToken) {
+        return res.status(400).json({ success: false, error: 'refreshToken requis' });
+      }
+
+      const stored = findRefreshToken(db, refreshToken);
+      if (!stored || stored.revoked_at) {
+        return res.status(401).json({ success: false, error: 'Refresh token invalide' });
+      }
+      if (new Date(stored.expires_at) < new Date()) {
+        revokeRefreshToken(db, stored.id);
+        return res.status(401).json({ success: false, error: 'Refresh token expiré' });
+      }
+
+      const user = findUserById(db, stored.user_id);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Utilisateur introuvable' });
+      }
+
+      // Rotation : révoquer l'ancien, émettre un nouveau
+      revokeRefreshToken(db, stored.id);
+      const authResponse = await buildAuthResponse(
+        db, user, stored.device_info
+      );
+      return res.json({ success: true, data: authResponse });
+    } catch (err) {
+      console.error('[AUTH/refresh]', err);
+      return res.status(500).json({ success: false, error: 'Erreur serveur' });
+    }
+  });
+
+  // ── POST /api/auth/logout ────────────────────────────────────────────────
+  app.post('/api/auth/logout', requireAuth(db), (req, res) => {
+    try {
+      // Révoquer tous les refresh tokens de cet utilisateur
+      revokeAllUserTokens(db, req.user.id);
+      return res.json({ success: true, data: { loggedOut: true } });
+    } catch (err) {
+      console.error('[AUTH/logout]', err);
+      return res.status(500).json({ success: false, error: 'Erreur serveur' });
+    }
+  });
+}
+
+module.exports = {
+  initAuthTables,
+  mountAuthRoutes,
+  requireAuth,
+  requireAuthOrApiKey,
+  cleanupExpiredTokens,
+  // Exposés pour les tests éventuels
+  signAccessToken,
+  verifyAccessToken,
+  sanitizeUser,
+};

@@ -92,7 +92,7 @@ edukraft-mvp/
                                  │ HTTPS (batch, retry expo.)
                     ┌────────────▼────────────┐
                     │   API REST EduKraft      │
-                    │   api.edukraft.tg/v1     │
+                    │   api.edukraft.tg        │
                     └────────────┬────────────┘
                                  │
                     ┌────────────▼────────────┐
@@ -197,8 +197,9 @@ const receipt  = await tx.wait();
 ## Variables d'environnement
 
 ```env
-# app.json → extra
-API_BASE_URL=https://api.edukraft.tg
+# EAS env vars (préfixe EXPO_PUBLIC_ requis pour le bundle client)
+EXPO_PUBLIC_API_URL=https://api.edukraft.tg
+EXPO_PUBLIC_API_KEY=dev-key
 POLYGON_RPC_URL=https://polygon-rpc.com
 CONTRACT_ADDRESS=0x...  # Adresse du smart contract ERC-721
 SYNC_INTERVAL_MS=30000

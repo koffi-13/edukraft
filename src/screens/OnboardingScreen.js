@@ -11,7 +11,7 @@ import { t, setLanguage, AVAILABLE_LANGUAGES } from '../i18n';
 
 export default function OnboardingScreen() {
   const insets            = useSafeAreaInsets();
-  const { createLearner } = useDb();
+  const { createLearner, setDailyGoal } = useDb();
   const [name, setName]   = useState('');
   const [phone, setPhone] = useState('');
   const [lang, setLang]   = useState('fr');
@@ -27,8 +27,19 @@ export default function OnboardingScreen() {
       setLanguage(lang);
       const id = `lrn_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
       await createLearner({ id, name: name.trim(), phone: phone.trim(), language: lang });
+      // Objectif quotidien par défaut : 1 leçon/jour (autonomie — modifiable plus tard)
+      // Valeur douce pour démarrer, sans pression.
+      if (setDailyGoal) {
+        try { await setDailyGoal('lessons', 1); } catch (_) {}
+      }
     } catch (e) {
-      Alert.alert('Erreur', 'Impossible de créer ton profil. Réessaie.');
+      console.error('[Onboarding] createLearner error:', e);
+      Alert.alert(
+        'Erreur',
+        'Impossible de créer ton profil.\n\n' +
+        'Détail : ' + (e.message || e) + '\n\n' +
+        'Si l\'erreur persiste, redémarre l\'app avec : npx expo start --clear',
+      );
     } finally {
       setLoading(false);
     }

@@ -256,7 +256,7 @@ async function testSyncQueueEnqueue(db) {
     return {
       name, critical: true,
       passed: ok,
-      detail: `Queue avant: ${countBefore} → après: ${countAfter}`,
+      detail: `Queue avant: ${countBefore} > après: ${countAfter}`,
     };
   } catch (e) {
     return { name, critical: false, passed: false, detail: e.message };
@@ -288,7 +288,7 @@ async function testQueueRetryMechanism(db) {
       name, critical: false,
       passed: !!ok,
       detail: ok
-        ? `retry_count ${item.retry_count} → ${updatedItem.retry_count}`
+        ? `retry_count ${item.retry_count} > ${updatedItem.retry_count}`
         : `retry_count non incrémenté: ${updatedItem?.retry_count}`,
     };
   } catch (e) {
@@ -334,7 +334,7 @@ async function testDataIntegrityAfterRestart(db) {
 
 /**
  * TEST 8 — Session offline longue (50 opérations)
- * Simule 50 écritures consécutives sans sync → vérifie 0 perte
+ * Simule 50 écritures consécutives sans sync > vérifie 0 perte
  */
 async function testLargeOfflineSession(db) {
   const name = 'Session offline longue — 50 opérations sans perte';
@@ -351,7 +351,7 @@ async function testLargeOfflineSession(db) {
     return {
       name, critical: false,
       passed: ok,
-      detail: `${ops} opérations → ${learner.length} entrées en queue`,
+      detail: `${ops} opérations > ${learner.length} entrées en queue`,
     };
   } catch (e) {
     return { name, critical: false, passed: false, detail: e.message };
@@ -404,7 +404,7 @@ export function formatReport(suite) {
       : '❌ BLOQUÉ — Corriger avant ouverture hub',
     '',
     ...suite.results.map(r =>
-      `${r.passed ? '✓' : '✗'} [${r.durationMs}ms] ${r.name}${!r.passed ? '\n   → ' + r.detail : ''}`
+      `${r.passed ? '✓' : '✗'} [${r.durationMs}ms] ${r.name}${!r.passed ? '\n   > ' + r.detail : ''}`
     ),
   ];
   return lines.join('\n');
