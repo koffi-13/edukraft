@@ -20,7 +20,7 @@
       },
       "env": {
         "APP_ENV": "preview",
-        "EXPO_PUBLIC_API_URL": "https://edukraft.fly.dev",
+        "EXPO_PUBLIC_API_URL": "https://edukraft-api.onrender.com",
         "EXPO_PUBLIC_API_KEY": "dev-key",
         "EXPO_PUBLIC_PHONE_OTP_ENABLED": "true"
       }
