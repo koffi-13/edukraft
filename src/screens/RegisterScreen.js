@@ -23,13 +23,16 @@ try { WebBrowser = require('expo-web-browser'); } catch (_) {}
 try { AppleAuthentication = require('expo-apple-authentication'); } catch (_) {}
 try { AuthSession = require('expo-auth-session'); } catch (_) {}
 
-let GOOGLE_REDIRECT_URI = '';
-let FACEBOOK_REDIRECT_URI = '';
+const EXPO_PROXY_REDIRECT = 'https://auth.expo.io/@orion-k/edukraft';
+let GOOGLE_REDIRECT_URI = EXPO_PROXY_REDIRECT;
+let FACEBOOK_REDIRECT_URI = EXPO_PROXY_REDIRECT;
 if (AuthSession) {
   try {
     const proxyRedirect = AuthSession.makeRedirectUri({ useProxy: true });
-    GOOGLE_REDIRECT_URI = proxyRedirect;
-    FACEBOOK_REDIRECT_URI = proxyRedirect;
+    if (proxyRedirect && proxyRedirect.startsWith('https://')) {
+      GOOGLE_REDIRECT_URI = proxyRedirect;
+      FACEBOOK_REDIRECT_URI = proxyRedirect;
+    }
   } catch (_) {}
 }
 

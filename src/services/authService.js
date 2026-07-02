@@ -26,9 +26,9 @@ import ENV from '../config/env';
 import { Platform } from 'react-native';
 
 // ── Stockage sécurisé (expo-secure-store sur natif, fallback mémoire sur web) ─
-// ⚠️ expo-secure-store a un shim web cassé en SDK 50 (getValueWithKeySync manquant).
-// On force le fallback mémoire sur web — les tokens ne persistent pas au reload
-// mais fonctionnent pendant la session (suffisant pour démos web).
+// ⚠️ expo-secure-store v12 utilise setItemAsync/getItemAsync/deleteItemAsync
+//    expo-secure-store v13 utilise setItem/getItem/deleteItem
+// On crée un wrapper qui gère les deux API automatiquement.
 let SecureStore = null;
 if (Platform.OS !== 'web') {
   try {
@@ -38,15 +38,35 @@ if (Platform.OS !== 'web') {
   }
 }
 
-// Fallback mémoire (web / tests) — pas persistant, mais fonctionnel
+// Fallback mémoire (web / tests)
 const memoryStorage = new Map();
-const fallbackStorage = {
-  async setItem(key, value) { memoryStorage.set(key, value); },
-  async getItem(key) { return memoryStorage.get(key) ?? null; },
-  async deleteItem(key) { memoryStorage.delete(key); },
-};
 
-const store = SecureStore || fallbackStorage;
+// Wrapper qui gère v12 (setItemAsync) ET v13 (setItem) + fallback mémoire
+const store = {
+  async setItem(key, value) {
+    if (SecureStore) {
+      if (SecureStore.setItemAsync) await SecureStore.setItemAsync(key, value);
+      else if (SecureStore.setItem) await SecureStore.setItem(key, value);
+    } else {
+      memoryStorage.set(key, value);
+    }
+  },
+  async getItem(key) {
+    if (SecureStore) {
+      if (SecureStore.getItemAsync) return await SecureStore.getItemAsync(key);
+      if (SecureStore.getItem) return await SecureStore.getItem(key);
+    }
+    return memoryStorage.get(key) ?? null;
+  },
+  async deleteItem(key) {
+    if (SecureStore) {
+      if (SecureStore.deleteItemAsync) await SecureStore.deleteItemAsync(key);
+      else if (SecureStore.deleteItem) await SecureStore.deleteItem(key);
+    } else {
+      memoryStorage.delete(key);
+    }
+  },
+};
 
 const KEYS = {
   ACCESS_TOKEN:  'ek_access_token',

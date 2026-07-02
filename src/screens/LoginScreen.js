@@ -28,14 +28,20 @@ try { WebBrowser = require('expo-web-browser'); } catch (_) {}
 try { AppleAuthentication = require('expo-apple-authentication'); } catch (_) {}
 try { AuthSession = require('expo-auth-session'); } catch (_) {}
 
-// Préparer le redirect URI (Expo)
-let GOOGLE_REDIRECT_URI = '';
-let FACEBOOK_REDIRECT_URI = '';
+// Préparer le redirect URI (Expo proxy — HTTPS, accepté par Google)
+// ⚠️ Sur APK standalone, makeRedirectUri peut retourner le scheme natif (edukraft://)
+// au lieu du proxy HTTPS. Google refuse les custom schemes. On force le proxy.
+const EXPO_PROXY_REDIRECT = 'https://auth.expo.io/@orion-k/edukraft';
+let GOOGLE_REDIRECT_URI = EXPO_PROXY_REDIRECT;
+let FACEBOOK_REDIRECT_URI = EXPO_PROXY_REDIRECT;
 if (AuthSession) {
   try {
     const proxyRedirect = AuthSession.makeRedirectUri({ useProxy: true });
-    GOOGLE_REDIRECT_URI = proxyRedirect;
-    FACEBOOK_REDIRECT_URI = proxyRedirect;
+    // Ne garder le proxy que s'il commence par https (pas un custom scheme)
+    if (proxyRedirect && proxyRedirect.startsWith('https://')) {
+      GOOGLE_REDIRECT_URI = proxyRedirect;
+      FACEBOOK_REDIRECT_URI = proxyRedirect;
+    }
   } catch (_) {}
 }
 
