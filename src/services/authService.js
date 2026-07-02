@@ -209,13 +209,43 @@ async function parseResponse(response) {
   return data;
 }
 
+// ── Fetch avec timeout de 30s + retry (Render free tier s'endort) ────────────
+async function fetchWithTimeout(url, options = {}, timeoutMs = 30000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    // Si timeout ou réseau, retry une fois après 2s (Render en train de se réveiller)
+    if (error.name === 'AbortError' || error.message.includes('Network')) {
+      console.log('[authService] Retry dans 2s (serveur en cours de réveillon)...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      const controller2 = new AbortController();
+      const timeoutId2 = setTimeout(() => controller2.abort(), 30000);
+      try {
+        const response = await fetch(url, { ...options, signal: controller2.signal });
+        clearTimeout(timeoutId2);
+        return response;
+      } catch (error2) {
+        clearTimeout(timeoutId2);
+        throw error2;
+      }
+    }
+    throw error;
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // API PUBLIQUE — 5 providers + gestion session
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /** Inscription email + mot de passe */
 export async function register({ email, password, displayName, language }) {
-  const response = await fetch(`${AUTH_BASE}/api/auth/register`, {
+  const response = await fetchWithTimeout(`${AUTH_BASE}/api/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password, displayName, language }),
@@ -230,7 +260,7 @@ export async function register({ email, password, displayName, language }) {
 
 /** Connexion email + mot de passe */
 export async function login({ email, password }) {
-  const response = await fetch(`${AUTH_BASE}/api/auth/login`, {
+  const response = await fetchWithTimeout(`${AUTH_BASE}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
@@ -245,7 +275,7 @@ export async function login({ email, password }) {
 
 /** Connexion Google (idToken obtenu côté client via expo-auth-session) */
 export async function loginGoogle(idToken) {
-  const response = await fetch(`${AUTH_BASE}/api/auth/google`, {
+  const response = await fetchWithTimeout(`${AUTH_BASE}/api/auth/google`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ idToken }),
@@ -260,7 +290,7 @@ export async function loginGoogle(idToken) {
 
 /** Connexion Apple (identityToken de expo-apple-authentication) */
 export async function loginApple({ identityToken, authorizationCode }) {
-  const response = await fetch(`${AUTH_BASE}/api/auth/apple`, {
+  const response = await fetchWithTimeout(`${AUTH_BASE}/api/auth/apple`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ identityToken, authorizationCode }),
@@ -275,7 +305,7 @@ export async function loginApple({ identityToken, authorizationCode }) {
 
 /** Connexion Facebook (accessToken du SDK Facebook) */
 export async function loginFacebook(accessToken) {
-  const response = await fetch(`${AUTH_BASE}/api/auth/facebook`, {
+  const response = await fetchWithTimeout(`${AUTH_BASE}/api/auth/facebook`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ accessToken }),
@@ -297,7 +327,7 @@ export async function loginFacebook(accessToken) {
  * @returns {Promise<Object>} - {otpSent} pour send, {user, accessToken, ...} pour verify
  */
 export async function loginPhone({ phone, action, code }) {
-  const response = await fetch(`${AUTH_BASE}/api/auth/phone`, {
+  const response = await fetchWithTimeout(`${AUTH_BASE}/api/auth/phone`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ phone, action, code }),
@@ -330,7 +360,7 @@ export async function refresh() {
   if (!refreshToken) {
     throw new AuthenticationError('Pas de refresh token', 'NO_REFRESH_TOKEN');
   }
-  const response = await fetch(`${AUTH_BASE}/api/auth/refresh`, {
+  const response = await fetchWithTimeout(`${AUTH_BASE}/api/auth/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refreshToken }),
