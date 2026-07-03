@@ -7,13 +7,11 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../theme';
 import { useDb }  from '../database/DbProvider';
-import { useAuth } from '../contexts/AuthContext';
 import { t, setLanguage, AVAILABLE_LANGUAGES } from '../i18n';
 
 export default function OnboardingScreen() {
   const insets            = useSafeAreaInsets();
   const { createLearner, setDailyGoal } = useDb();
-  const { logout } = useAuth();
   const [name, setName]   = useState('');
   const [phone, setPhone] = useState('');
   const [lang, setLang]   = useState('fr');
@@ -123,23 +121,9 @@ export default function OnboardingScreen() {
           <Text style={styles.ctaText}>{loading ? 'Création...' : 'Commencer gratuitement'}</Text>
         </TouchableOpacity>
 
-        {/* Retour à l'authentification */}
-        <TouchableOpacity
-          style={styles.loginLinkBtn}
-          onPress={async () => {
-            // Annuler skipAuth et retourner à l'écran de login
-            await logout();
-          }}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.loginLinkText}>
-            Se connecter avec un compte
-          </Text>
-        </TouchableOpacity>
-
         <Text style={styles.disclaimer}>
-          Tes données sont stockées uniquement sur ton téléphone.{'\n'}
-          Aucun compte requis pour apprendre hors ligne.
+          Tes données d'apprentissage sont stockées sur ton téléphone.{'\n'}
+          Tu peux apprendre hors ligne après cette étape.
         </Text>
       </ScrollView>
     </KeyboardAvoidingView>

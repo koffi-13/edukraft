@@ -8,7 +8,7 @@
 //   4. Apple      — expo-apple-authentication.signInAsync (iOS uniquement)
 //   5. Phone OTP  — saisie numéro > envoi code > saisie code 6 chiffres > vérif
 //
-// + Bouton "Continuer sans compte" (mode hors-ligne, skipAuth)
+// Authentification obligatoire (pas de mode hors-ligne sans compte)
 
 import React, { useState, useRef, useEffect } from 'react';
 import {
@@ -51,7 +51,7 @@ const PHONE_OTP_ENABLED = process.env.EXPO_PUBLIC_PHONE_OTP_ENABLED !== 'false';
 
 export default function LoginScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { login, loginGoogle, loginApple, loginFacebook, loginPhone, skip, error, clearError } = useAuth();
+  const { login, loginGoogle, loginApple, loginFacebook, loginPhone, error, clearError } = useAuth();
 
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
@@ -85,7 +85,7 @@ export default function LoginScreen({ navigation }) {
           'Impossible de joindre le serveur.\n\n' +
           'Vérifiez votre connexion internet.\n' +
           'Si le problème persiste, le serveur backend n\'est peut-être pas encore déployé.\n\n' +
-          'Vous pouvez utiliser "Continuer sans compte" pour apprendre hors ligne.',
+          'Vérifiez votre connexion internet et réessayez.',
         );
       } else {
         Alert.alert(t('auth.error_invalid_credentials'), msg);
@@ -225,14 +225,8 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
-  // ── Skip (mode hors-ligne) ───────────────────────────────────────────────
-  const handleSkip = async () => {
-    try {
-      await skip();
-    } catch (e) {
-      console.warn('[Login] skip error:', e.message);
-    }
-  };
+  // ── Skip (mode hors-ligne) ─────────────────────────────────────────────
+  // REMOVED : l'authentification est obligatoire
 
   return (
     <KeyboardAvoidingView
@@ -419,16 +413,6 @@ export default function LoginScreen({ navigation }) {
             )}
           </View>
         )}
-
-        {/* Skip (hors-ligne) */}
-        <TouchableOpacity
-          style={styles.skipBtn}
-          onPress={handleSkip}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.skipText}>{t('auth.skip')}</Text>
-          <Text style={styles.skipSub}>{t('auth.skip_description')}</Text>
-        </TouchableOpacity>
 
         {error && (
           <View style={styles.errorBanner}>

@@ -1,25 +1,34 @@
 // src/contexts/AuthContext.js
 // Contexte React d'authentification EduKraft.
 //
-// Exposé via le hook useAuth() :
-//   - state : { user, loading, error, isAuthenticated, skipAuth }
-//   - actions : login, register, loginGoogle, loginApple, loginFacebook,
-//               loginPhone, skip, logout, refreshUser, clearError
-//
-// Au montage :
-//   1. Lit les tokens depuis expo-secure-store (ou fallback mémoire)
-//   2. Si un access token existe > GET /api/auth/me pour valider et récupérer le user
-//   3. Si skipAuth est actif > mode hors-ligne (pas de token)
-//   4. Sinon > user = null (l'utilisateur devra se connecter)
+// Logique :
+//   1. Au démarrage, lire les tokens depuis SecureStore
+//   2. Si token existe :
+//      a. Online → valider via /api/auth/me (refresh auto si expiré)
+//      b. Offline → accès direct avec le user stocké localement (pas d'appel serveur)
+//   3. Si pas de token → écran de login (PAS de mode "continuer sans compte")
+//   4. Session persistante : 7j (access) + 30j (refresh)
+//   5. Après 30j d'inactivité → l'utilisateur doit se reconnecter
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import * as authService from '../services/authService';
 
 const AuthContext = createContext(null);
 
+// Détecter la connexion réseau (offline-first)
+async function isOnline() {
+  try {
+    const NetworkModule = require('expo-network');
+    const state = await NetworkModule.getNetworkStateAsync();
+    return !!state.isInternetReachable;
+  } catch (_) {
+    // Si expo-network n'est pas dispo, supposer online
+    return true;
+  }
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser]           = useState(null);
-  const [skipAuth, setSkipAuth]   = useState(false);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState(null);
   const initialized               = useRef(false);
@@ -33,27 +42,32 @@ export function AuthProvider({ children }) {
       try {
         const stored = await authService.getStoredAuth();
 
-        // PRIORITÉ : accessToken AVANT skipAuth
-        // Si l'utilisateur s'est connecté (a un token), on valide le token
-        // MÊME SI skipAuth est aussi true (reste d'une session précédente)
-        if (stored.accessToken) {
-          try {
-            const freshUser = await authService.me();
-            setUser(freshUser);
-            setSkipAuth(false);
+        if (stored.accessToken && stored.user) {
+          // L'utilisateur a des tokens locaux
+          const online = await isOnline();
+
+          if (online) {
+            // Online : valider le token via /me (refresh auto si expiré)
+            try {
+              const freshUser = await authService.me();
+              setUser(freshUser);
+              setLoading(false);
+              return;
+            } catch (err) {
+              console.warn('[Auth] Token expiré, tentative de refresh...', err.message);
+              // Le refresh est tenté automatiquement par authService.me()
+              // Si ça échoue vraiment, on utilise le user local (offline fallback)
+              setUser(stored.user);
+              setLoading(false);
+              return;
+            }
+          } else {
+            // Offline : accès direct avec le user stocké localement
+            console.log('[Auth] Mode hors-ligne — utilisation du user local');
+            setUser(stored.user);
             setLoading(false);
             return;
-          } catch (err) {
-            console.warn('[Auth] Session expirée:', err.message);
           }
-        }
-
-        // Mode "continuer sans compte" (seulement si pas de token valide)
-        if (stored.skipAuth) {
-          setSkipAuth(true);
-          setUser(null);
-          setLoading(false);
-          return;
         }
       } catch (e) {
         console.warn('[Auth] Init error:', e.message);
@@ -68,7 +82,6 @@ export function AuthProvider({ children }) {
 
   const handleAuthSuccess = useCallback((data) => {
     setUser(data.user);
-    setSkipAuth(false);
     setError(null);
   }, []);
 
@@ -136,7 +149,6 @@ export function AuthProvider({ children }) {
     setError(null);
     try {
       const data = await authService.loginPhone(params);
-      // En mode "send", on ne reçoit pas de user > pas de handleAuthSuccess
       if (params.action === 'verify' && data.user) {
         handleAuthSuccess(data);
       }
@@ -147,22 +159,9 @@ export function AuthProvider({ children }) {
     }
   }, [handleAuthSuccess]);
 
-  const skip = useCallback(async () => {
-    try {
-      await authService.skip();
-    } catch (e) {
-      console.warn('[Auth] skip storage error (non-fatal):', e.message);
-    }
-    // Même si le stockage échoue, on active le mode hors-ligne en mémoire
-    setSkipAuth(true);
-    setUser(null);
-    setError(null);
-  }, []);
-
   const logout = useCallback(async () => {
     await authService.logout();
     setUser(null);
-    setSkipAuth(false);
     setError(null);
   }, []);
 
@@ -172,9 +171,7 @@ export function AuthProvider({ children }) {
       setUser(freshUser);
       return freshUser;
     } catch (e) {
-      // Si le refresh échoue, on déconnecte
       setUser(null);
-      setSkipAuth(false);
       throw e;
     }
   }, []);
@@ -183,7 +180,6 @@ export function AuthProvider({ children }) {
   const value = {
     // State
     user,
-    skipAuth,
     loading,
     error,
     isAuthenticated: !!user,
@@ -194,7 +190,6 @@ export function AuthProvider({ children }) {
     loginApple,
     loginFacebook,
     loginPhone,
-    skip,
     logout,
     refreshUser,
     clearError,

@@ -146,12 +146,12 @@ function AuthStack() {
 // Logique de navigation :
 //   1. DB pas prête           > splash screen
 //   2. Auth en cours de chargement > splash screen
-//   3. Pas authentifié & !skipAuth > AuthStack (Login / Register)
-//   4. Authentifié ou skipAuth, mais pas de learner local > Onboarding
-//   5. Authentifié/skipAuth + learner > RootStack (app principale)
+//   3. Pas authentifié > AuthStack (Login / Register)
+//   4. Authentifié mais pas de learner local > Onboarding
+//   5. Authentifié + learner > RootStack (app principale)
 export default function AppNavigator() {
   const { learner, ready } = useDb();
-  const { loading: authLoading, isAuthenticated, skipAuth } = useAuth();
+  const { loading: authLoading, isAuthenticated } = useAuth();
 
   if (!ready || authLoading) {
     return (
@@ -162,13 +162,10 @@ export default function AppNavigator() {
     );
   }
 
-  // Phase 1 : auth-gating
-  const isAuthed = isAuthenticated || skipAuth;
-
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!isAuthed ? (
+        {!isAuthenticated ? (
           <Stack.Screen name="Auth" component={AuthStack} />
         ) : !learner ? (
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
