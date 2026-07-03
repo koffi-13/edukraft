@@ -62,6 +62,37 @@ export function DbProvider({ children }) {
   const [error, setError]     = useState(null);
   const storeRef              = useRef(memoryStore);
 
+  // ── Synchroniser le learner dans AsyncStorage à chaque changement ──────
+  // Garantit que le learner survit au redémarrage même sans SQLite
+  useEffect(() => {
+    if (learner) {
+      try {
+        const AsyncStorage = require('@react-native-async-storage/async-storage');
+        AsyncStorage.setItem('ek_learner', JSON.stringify(learner)).catch(() => {});
+      } catch (_) {}
+    }
+  }, [learner]);
+
+  // ── Synchroniser les progrès dans AsyncStorage ─────────────────────────
+  useEffect(() => {
+    if (learner && storeRef.current.progress) {
+      try {
+        const AsyncStorage = require('@react-native-async-storage/async-storage');
+        AsyncStorage.setItem('ek_progress', JSON.stringify(storeRef.current.progress)).catch(() => {});
+      } catch (_) {}
+    }
+  }, [learner]); // Se déclenche quand le learner change (approximatif)
+
+  // ── Synchroniser les badges dans AsyncStorage ──────────────────────────
+  useEffect(() => {
+    if (learner && storeRef.current.badges) {
+      try {
+        const AsyncStorage = require('@react-native-async-storage/async-storage');
+        AsyncStorage.setItem('ek_badges', JSON.stringify(storeRef.current.badges)).catch(() => {});
+      } catch (_) {}
+    }
+  }, [learner]);
+
   // ── Initialisation ─────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
@@ -92,9 +123,16 @@ export function DbProvider({ children }) {
             try { await nativeDb.execAsync(stmt); } catch (_) { /* colonne déjà là */ }
           }
 
-          // Charger le learner existant
+          // Charger le learner existant depuis SQLite
           const row = await nativeDb.getFirstAsync('SELECT * FROM learner LIMIT 1');
-          if (row) setLearner(row);
+          if (row) {
+            setLearner(row);
+            // Aussi sauvegarder dans AsyncStorage pour le fallback
+            try {
+              const AsyncStorage = require('@react-native-async-storage/async-storage');
+              await AsyncStorage.setItem('ek_learner', JSON.stringify(row));
+            } catch (_) {}
+          }
 
           setDb(nativeDb);
           console.log('[DB] SQLite natif initialisé');
@@ -102,7 +140,31 @@ export function DbProvider({ children }) {
           // expo-sqlite non disponible (web, etc.) > fallback mémoire
           console.log('[DB] SQLite non disponible, mode mémoire activé');
 
-          // Restaurer le learner depuis le store mémoire
+          // Restaurer le learner depuis AsyncStorage (persistance sans SQLite)
+          try {
+            const AsyncStorage = require('@react-native-async-storage/async-storage');
+            const storedLearner = await AsyncStorage.getItem('ek_learner');
+            if (storedLearner) {
+              const parsed = JSON.parse(storedLearner);
+              storeRef.current.learner = parsed;
+              setLearner(parsed);
+              console.log('[DB] Learner restauré depuis AsyncStorage');
+            }
+            // Restaurer les progrès
+            const storedProgress = await AsyncStorage.getItem('ek_progress');
+            if (storedProgress) {
+              storeRef.current.progress = JSON.parse(storedProgress);
+              console.log('[DB] Progress restauré depuis AsyncStorage');
+            }
+            // Restaurer les badges
+            const storedBadges = await AsyncStorage.getItem('ek_badges');
+            if (storedBadges) {
+              storeRef.current.badges = JSON.parse(storedBadges);
+              console.log('[DB] Badges restaurés depuis AsyncStorage');
+            }
+          } catch (_) {}
+
+          // Fallback : restaurer depuis le store mémoire
           if (storeRef.current.learner) {
             setLearner(storeRef.current.learner);
           }
@@ -144,6 +206,11 @@ export function DbProvider({ children }) {
   const createLearner = useCallback(async ({ id, name, phone, language = 'fr' }) => {
     const result = await learnerRepo().create({ id, name, phone, language });
     setLearner(result);
+    // Persister dans AsyncStorage (fallback si SQLite non dispo)
+    try {
+      const AsyncStorage = require('@react-native-async-storage/async-storage');
+      await AsyncStorage.setItem('ek_learner', JSON.stringify(result));
+    } catch (_) {}
     return result;
   }, [learnerRepo]);
 
@@ -153,6 +220,13 @@ export function DbProvider({ children }) {
     // Recharger le learner pour l'UI
     const updated = await learnerRepo().get();
     setLearner(updated);
+    // Persister dans AsyncStorage
+    if (updated) {
+      try {
+        const AsyncStorage = require('@react-native-async-storage/async-storage');
+        await AsyncStorage.setItem('ek_learner', JSON.stringify(updated));
+      } catch (_) {}
+    }
     return totalXp;
   }, [learner, learnerRepo]);
 
