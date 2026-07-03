@@ -28,43 +28,70 @@ import { Platform } from 'react-native';
 // ── Stockage sécurisé (expo-secure-store sur natif, fallback mémoire sur web) ─
 // ⚠️ expo-secure-store v12 utilise setItemAsync/getItemAsync/deleteItemAsync
 //    expo-secure-store v13 utilise setItem/getItem/deleteItem
-// On crée un wrapper qui gère les deux API automatiquement.
+// On crée un wrapper qui gère les deux API automatiquement + AsyncStorage
+// comme double stockage pour garantir la persistance.
+
 let SecureStore = null;
+let AsyncStorage = null;
+
 if (Platform.OS !== 'web') {
-  try {
-    SecureStore = require('expo-secure-store');
-  } catch (_) {
-    SecureStore = null;
-  }
+  try { SecureStore = require('expo-secure-store'); } catch (_) {}
+  try { AsyncStorage = require('@react-native-async-storage/async-storage'); } catch (_) {}
 }
 
 // Fallback mémoire (web / tests)
 const memoryStorage = new Map();
 
-// Wrapper qui gère v12 (setItemAsync) ET v13 (setItem) + fallback mémoire
+// Wrapper triple : SecureStore (sécurisé) + AsyncStorage (persistance) + mémoire
 const store = {
   async setItem(key, value) {
+    // 1. SecureStore (tokens sécurisés sur natif)
     if (SecureStore) {
-      if (SecureStore.setItemAsync) await SecureStore.setItemAsync(key, value);
-      else if (SecureStore.setItem) await SecureStore.setItem(key, value);
-    } else {
-      memoryStorage.set(key, value);
+      try {
+        if (SecureStore.setItemAsync) await SecureStore.setItemAsync(key, value);
+        else if (SecureStore.setItem) await SecureStore.setItem(key, value);
+      } catch (e) { console.warn('[store] SecureStore setItem error:', e.message); }
     }
+    // 2. AsyncStorage (double stockage pour garantir la persistance)
+    if (AsyncStorage) {
+      try { await AsyncStorage.setItem(key, value); } catch (e) {}
+    }
+    // 3. Mémoire (toujours)
+    memoryStorage.set(key, value);
   },
+
   async getItem(key) {
+    // 1. SecureStore d'abord
     if (SecureStore) {
-      if (SecureStore.getItemAsync) return await SecureStore.getItemAsync(key);
-      if (SecureStore.getItem) return await SecureStore.getItem(key);
+      try {
+        let val = null;
+        if (SecureStore.getItemAsync) val = await SecureStore.getItemAsync(key);
+        else if (SecureStore.getItem) val = await SecureStore.getItem(key);
+        if (val) return val;
+      } catch (e) { console.warn('[store] SecureStore getItem error:', e.message); }
     }
+    // 2. AsyncStorage en fallback
+    if (AsyncStorage) {
+      try {
+        const val = await AsyncStorage.getItem(key);
+        if (val) return val;
+      } catch (e) {}
+    }
+    // 3. Mémoire
     return memoryStorage.get(key) ?? null;
   },
+
   async deleteItem(key) {
     if (SecureStore) {
-      if (SecureStore.deleteItemAsync) await SecureStore.deleteItemAsync(key);
-      else if (SecureStore.deleteItem) await SecureStore.deleteItem(key);
-    } else {
-      memoryStorage.delete(key);
+      try {
+        if (SecureStore.deleteItemAsync) await SecureStore.deleteItemAsync(key);
+        else if (SecureStore.deleteItem) await SecureStore.deleteItem(key);
+      } catch (e) {}
     }
+    if (AsyncStorage) {
+      try { await AsyncStorage.removeItem(key); } catch (e) {}
+    }
+    memoryStorage.delete(key);
   },
 };
 

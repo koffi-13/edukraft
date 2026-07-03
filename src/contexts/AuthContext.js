@@ -43,31 +43,24 @@ export function AuthProvider({ children }) {
         const stored = await authService.getStoredAuth();
 
         if (stored.accessToken && stored.user) {
-          // L'utilisateur a des tokens locaux
-          const online = await isOnline();
+          // L'utilisateur a des tokens locaux — accès garanti
+          // On utilise le user local IMMÉDIATEMENT (pas d'attente serveur)
+          setUser(stored.user);
+          setLoading(false);
 
+          // En arrière-plan, valider le token si online (non-bloquant)
+          const online = await isOnline();
           if (online) {
-            // Online : valider le token via /me (refresh auto si expiré)
-            try {
-              const freshUser = await authService.me();
-              setUser(freshUser);
-              setLoading(false);
-              return;
-            } catch (err) {
-              console.warn('[Auth] Token expiré, tentative de refresh...', err.message);
-              // Le refresh est tenté automatiquement par authService.me()
-              // Si ça échoue vraiment, on utilise le user local (offline fallback)
-              setUser(stored.user);
-              setLoading(false);
-              return;
-            }
-          } else {
-            // Offline : accès direct avec le user stocké localement
-            console.log('[Auth] Mode hors-ligne — utilisation du user local');
-            setUser(stored.user);
-            setLoading(false);
-            return;
+            authService.me()
+              .then(freshUser => {
+                if (freshUser) setUser(freshUser);
+              })
+              .catch(err => {
+                console.warn('[Auth] Token validation failed (non-blocking):', err.message);
+                // On garde le user local — pas de déconnexion
+              });
           }
+          return;
         }
       } catch (e) {
         console.warn('[Auth] Init error:', e.message);
