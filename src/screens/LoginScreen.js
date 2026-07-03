@@ -104,16 +104,23 @@ export default function LoginScreen({ navigation }) {
     setOauthLoading('google');
     clearError();
     try {
+      // En web, utiliser l'origine de la page comme redirect URI
+      // En natif, utiliser le proxy Expo
+      const isWebPlatform = Platform.OS === 'web';
+      const redirectUri = isWebPlatform && typeof window !== 'undefined'
+        ? window.location.origin
+        : GOOGLE_REDIRECT_URI;
+
       const authUrl = [
         'https://accounts.google.com/o/oauth2/v2/auth',
         `?client_id=${encodeURIComponent(GOOGLE_CLIENT_ID)}`,
-        `&redirect_uri=${encodeURIComponent(GOOGLE_REDIRECT_URI)}`,
+        `&redirect_uri=${encodeURIComponent(redirectUri)}`,
         '&response_type=id_token',
         '&scope=openid%20email%20profile',
         '&nonce=' + Math.random().toString(36).slice(2),
       ].join('');
 
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, GOOGLE_REDIRECT_URI);
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
       if (result.type !== 'success' || !result.params.id_token) {
         setOauthLoading(null);
         return;

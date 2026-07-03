@@ -24,13 +24,15 @@ function resolveApiBase() {
 
   // 2. Défaut selon plateforme
   if (isWeb) {
-    // Détecter si on est derrière un proxy (Next.js sur port 3000)
+    // Web : détecter si on est derrière un proxy (Next.js sur port 3000)
     if (typeof window !== 'undefined' && window.location && window.location.port === '3000') {
       return '';  // proxy Next.js détecté
     }
-    return 'http://localhost:3001';
+    // Web standalone (npx expo start --web, port 8081) : utiliser Render
+    return 'https://edukraft-api.onrender.com';
   }
-  return __DEV__ ? 'http://10.0.2.2:3001' : 'https://api.edukraft.tg';
+  // Natif : utiliser Render en prod, localhost en dev
+  return __DEV__ ? 'http://10.0.2.2:3001' : 'https://edukraft-api.onrender.com';
 }
 
 const API_BASE = resolveApiBase();
