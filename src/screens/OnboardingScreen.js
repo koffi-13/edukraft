@@ -1,5 +1,11 @@
 // src/screens/OnboardingScreen.js
-import React, { useState } from 'react';
+// Écran de finalisation du profil — apparaît après inscription/connexion
+// si l'utilisateur n'a pas encore de learner local.
+//
+// Le prénom et la langue sont pré-remplis depuis le compte authentifié.
+// Le téléphone est optionnel.
+
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, KeyboardAvoidingView, Platform, Alert,
@@ -7,15 +13,29 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../theme';
 import { useDb }  from '../database/DbProvider';
+import { useAuth } from '../contexts/AuthContext';
 import { t, setLanguage, AVAILABLE_LANGUAGES } from '../i18n';
 
 export default function OnboardingScreen() {
   const insets            = useSafeAreaInsets();
-  const { createLearner, setDailyGoal } = useDb();
+  const { createLearner, setDailyGoal, learner } = useDb();
+  const { user } = useAuth();
+
+  // Pré-remplir depuis l'utilisateur authentifié
   const [name, setName]   = useState('');
-  const [phone, setPhone] = useState('');
-  const [lang, setLang]   = useState('fr');
+  const [phone, setPhone] = useState(user?.phone || '');
+  const [lang, setLang]   = useState(user?.language || 'fr');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      // Pré-remplir le prénom depuis le display_name ou first_name
+      const userDisplayName = user.display_name || user.first_name || user.name || '';
+      if (userDisplayName) setName(userDisplayName);
+      if (user.language) { setLang(user.language); setLanguage(user.language); }
+      if (user.phone) setPhone(user.phone);
+    }
+  }, [user]);
 
   const handleStart = async () => {
     if (!name.trim()) {
@@ -25,10 +45,20 @@ export default function OnboardingScreen() {
     setLoading(true);
     try {
       setLanguage(lang);
-      const id = `lrn_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-      await createLearner({ id, name: name.trim(), phone: phone.trim(), language: lang });
-      // Objectif quotidien par défaut : 1 leçon/jour (autonomie — modifiable plus tard)
-      // Valeur douce pour démarrer, sans pression.
+      // Utiliser un ID stable basé sur l'ID utilisateur (pas aléatoire)
+      // pour que les données persistent entre sessions
+      const learnerId = user?.id
+        ? `lrn_${user.id}`
+        : `lrn_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+      await createLearner({
+        id: learnerId,
+        name: name.trim(),
+        phone: phone.trim(),
+        language: lang,
+      });
+
+      // Objectif quotidien par défaut : 1 leçon/jour
       if (setDailyGoal) {
         try { await setDailyGoal('lessons', 1); } catch (_) {}
       }
@@ -37,8 +67,7 @@ export default function OnboardingScreen() {
       Alert.alert(
         'Erreur',
         'Impossible de créer ton profil.\n\n' +
-        'Détail : ' + (e.message || e) + '\n\n' +
-        'Si l\'erreur persiste, redémarre l\'app avec : npx expo start --clear',
+        'Détail : ' + (e.message || e),
       );
     } finally {
       setLoading(false);
@@ -48,23 +77,26 @@ export default function OnboardingScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      enabled={Platform.OS !== 'web'}
     >
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 40 }]}>
-
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 40 }]}
+      >
         {/* Logo zone */}
         <View style={styles.logoZone}>
           <View style={styles.logoCircle}>
             <Text style={styles.logoText}>EK</Text>
           </View>
           <Text style={styles.appName}>EduKraft</Text>
-          <Text style={styles.tagline}>Certifie ta compétence</Text>
+          <Text style={styles.tagline}>Bienvenue {name || ''} !</Text>
         </View>
 
         {/* Form card */}
         <View style={[styles.card, Shadow.card]}>
-          <Text style={styles.formTitle}>Crée ton profil</Text>
-          <Text style={styles.formSub}>Gratuit · Hors ligne · Certifié blockchain</Text>
+          <Text style={styles.formTitle}>Finalise ton profil</Text>
+          <Text style={styles.formSub}>Une dernière étape avant de commencer</Text>
 
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Ton prénom *</Text>
@@ -80,7 +112,7 @@ export default function OnboardingScreen() {
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Numéro de téléphone</Text>
+            <Text style={styles.label}>Numéro de téléphone (optionnel)</Text>
             <TextInput
               style={styles.input}
               placeholder="Ex: 90 XX XX XX"
@@ -118,7 +150,7 @@ export default function OnboardingScreen() {
           disabled={loading}
           activeOpacity={0.85}
         >
-          <Text style={styles.ctaText}>{loading ? 'Création...' : 'Commencer gratuitement'}</Text>
+          <Text style={styles.ctaText}>{loading ? 'Création...' : 'Commencer l\'apprentissage'}</Text>
         </TouchableOpacity>
 
         <Text style={styles.disclaimer}>
@@ -193,16 +225,6 @@ const styles = StyleSheet.create({
   },
   ctaBtnDisabled: { opacity: 0.6 },
   ctaText:  { fontSize: Typography.bodyLg, fontWeight: Typography.bold, color: Colors.primary },
-  loginLinkBtn: {
-    paddingVertical: Spacing.md,
-    alignItems: 'center',
-  },
-  loginLinkText: {
-    fontSize: Typography.body,
-    fontWeight: Typography.semibold,
-    color: Colors.surface + 'CC',
-    textDecorationLine: 'underline',
-  },
   disclaimer: {
     fontSize:  Typography.caption,
     color:     Colors.surface + '88',
