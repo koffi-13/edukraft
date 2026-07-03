@@ -56,7 +56,25 @@ export default function LoginScreen({ navigation }) {
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading]   = useState(false);
-  const [oauthLoading, setOauthLoading] = useState(null); // 'google' | 'apple' | 'facebook' | null
+  const [oauthLoading, setOauthLoading] = useState(null);
+
+  // ── Détecter le hash fragment #id_token=... au chargement (retour Google OAuth web) ──
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.hash) {
+      const hash = window.location.hash.substring(1); // retirer le #
+      const params = new URLSearchParams(hash);
+      const idToken = params.get('id_token');
+      if (idToken) {
+        // Nettoyer le hash
+        window.history.replaceState(null, '', window.location.pathname);
+        // Connecter avec le token
+        setOauthLoading('google');
+        loginGoogle(idToken).catch(e => {
+          Alert.alert(t('auth.oauth_error'), e.message);
+        }).finally(() => setOauthLoading(null));
+      }
+    }
+  }, []);
 
   // Phone OTP state
   const [phone, setPhone]           = useState('');
@@ -97,30 +115,53 @@ export default function LoginScreen({ navigation }) {
 
   // ── Google OAuth (approche impérative) ───────────────────────────────────
   const handleGoogle = async () => {
-    if (!GOOGLE_CLIENT_ID || !WebBrowser) {
+    if (!GOOGLE_CLIENT_ID) {
       Alert.alert('Google', 'OAuth Google non configuré. Ajoutez EXPO_PUBLIC_GOOGLE_CLIENT_ID.');
       return;
     }
     setOauthLoading('google');
     clearError();
     try {
-      // En web, utiliser l'origine de la page comme redirect URI
-      // En natif, utiliser le proxy Expo
       const isWebPlatform = Platform.OS === 'web';
-      const redirectUri = isWebPlatform && typeof window !== 'undefined'
-        ? window.location.origin
-        : GOOGLE_REDIRECT_URI;
+      let redirectUri;
+
+      if (isWebPlatform && typeof window !== 'undefined') {
+        // Web : utiliser window.location.origin + redirect avec hash fragment
+        redirectUri = window.location.origin;
+
+        // En web, on utilise une redirection pleine page (pas de popup)
+        // Google renvoie id_token dans le hash fragment (#id_token=...)
+        const authUrl = [
+          'https://accounts.google.com/o/oauth2/v2/auth',
+          `?client_id=${encodeURIComponent(GOOGLE_CLIENT_ID)}`,
+          `&redirect_uri=${encodeURIComponent(redirectUri)}`,
+          '&response_type=id_token',
+          '&scope=openid%20email%20profile',
+          '&nonce=' + Math.random().toString(36).slice(2),
+        ].join('');
+
+        // Redirection pleine page — Google reviendra avec #id_token=...
+        window.location.href = authUrl;
+        return; // La page va se recharger
+      }
+
+      // Natif : utiliser WebBrowser.openAuthSessionAsync avec le proxy Expo
+      if (!WebBrowser) {
+        Alert.alert('Google', 'WebBrowser non disponible.');
+        setOauthLoading(null);
+        return;
+      }
 
       const authUrl = [
         'https://accounts.google.com/o/oauth2/v2/auth',
         `?client_id=${encodeURIComponent(GOOGLE_CLIENT_ID)}`,
-        `&redirect_uri=${encodeURIComponent(redirectUri)}`,
+        `&redirect_uri=${encodeURIComponent(GOOGLE_REDIRECT_URI)}`,
         '&response_type=id_token',
         '&scope=openid%20email%20profile',
         '&nonce=' + Math.random().toString(36).slice(2),
       ].join('');
 
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, GOOGLE_REDIRECT_URI);
       if (result.type !== 'success' || !result.params.id_token) {
         setOauthLoading(null);
         return;
