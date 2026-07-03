@@ -33,25 +33,27 @@ export function AuthProvider({ children }) {
       try {
         const stored = await authService.getStoredAuth();
 
-        // Mode "continuer sans compte"
+        // PRIORITÉ : accessToken AVANT skipAuth
+        // Si l'utilisateur s'est connecté (a un token), on valide le token
+        // MÊME SI skipAuth est aussi true (reste d'une session précédente)
+        if (stored.accessToken) {
+          try {
+            const freshUser = await authService.me();
+            setUser(freshUser);
+            setSkipAuth(false);
+            setLoading(false);
+            return;
+          } catch (err) {
+            console.warn('[Auth] Session expirée:', err.message);
+          }
+        }
+
+        // Mode "continuer sans compte" (seulement si pas de token valide)
         if (stored.skipAuth) {
           setSkipAuth(true);
           setUser(null);
           setLoading(false);
           return;
-        }
-
-        // Session existante > valider via /me
-        if (stored.accessToken) {
-          try {
-            const freshUser = await authService.me();
-            setUser(freshUser);
-          } catch (err) {
-            // Token invalide/expiré et refresh échoué > déconnecté
-            // (authService.me() tente déjà le refresh automatique)
-            console.warn('[Auth] Session invalide:', err.message);
-            setUser(null);
-          }
         }
       } catch (e) {
         console.warn('[Auth] Init error:', e.message);
