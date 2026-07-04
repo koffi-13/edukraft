@@ -2,66 +2,69 @@
 // Contexte React d'authentification EduKraft.
 //
 // Logique :
-//   1. Au démarrage, lire les tokens depuis SecureStore
-//   2. Si token existe :
-//      a. Online → valider via /api/auth/me (refresh auto si expiré)
-//      b. Offline → accès direct avec le user stocké localement (pas d'appel serveur)
-//   3. Si pas de token → écran de login (PAS de mode "continuer sans compte")
-//   4. Session persistante : 7j (access) + 30j (refresh)
-//   5. Après 30j d'inactivité → l'utilisateur doit se reconnecter
+//   1. Au démarrage, vérifier si un learner local existe (AsyncStorage)
+//   2. Si learner existe → Dashboard direct (hors ligne ou en ligne)
+//   3. Si pas de learner → écran de login (avec "Continuer hors ligne")
+//   4. Hors ligne : créer un learner local → Dashboard
+//   5. En ligne : auth serveur + learner local → Dashboard
+//   6. Dans "Mes informations" : option pour créer un compte en ligne
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import * as authService from '../services/authService';
 
 const AuthContext = createContext(null);
 
-// Détecter la connexion réseau (offline-first)
-async function isOnline() {
-  try {
-    const NetworkModule = require('expo-network');
-    const state = await NetworkModule.getNetworkStateAsync();
-    return !!state.isInternetReachable;
-  } catch (_) {
-    // Si expo-network n'est pas dispo, supposer online
-    return true;
-  }
-}
-
 export function AuthProvider({ children }) {
   const [user, setUser]           = useState(null);
+  const [skipAuth, setSkipAuth]   = useState(false);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState(null);
   const initialized               = useRef(false);
 
-  // ── Initialisation : restaurer la session depuis le storage ──────────────
+  // ── Initialisation ──────────────────────────────────────────────────────
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
 
     (async () => {
       try {
+        // 1. Vérifier si un learner local existe (AsyncStorage)
+        let learnerExists = false;
+        try {
+          const AsyncStorage = require('@react-native-async-storage/async-storage');
+          const storedLearner = await AsyncStorage.getItem('ek_learner');
+          if (storedLearner) {
+            learnerExists = true;
+          }
+        } catch (_) {}
+
+        // 2. Vérifier les tokens d'auth (SecureStore + AsyncStorage)
         const stored = await authService.getStoredAuth();
 
         if (stored.accessToken && stored.user) {
-          // L'utilisateur a des tokens locaux — accès garanti
-          // On utilise le user local IMMÉDIATEMENT (pas d'attente serveur)
+          // L'utilisateur s'est connecté en ligne avant
           setUser(stored.user);
+          setSkipAuth(false);
           setLoading(false);
 
-          // En arrière-plan, valider le token si online (non-bloquant)
-          const online = await isOnline();
-          if (online) {
-            authService.me()
-              .then(freshUser => {
-                if (freshUser) setUser(freshUser);
-              })
-              .catch(err => {
-                console.warn('[Auth] Token validation failed (non-blocking):', err.message);
-                // On garde le user local — pas de déconnexion
-              });
-          }
+          // Valider le token en arrière-plan (non-bloquant)
+          authService.me()
+            .then(freshUser => { if (freshUser) setUser(freshUser); })
+            .catch(() => {
+              // Token expiré — on garde le user local
+              console.log('[Auth] Token expiré, utilisation du user local');
+            });
           return;
         }
+
+        // 3. Si learner existe mais pas de token → mode hors-ligne
+        if (learnerExists) {
+          setSkipAuth(true);
+          setLoading(false);
+          return;
+        }
+
+        // 4. Pas de learner, pas de token → écran de login
       } catch (e) {
         console.warn('[Auth] Init error:', e.message);
       } finally {
@@ -75,6 +78,7 @@ export function AuthProvider({ children }) {
 
   const handleAuthSuccess = useCallback((data) => {
     setUser(data.user);
+    setSkipAuth(false);
     setError(null);
   }, []);
 
@@ -152,9 +156,33 @@ export function AuthProvider({ children }) {
     }
   }, [handleAuthSuccess]);
 
-  const logout = useCallback(async () => {
-    await authService.logout();
+  const skip = useCallback(async () => {
+    try {
+      await authService.skip();
+    } catch (e) {
+      console.warn('[Auth] skip storage error (non-fatal):', e.message);
+    }
+    setSkipAuth(true);
     setUser(null);
+    setError(null);
+  }, []);
+
+  const logout = useCallback(async () => {
+    // Supprimer les tokens mais GARDER le learner local
+    try { await authService.clearAll(); } catch (_) {}
+    setUser(null);
+    // Vérifier si un learner existe encore → mode hors-ligne
+    try {
+      const AsyncStorage = require('@react-native-async-storage/async-storage');
+      const storedLearner = await AsyncStorage.getItem('ek_learner');
+      if (storedLearner) {
+        setSkipAuth(true);
+      } else {
+        setSkipAuth(false);
+      }
+    } catch (_) {
+      setSkipAuth(false);
+    }
     setError(null);
   }, []);
 
@@ -171,18 +199,18 @@ export function AuthProvider({ children }) {
 
   // ── Valeur du contexte ───────────────────────────────────────────────────
   const value = {
-    // State
     user,
+    skipAuth,
     loading,
     error,
     isAuthenticated: !!user,
-    // Actions
     login,
     register,
     loginGoogle,
     loginApple,
     loginFacebook,
     loginPhone,
+    skip,
     logout,
     refreshUser,
     clearError,
@@ -191,7 +219,6 @@ export function AuthProvider({ children }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// ── Hook ────────────────────────────────────────────────────────────────────
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used inside <AuthProvider>');

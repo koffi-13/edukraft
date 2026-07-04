@@ -8,7 +8,7 @@
 //   4. Apple      — expo-apple-authentication.signInAsync (iOS uniquement)
 //   5. Phone OTP  — saisie numéro > envoi code > saisie code 6 chiffres > vérif
 //
-// Authentification obligatoire (pas de mode hors-ligne sans compte)
+// + Bouton "Continuer hors ligne" (création de profil local sans compte)
 
 import React, { useState, useRef, useEffect } from 'react';
 import {
@@ -51,7 +51,7 @@ const PHONE_OTP_ENABLED = process.env.EXPO_PUBLIC_PHONE_OTP_ENABLED !== 'false';
 
 export default function LoginScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { login, loginGoogle, loginApple, loginFacebook, loginPhone, error, clearError } = useAuth();
+  const { login, loginGoogle, loginApple, loginFacebook, loginPhone, skip, error, clearError } = useAuth();
 
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
@@ -274,7 +274,9 @@ export default function LoginScreen({ navigation }) {
   };
 
   // ── Skip (mode hors-ligne) ─────────────────────────────────────────────
-  // REMOVED : l'authentification est obligatoire
+  const handleSkip = async () => {
+    try { await skip(); } catch (e) { console.warn('[Login] skip error:', e.message); }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -461,6 +463,16 @@ export default function LoginScreen({ navigation }) {
             )}
           </View>
         )}
+
+        {/* Continuer hors ligne */}
+        <TouchableOpacity
+          style={styles.skipBtn}
+          onPress={handleSkip}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.skipText}>{t('auth.skip')}</Text>
+          <Text style={styles.skipSub}>{t('auth.skip_description')}</Text>
+        </TouchableOpacity>
 
         {error && (
           <View style={styles.errorBanner}>
