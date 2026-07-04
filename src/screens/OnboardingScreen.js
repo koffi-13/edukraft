@@ -87,12 +87,12 @@ export default function OnboardingScreen({ navigation }) {
         {/* Bouton retour */}
         <TouchableOpacity
           style={styles.backBtn}
-          onPress={async () => {
-            await logout();
+          onPress={() => {
+            logout().catch(e => console.warn('[Onboarding] logout error:', e.message));
           }}
           activeOpacity={0.85}
         >
-          <Text style={styles.backBtnText}>← Retour à la connexion</Text>
+          <Text style={styles.backBtnText}>Retour</Text>
         </TouchableOpacity>
 
         {/* Logo zone */}

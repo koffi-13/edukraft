@@ -132,6 +132,18 @@ export function DbProvider({ children }) {
               const AsyncStorage = require('@react-native-async-storage/async-storage');
               await AsyncStorage.setItem('ek_learner', JSON.stringify(row));
             } catch (_) {}
+          } else {
+            // Pas de learner en SQLite — vérifier AsyncStorage
+            try {
+              const AsyncStorage = require('@react-native-async-storage/async-storage');
+              const storedLearner = await AsyncStorage.getItem('ek_learner');
+              if (storedLearner) {
+                const parsed = JSON.parse(storedLearner);
+                storeRef.current.learner = parsed;
+                setLearner(parsed);
+                console.log('[DB] Learner restauré depuis AsyncStorage (SQLite vide)');
+              }
+            } catch (_) {}
           }
 
           setDb(nativeDb);
@@ -140,7 +152,7 @@ export function DbProvider({ children }) {
           // expo-sqlite non disponible (web, etc.) > fallback mémoire
           console.log('[DB] SQLite non disponible, mode mémoire activé');
 
-          // Restaurer le learner depuis AsyncStorage (persistance sans SQLite)
+          // Restaurer TOUT depuis AsyncStorage
           try {
             const AsyncStorage = require('@react-native-async-storage/async-storage');
             const storedLearner = await AsyncStorage.getItem('ek_learner');
@@ -150,13 +162,11 @@ export function DbProvider({ children }) {
               setLearner(parsed);
               console.log('[DB] Learner restauré depuis AsyncStorage');
             }
-            // Restaurer les progrès
             const storedProgress = await AsyncStorage.getItem('ek_progress');
             if (storedProgress) {
               storeRef.current.progress = JSON.parse(storedProgress);
               console.log('[DB] Progress restauré depuis AsyncStorage');
             }
-            // Restaurer les badges
             const storedBadges = await AsyncStorage.getItem('ek_badges');
             if (storedBadges) {
               storeRef.current.badges = JSON.parse(storedBadges);
@@ -164,7 +174,6 @@ export function DbProvider({ children }) {
             }
           } catch (_) {}
 
-          // Fallback : restaurer depuis le store mémoire
           if (storeRef.current.learner) {
             setLearner(storeRef.current.learner);
           }
