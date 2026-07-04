@@ -171,19 +171,11 @@ export function AuthProvider({ children }) {
     // Supprimer les tokens mais GARDER le learner local
     try { await authService.clearAll(); } catch (_) {}
     setUser(null);
-    // Vérifier si un learner existe encore → mode hors-ligne
-    try {
-      const AsyncStorage = require('@react-native-async-storage/async-storage');
-      const storedLearner = await AsyncStorage.getItem('ek_learner');
-      if (storedLearner) {
-        setSkipAuth(true);
-      } else {
-        setSkipAuth(false);
-      }
-    } catch (_) {
-      setSkipAuth(false);
-    }
     setError(null);
+    // NE PAS mettre skipAuth = false ici — le AppNavigator vérifie aussi
+    // si le learner existe. Si on met skipAuth = false, l'utilisateur
+    // retourne à l'écran de login même si son learner existe.
+    // Le AppNavigator a la logique : hasAccess = isAuthenticated || skipAuth || !!learner
   }, []);
 
   const refreshUser = useCallback(async () => {

@@ -16,10 +16,10 @@ import { useDb }  from '../database/DbProvider';
 import { useAuth } from '../contexts/AuthContext';
 import { t, setLanguage, AVAILABLE_LANGUAGES } from '../i18n';
 
-export default function OnboardingScreen() {
+export default function OnboardingScreen({ navigation }) {
   const insets            = useSafeAreaInsets();
   const { createLearner, setDailyGoal, learner } = useDb();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   // Pré-remplir depuis l'utilisateur authentifié
   const [name, setName]   = useState('');
@@ -84,6 +84,17 @@ export default function OnboardingScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 40 }]}
       >
+        {/* Bouton retour */}
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={async () => {
+            await logout();
+          }}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.backBtnText}>← Retour à la connexion</Text>
+        </TouchableOpacity>
+
         {/* Logo zone */}
         <View style={styles.logoZone}>
           <View style={styles.logoCircle}>
@@ -165,6 +176,15 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   root:     { flex: 1, backgroundColor: Colors.primary },
   scroll:   { flexGrow: 1, paddingHorizontal: Spacing.lg, gap: Spacing.lg },
+  backBtn: {
+    alignSelf: 'flex-start',
+    paddingVertical: Spacing.sm,
+  },
+  backBtnText: {
+    fontSize: Typography.body,
+    color: Colors.surface + 'CC',
+    fontWeight: Typography.semibold,
+  },
   logoZone: { alignItems: 'center', gap: Spacing.sm },
   logoCircle: {
     width:           72,
