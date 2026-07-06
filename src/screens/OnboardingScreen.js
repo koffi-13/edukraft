@@ -1,9 +1,6 @@
 // src/screens/OnboardingScreen.js
-// Écran de finalisation du profil — apparaît après inscription/connexion
-// si l'utilisateur n'a pas encore de learner local.
-//
-// Le prénom et la langue sont pré-remplis depuis le compte authentifié.
-// Le téléphone est optionnel.
+// Ecran de finalisation du profil — apparaît une seule fois.
+// Au reredemarrage, le learner existe deja > Dashboard direct.
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -17,11 +14,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { t, setLanguage, AVAILABLE_LANGUAGES } from '../i18n';
 
 export default function OnboardingScreen({ navigation }) {
-  const insets            = useSafeAreaInsets();
-  const { createLearner, setDailyGoal, learner } = useDb();
+  const insets = useSafeAreaInsets();
+  const { createLearner, setDailyGoal } = useDb();
   const { user, logout } = useAuth();
 
-  // Pré-remplir depuis l'utilisateur authentifié
   const [name, setName]   = useState('');
   const [phone, setPhone] = useState(user?.phone || '');
   const [lang, setLang]   = useState(user?.language || 'fr');
@@ -29,9 +25,8 @@ export default function OnboardingScreen({ navigation }) {
 
   useEffect(() => {
     if (user) {
-      // Pré-remplir le prénom depuis le display_name ou first_name
-      const userDisplayName = user.display_name || user.first_name || user.name || '';
-      if (userDisplayName) setName(userDisplayName);
+      const dn = user.display_name || user.first_name || user.name || '';
+      if (dn) setName(dn);
       if (user.language) { setLang(user.language); setLanguage(user.language); }
       if (user.phone) setPhone(user.phone);
     }
@@ -45,8 +40,6 @@ export default function OnboardingScreen({ navigation }) {
     setLoading(true);
     try {
       setLanguage(lang);
-      // Utiliser un ID stable basé sur l'ID utilisateur (pas aléatoire)
-      // pour que les données persistent entre sessions
       const learnerId = user?.id
         ? `lrn_${user.id}`
         : `lrn_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -58,17 +51,11 @@ export default function OnboardingScreen({ navigation }) {
         language: lang,
       });
 
-      // Objectif quotidien par défaut : 1 leçon/jour
       if (setDailyGoal) {
         try { await setDailyGoal('lessons', 1); } catch (_) {}
       }
     } catch (e) {
-      console.error('[Onboarding] createLearner error:', e);
-      Alert.alert(
-        'Erreur',
-        'Impossible de créer ton profil.\n\n' +
-        'Détail : ' + (e.message || e),
-      );
+      Alert.alert('Erreur', 'Impossible de creer ton profil.\n\n' + (e.message || e));
     } finally {
       setLoading(false);
     }
@@ -82,35 +69,30 @@ export default function OnboardingScreen({ navigation }) {
     >
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 40 }]}
+        contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 40 }]}
       >
-        {/* Bouton retour */}
         <TouchableOpacity
           style={styles.backBtn}
-          onPress={() => {
-            logout().catch(e => console.warn('[Onboarding] logout error:', e.message));
-          }}
+          onPress={() => { logout().catch(() => {}); }}
           activeOpacity={0.85}
         >
           <Text style={styles.backBtnText}>Retour</Text>
         </TouchableOpacity>
 
-        {/* Logo zone */}
         <View style={styles.logoZone}>
           <View style={styles.logoCircle}>
             <Text style={styles.logoText}>EK</Text>
           </View>
           <Text style={styles.appName}>EduKraft</Text>
-          <Text style={styles.tagline}>Bienvenue {name || ''} !</Text>
+          <Text style={styles.tagline}>Bienvenue{name ? ' ' + name : ''} !</Text>
         </View>
 
-        {/* Form card */}
         <View style={[styles.card, Shadow.card]}>
           <Text style={styles.formTitle}>Finalise ton profil</Text>
-          <Text style={styles.formSub}>Une dernière étape avant de commencer</Text>
+          <Text style={styles.formSub}>Une derniere etape avant de commencer</Text>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Ton prénom *</Text>
+            <Text style={styles.label}>Ton prenom *</Text>
             <TextInput
               style={styles.input}
               placeholder="Ex: Kofi, Ama, Moussa..."
@@ -118,12 +100,11 @@ export default function OnboardingScreen({ navigation }) {
               value={name}
               onChangeText={setName}
               autoCapitalize="words"
-              returnKeyType="next"
             />
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Numéro de téléphone (optionnel)</Text>
+            <Text style={styles.label}>Numero de telephone (optionnel)</Text>
             <TextInput
               style={styles.input}
               placeholder="Ex: 90 XX XX XX"
@@ -131,7 +112,6 @@ export default function OnboardingScreen({ navigation }) {
               value={phone}
               onChangeText={setPhone}
               keyboardType="phone-pad"
-              returnKeyType="done"
             />
           </View>
 
@@ -154,19 +134,18 @@ export default function OnboardingScreen({ navigation }) {
           </View>
         </View>
 
-        {/* CTA */}
         <TouchableOpacity
           style={[styles.ctaBtn, loading && styles.ctaBtnDisabled, Shadow.button]}
           onPress={handleStart}
           disabled={loading}
           activeOpacity={0.85}
         >
-          <Text style={styles.ctaText}>{loading ? 'Création...' : 'Commencer l\'apprentissage'}</Text>
+          <Text style={styles.ctaText}>{loading ? 'Creation...' : 'Commencer l\'apprentissage'}</Text>
         </TouchableOpacity>
 
         <Text style={styles.disclaimer}>
-          Tes données d'apprentissage sont stockées sur ton téléphone.{'\n'}
-          Tu peux apprendre hors ligne après cette étape.
+          Tes donnees sont stockees sur ton telephone.{'\n'}
+          Tu peux apprendre hors ligne apres cette etape.
         </Text>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -174,81 +153,41 @@ export default function OnboardingScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  root:     { flex: 1, backgroundColor: Colors.primary },
-  scroll:   { flexGrow: 1, paddingHorizontal: Spacing.lg, gap: Spacing.lg },
-  backBtn: {
-    alignSelf: 'flex-start',
-    paddingVertical: Spacing.sm,
-  },
-  backBtnText: {
-    fontSize: Typography.body,
-    color: Colors.surface + 'CC',
-    fontWeight: Typography.semibold,
-  },
+  root: { flex: 1, backgroundColor: Colors.primary },
+  scroll: { flexGrow: 1, paddingHorizontal: Spacing.lg, gap: Spacing.lg },
+  backBtn: { alignSelf: 'flex-start', paddingVertical: Spacing.sm },
+  backBtnText: { fontSize: Typography.body, color: Colors.surface + 'CC', fontWeight: Typography.semibold },
   logoZone: { alignItems: 'center', gap: Spacing.sm },
   logoCircle: {
-    width:           72,
-    height:          72,
-    borderRadius:    36,
+    width: 72, height: 72, borderRadius: 36,
     backgroundColor: Colors.surface + '22',
-    alignItems:      'center',
-    justifyContent:  'center',
+    alignItems: 'center', justifyContent: 'center',
   },
-  logoText:  { fontSize: 28, fontWeight: Typography.bold, color: Colors.surface },
-  appName:   { fontSize: Typography.display, fontWeight: Typography.bold, color: Colors.surface },
-  tagline:   { fontSize: Typography.body, color: Colors.surface + 'BB' },
-  card: {
-    backgroundColor: Colors.surface,
-    borderRadius:    Radius.xl,
-    padding:         Spacing.lg,
-    gap:             Spacing.md,
-  },
+  logoText: { fontSize: 28, fontWeight: Typography.bold, color: Colors.surface },
+  appName: { fontSize: Typography.display, fontWeight: Typography.bold, color: Colors.surface },
+  tagline: { fontSize: Typography.body, color: Colors.surface + 'BB' },
+  card: { backgroundColor: Colors.surface, borderRadius: Radius.xl, padding: Spacing.lg, gap: Spacing.md },
   formTitle: { fontSize: Typography.h2, fontWeight: Typography.bold, color: Colors.ink },
-  formSub:   { fontSize: Typography.caption, color: Colors.teal, fontWeight: Typography.semibold, marginTop: -Spacing.sm },
+  formSub: { fontSize: Typography.caption, color: Colors.teal, fontWeight: Typography.semibold, marginTop: -Spacing.sm },
   fieldGroup: { gap: Spacing.xs },
-  label:      { fontSize: Typography.caption, fontWeight: Typography.semibold, color: Colors.ink60 },
+  label: { fontSize: Typography.caption, fontWeight: Typography.semibold, color: Colors.ink60 },
   input: {
-    borderWidth:     1,
-    borderColor:     Colors.border,
-    borderRadius:    Radius.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical:   Spacing.sm + 2,
-    fontSize:        Typography.bodyLg,
-    color:           Colors.ink,
-    backgroundColor: Colors.surfaceAlt,
+    borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm + 2,
+    fontSize: Typography.bodyLg, color: Colors.ink, backgroundColor: Colors.surfaceAlt,
   },
-  langRow:     { flexDirection: 'row', gap: Spacing.sm },
+  langRow: { flexDirection: 'row', gap: Spacing.sm },
   langBtn: {
-    flex:             1,
-    flexDirection:    'row',
-    alignItems:       'center',
-    justifyContent:   'center',
-    gap:              6,
-    borderWidth:      1.5,
-    borderColor:      Colors.border,
-    borderRadius:     Radius.md,
-    paddingVertical:  Spacing.sm,
-    backgroundColor:  Colors.surfaceAlt,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, borderWidth: 1.5, borderColor: Colors.border, borderRadius: Radius.md,
+    paddingVertical: Spacing.sm, backgroundColor: Colors.surfaceAlt,
   },
-  langBtnActive: {
-    borderColor:      Colors.primary,
-    backgroundColor:  Colors.primaryLight,
-  },
-  langFlag:  { fontSize: 18 },
+  langBtnActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
+  langFlag: { fontSize: 18 },
   langLabel: { fontSize: Typography.caption, fontWeight: Typography.medium, color: Colors.ink60 },
   langLabelActive: { color: Colors.primary, fontWeight: Typography.bold },
-  ctaBtn: {
-    backgroundColor:   Colors.surface,
-    borderRadius:      Radius.xl,
-    paddingVertical:   Spacing.md + 2,
-    alignItems:        'center',
-  },
+  ctaBtn: { backgroundColor: Colors.surface, borderRadius: Radius.xl, paddingVertical: Spacing.md + 2, alignItems: 'center' },
   ctaBtnDisabled: { opacity: 0.6 },
-  ctaText:  { fontSize: Typography.bodyLg, fontWeight: Typography.bold, color: Colors.primary },
-  disclaimer: {
-    fontSize:  Typography.caption,
-    color:     Colors.surface + '88',
-    textAlign: 'center',
-    lineHeight: 18,
-  },
+  ctaText: { fontSize: Typography.bodyLg, fontWeight: Typography.bold, color: Colors.primary },
+  disclaimer: { fontSize: Typography.caption, color: Colors.surface + '88', textAlign: 'center', lineHeight: 18 },
 });
