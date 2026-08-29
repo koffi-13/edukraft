@@ -29,7 +29,7 @@
   - **A FAIRE (console Google)** : verifier les redirect URIs autorises (section 4).
 - [x] **Phone OTP** : actif si `EXPO_PUBLIC_PHONE_OTP_ENABLED=true` (profil preview). Code de dev retourne par le serveur en mode mock.
 - [x] **Apple Sign-In** : bouton STRICTEMENT iOS (`Platform.OS === 'ios'` + module expo-apple-authentication). Masque sur Android/Web.
-- [ ] **Facebook OAuth** : code client complet (WebBrowser.openAuthSessionAsync + endpoint `/api/auth/facebook` serveur pret). **Manque : `EXPO_PUBLIC_FACEBOOK_APP_ID`** a creer sur developers.facebook.com et a renseigner dans `eas.json` (profils preview + production) et `.env`. Sans lui, le bouton affiche "OAuth Facebook non configure" (pas de crash).
+- [ ] **Facebook OAuth (DIFFERE v1.1.1)** : code client complet (WebBrowser.openAuthSessionAsync + endpoint `/api/auth/facebook` serveur pret). **Le bouton est desormais MASQUE proprement tant que `EXPO_PUBLIC_FACEBOOK_APP_ID` est vide** (aucune alerte, aucun crash) — il reaparaitra automatiquement des que l'App ID sera cree (developers.facebook.com) et renseigne dans `eas.json` (profils preview + production) et `.env`. Voir section 5.
 
 ### Securite UI
 - [x] Purge Unicode : plus AUCUN emoji/fleche/coche dans les boutons et textes visibles (uniquement ASCII). Les diacritiques francais (e, e, a, c) et l'alphabet Ewe (D, f, open-o...) sont conserves : ce sont des lettres standard rendues par les polices systeme.
@@ -49,19 +49,37 @@ npm install --legacy-peer-deps
 # Generer le projet natif Android
 npx expo prebuild --platform android --clean
 
-# Builder l'APK debug (rapide, signe debug)
+# Injecter le keystore STABLE versionne (signature identique a chaque build,
+# mises a jour sans desinstallation)
+copy android-signing\edukraft-release.keystore android\app\debug.keystore
+
+# Builder l'APK release (signe avec le keystore ci-dessus)
 cd android
-.\gradlew.bat assembleRelease   # APK release local
+.\gradlew.bat assembleRelease
 # ou assembleDebug pour test rapide
 # Sortie : android\app\build\outputs\apk\release\app-release.apk
 ```
 
-### Option B - Build GitHub Actions (EAS, sans Android SDK local)
-Le workflow `.github/workflows/build-release-apk.yml` est deja configure :
+### Option B - Build GitHub Actions (Gradle DIRECT, sans EAS ni Android SDK local)
+Le workflow `.github/workflows/build-release-apk.yml` a ete REECRIT en v1.1.1 :
+il genere le projet natif (`expo prebuild --clean`), injecte le keystore stable
+du depot, compile avec Gradle directement sur le runner GitHub et publie l'APK
+dans une GitHub Release. **Aucun secret n'est requis** (plus de dependance
+EXPO_TOKEN/EAS — la derniere soumission EAS du 2026-07-06 avait echoue).
+
 1. Pousser la branche : `git push origin feat/phase1-functional`
-2. Tagguer : `git tag v1.1.0 && git push --tags` (ou declencher manuellement via workflow_dispatch)
-3. Prerequis : secret GitHub `EXPO_TOKEN` (https://expo.dev/accounts/[compte]/settings/access-tokens)
+2. Tagguer EXPLICITEMENT : `git tag -f v1.1.1 && git push origin v1.1.1`
+   (NE PAS utiliser `git push --tags` : d'anciens tags locaux v1.1.0 a v1.7.0
+   existent et declencheraient des builds obsoletes)
+3. Suivre le build : onglet Actions du depot GitHub (~10-15 min)
 4. L'APK est publie automatiquement dans https://github.com/koffi-13/edukraft/releases
+   (+ artifact de secours telechargeable dans le detail du run)
+
+> Signature : le keystore versionne `android-signing/edukraft-release.keystore`
+> (PKCS12, alias `androiddebugkey`, mot de passe `android`) est PUBLIC par
+> conception — convient a la distribution directe d'APK de test. Pour le Play
+> Store, generer un keystore prive et le stocker dans les GitHub Secrets
+> (voir android-signing/README.md).
 
 ### Option C - EAS CLI direct
 ```powershell
@@ -136,7 +154,11 @@ Erreur 400 `redirect_uri_mismatch` = une des URIs ci-dessus manque dans la conso
 
 ---
 
-## 5. Facebook OAuth (a terminer)
+## 5. Facebook OAuth (DIFFERE - a terminer plus tard)
+
+Etat v1.1.1 : le bouton Facebook est MASQUE proprement dans l'app tant que
+l'App ID est vide (aucune alerte, aucun crash). Le flux complet (client +
+serveur) est deja code et sera reactif automatiquement. Pour l'activer :
 
 1. Creer l'app sur https://developers.facebook.com -> type "Consumer".
 2. Produit "Facebook Login" -> Settings :
@@ -145,7 +167,10 @@ Erreur 400 `redirect_uri_mismatch` = une des URIs ci-dessus manque dans la conso
    - `eas.json` : `EXPO_PUBLIC_FACEBOOK_APP_ID` (profils preview + production)
    - `.env` local : meme valeur
    - `app.json` > `extra` (optionnel)
-4. Le flux client (LoginScreen/RegisterScreen `handleFacebook`) et le endpoint serveur `/api/auth/facebook` sont DEJA prets.
+4. Rebuild : le bouton reaparait automatiquement sur Login/Register, sans
+   aucune autre modification de code.
+   (Le flux client `handleFacebook` et le endpoint serveur `/api/auth/facebook`
+   sont DEJA prets.)
 
 ## 6. Apple Sign-In
 
