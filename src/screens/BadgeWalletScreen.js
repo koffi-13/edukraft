@@ -45,11 +45,11 @@ export default function BadgeWalletScreen() {
 
     await Share.share({
       message:
-        `🎓 J'ai obtenu mon badge EduKraft ${tier.emoji}\n` +
+        `J'ai obtenu mon badge EduKraft ${tier.emoji}\n` +
         `Module : ${badge.module_title}\n` +
-        `Score : ${score}% · ${badge.xp_total} XP\n\n` +
+        `Score : ${score}% - ${badge.xp_total} XP\n\n` +
         `Vérifier mon badge (certifié blockchain) :\n${url}`,
-      title: `Badge EduKraft — ${badge.module_title}`,
+      title: `Badge EduKraft - ${badge.module_title}`,
     });
   };
 
@@ -97,7 +97,7 @@ export default function BadgeWalletScreen() {
         {/* Empty state */}
         {badges.length === 0 && (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>🏅</Text>
+            <Text style={styles.emptyIcon}>[B]</Text>
             <Text style={styles.emptyTitle}>{t('badge.empty_title')}</Text>
             <Text style={styles.emptyText}>{t('badge.empty_text')}</Text>
           </View>
@@ -118,11 +118,11 @@ export default function BadgeWalletScreen() {
         {/* Info blockchain */}
         {badges.length > 0 && (
           <View style={styles.chainInfo}>
-            <Text style={styles.chainInfoIcon}>⛓</Text>
+            <Text style={styles.chainInfoIcon}>[#]</Text>
             <Text style={styles.chainInfoText}>
               Chaque badge est ancré sur la {'\n'}
               <Text style={{ fontWeight: Typography.bold, color: Colors.primary }}>blockchain Polygon PoS</Text>
-              {' '}— inviolable et vérifiable par n'importe qui, partout dans le monde.
+              {' '}- inviolable et vérifiable par n'importe qui, partout dans le monde.
             </Text>
           </View>
         )}
@@ -162,7 +162,7 @@ function BadgeListItem({ badge, onPress, onShare }) {
     >
       {/* Share bouton flottant */}
       <TouchableOpacity onPress={onShare} style={styles.shareBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Text style={styles.shareIcon}>↗</Text>
+        <Text style={styles.shareIcon}>&gt;&gt;</Text>
       </TouchableOpacity>
 
       {/* Tier icon */}
@@ -207,7 +207,7 @@ function BadgeDetail({ badge, insets, onClose, onShare }) {
       >
         {/* Close */}
         <TouchableOpacity onPress={onClose} style={detailStyles.closeBtn}>
-          <Text style={detailStyles.closeText}>✕</Text>
+          <Text style={detailStyles.closeText}>x</Text>
         </TouchableOpacity>
 
         {/* Badge header */}
@@ -217,7 +217,7 @@ function BadgeDetail({ badge, insets, onClose, onShare }) {
           <Text style={detailStyles.headerTitle}>{badge.module_title}</Text>
           <View style={detailStyles.scoreRow}>
             <Text style={[detailStyles.scoreVal, { color: tier.color }]}>{score}%</Text>
-            <Text style={detailStyles.scoreSep}>·</Text>
+            <Text style={detailStyles.scoreSep}>-</Text>
             <Text style={detailStyles.xpVal}>{badge.xp_total} XP</Text>
           </View>
         </View>
@@ -247,18 +247,18 @@ function BadgeDetail({ badge, insets, onClose, onShare }) {
           <MetaRow label={t('badge.hash_label')}  value={formatHash(badge.badge_hash)} mono />
           <MetaRow
             label="Réseau"
-            value={isPending ? 'Polygon PoS (sync en attente)' : `Polygon PoS · tx: ${formatHash(badge.blockchain_tx ?? '—', 6)}`}
+            value={isPending ? 'Polygon PoS (sync en attente)' : `Polygon PoS - tx: ${formatHash(badge.blockchain_tx ?? '-', 6)}`}
             color={isPending ? Colors.amber : Colors.teal}
           />
         </View>
 
         {/* Blockchain explanation */}
         <View style={detailStyles.explainBox}>
-          <Text style={detailStyles.explainTitle}>🔒 {t('badge.blockchain_info')}</Text>
+          <Text style={detailStyles.explainTitle}>[+] {t('badge.blockchain_info')}</Text>
           <Text style={detailStyles.explainText}>
             Un identifiant unique (hash SHA-256) de ce badge est inscrit de façon permanente et immuable sur la blockchain Polygon PoS.
             {'\n\n'}
-            Personne — ni EduKraft, ni aucune tierce partie — ne peut modifier ou falsifier ce badge. Il t'appartient pour toujours.
+            Personne - ni EduKraft, ni aucune tierce partie - ne peut modifier ou falsifier ce badge. Il t'appartient pour toujours.
           </Text>
         </View>
 
@@ -268,7 +268,7 @@ function BadgeDetail({ badge, insets, onClose, onShare }) {
           onPress={onShare}
           activeOpacity={0.85}
         >
-          <Text style={detailStyles.shareFullText}>↗ {t('badge.share')}</Text>
+          <Text style={detailStyles.shareFullText}>&gt;&gt; {t('badge.share')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -297,11 +297,11 @@ function StatMini({ value, label }) {
 
 // ── Utils ─────────────────────────────────────────────────────────────────────
 function formatDate(iso) {
-  if (!iso) return '—';
+  if (!iso) return '-';
   return new Date(iso).toLocaleDateString('fr-TG', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 function formatDateLong(iso) {
-  if (!iso) return '—';
+  if (!iso) return '-';
   return new Date(iso).toLocaleDateString('fr-TG', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
 }
 function safeParseQR(payload) {

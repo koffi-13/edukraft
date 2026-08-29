@@ -10,7 +10,13 @@ export function createLearnerRepository(db, store, enqueue) {
   const isMemory = () => !db;
   const { QUERIES } = require('../schema');
 
-  /** Crée ou met à jour le learner local (singleton). */
+  /**
+   * Crée ou remplace le learner local (SINGLETON : un seul learner par
+   * appareil — voir contrainte « un compte par téléphone après déconnexion »).
+   * v1.1 : on vide la table avant l'insert pour éviter les lignes multiples
+   * (l'ancien UPSERT par id créait un 2e learner si l'id changeait, et
+   * GET_LEARNER LIMIT 1 retournait alors une ligne arbitraire).
+   */
   async function create({ id, name, phone, language = 'fr' }) {
     const now = new Date().toISOString();
 
@@ -29,11 +35,12 @@ export function createLearnerRepository(db, store, enqueue) {
       return newLearner;
     }
 
-    // SQLite natif
+    // SQLite natif — purge puis insertion propre (singleton)
+    await db.runAsync('DELETE FROM learner', []);
     await db.runAsync(QUERIES.UPSERT_LEARNER,
       [id, name, phone, language, 0, 0, now, now, now]);
     const updated = await db.getFirstAsync(QUERIES.GET_LEARNER);
-    if (enqueue) await enqueue('learner', 'INSERT', id, updated);
+    if (enqueue) await enqueue('learner', 'INSERT', id, updated || { id, name, phone, language });
     return updated;
   }
 
@@ -57,8 +64,14 @@ export function createLearnerRepository(db, store, enqueue) {
 
     await db.runAsync(QUERIES.ADD_XP, [amount, now, learner.id]);
     const updated = await db.getFirstAsync(QUERIES.GET_LEARNER);
-    if (enqueue) await enqueue('learner', 'UPDATE', updated.id, updated);
-    return updated.total_xp;
+    // v1.1 : guard si la ligne learner a disparu (base corrompue) — on ne
+    // crash plus sur updated.total_xp
+    if (updated) {
+      if (enqueue) await enqueue('learner', 'UPDATE', updated.id, updated);
+      return updated.total_xp;
+    }
+    console.warn('[DB] addXP : learner introuvable en SQLite');
+    return (learner.total_xp || 0) + amount;
   }
 
   /** Met à jour le cache streak + champs gamification du learner. */
@@ -78,7 +91,10 @@ export function createLearnerRepository(db, store, enqueue) {
       now,
       learnerId,
     ]);
-    return db.getFirstAsync(QUERIES.GET_LEARNER);
+    // v1.1 : guard null (base vide/corrompue) — on reconstruit un objet
+    // cohérent plutôt que de crasher l'app
+    const row = await db.getFirstAsync(QUERIES.GET_LEARNER);
+    return row || { id: learnerId, ...fields, updated_at: now };
   }
 
   /** Récupère le learner local. */

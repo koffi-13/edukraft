@@ -54,6 +54,43 @@ class MemoryStore {
 
 const memoryStore = new MemoryStore();
 
+// ── Helper : persister un objet learner complet dans SQLite ──────────────────
+// v1.1 (correctif critique) : quand SQLite est vide mais qu'un learner existe
+// dans AsyncStorage (fallback), il faut le RÉINSÉRER en SQLite. Sinon les
+// repositories (mode SQLite) retournent null → addXP/get crashent.
+const LEARNER_COLUMNS = [
+  'id', 'name', 'phone', 'language',
+  'total_xp', 'streak_days', 'streak_freezes', 'best_streak',
+  'last_active_date', 'total_lessons_done', 'last_active_at',
+  'created_at', 'server_id', 'sync_status', 'updated_at',
+  'first_name', 'last_name', 'gender', 'birth_date', 'education_level',
+  'country', 'state', 'city', 'address', 'email', 'photo_url', 'bio', 'profession',
+];
+
+async function upsertLearnerRow(db, learner) {
+  if (!db || !learner || !learner.id) return;
+  const now = new Date().toISOString();
+  const get = (k, d) => (learner[k] !== undefined && learner[k] !== null) ? learner[k] : d;
+  const cols = LEARNER_COLUMNS.join(', ');
+  const placeholders = LEARNER_COLUMNS.map(() => '?').join(', ');
+  const values = [
+    learner.id, get('name', ''), get('phone', null), get('language', 'fr'),
+    get('total_xp', 0), get('streak_days', 0), get('streak_freezes', 2), get('best_streak', 0),
+    get('last_active_date', null), get('total_lessons_done', 0), get('last_active_at', now),
+    get('created_at', now), get('server_id', null), get('sync_status', 'pending'), get('updated_at', now),
+    get('first_name', null), get('last_name', null), get('gender', null),
+    get('birth_date', null), get('education_level', null),
+    get('country', null), get('state', null), get('city', null), get('address', null),
+    get('email', null), get('photo_url', null), get('bio', null), get('profession', null),
+  ];
+  const updateSet = LEARNER_COLUMNS.slice(1).map(c => `${c} = excluded.${c}`).join(', ');
+  await db.runAsync(
+    `INSERT INTO learner (${cols}) VALUES (${placeholders})
+     ON CONFLICT(id) DO UPDATE SET ${updateSet}`,
+    values
+  );
+}
+
 // ── Provider ─────────────────────────────────────────────────────────────────
 export function DbProvider({ children }) {
   const [db, setDb]           = useState(null);
@@ -139,6 +176,14 @@ export function DbProvider({ children }) {
               const storedLearner = await AsyncStorage.getItem('ek_learner');
               if (storedLearner) {
                 const parsed = JSON.parse(storedLearner);
+                // v1.1 : RÉINSÉRER le learner dans SQLite (avant il restait
+                // uniquement en state → get()/addXP() retournaient null)
+                try {
+                  await upsertLearnerRow(nativeDb, parsed);
+                  console.log('[DB] Learner AsyncStorage réinséré en SQLite');
+                } catch (reinsertErr) {
+                  console.warn('[DB] Échec réinsertion SQLite :', reinsertErr.message);
+                }
                 storeRef.current.learner = parsed;
                 setLearner(parsed);
                 console.log('[DB] Learner restauré depuis AsyncStorage (SQLite vide)');

@@ -44,6 +44,22 @@ const ENV = {
   // Clé API pour l'authentification (injectée via EAS secrets en production)
   API_KEY: process.env.EXPO_PUBLIC_API_KEY || 'dev-key',
 
+  // ── OAuth (v1.1) ──────────────────────────────────────────────────────
+  // Client ID Google de type "Web application" (valeur publique, sans
+  // secret). Résolu depuis EXPO_PUBLIC_GOOGLE_CLIENT_ID (EAS/.env) avec
+  // fallback — évite "OAuth Google non configuré" en Expo Go sans .env.
+  GOOGLE_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ||
+    '627774206464-ktg1e33crrdq398e6hiunvlg9pucf1j7.apps.googleusercontent.com',
+
+  // App ID Facebook — vide = avertissement propre (pas de crash)
+  FACEBOOK_APP_ID: process.env.EXPO_PUBLIC_FACEBOOK_APP_ID || '',
+
+  // Proxy OAuth Expo (redirect URI à autoriser dans Google/Facebook Console)
+  OAUTH_PROXY_REDIRECT: 'https://auth.expo.io/@orion-k/edukraft',
+
+  // Scheme natif de l'app (app.json > expo.scheme) — returnUrl openAuthSessionAsync
+  APP_SCHEME: 'edukraft://',
+
   // ── Sync ──────────────────────────────────────────────────────────────────
   SYNC_INTERVAL_MS: 30_000,   // Vérifie la file toutes les 30s
   SYNC_BATCH_SIZE:  20,       // Max 20 opérations par requête

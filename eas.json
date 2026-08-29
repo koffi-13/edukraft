@@ -23,7 +23,8 @@
         "EXPO_PUBLIC_API_URL": "https://edukraft-api.onrender.com",
         "EXPO_PUBLIC_API_KEY": "dev-key",
         "EXPO_PUBLIC_PHONE_OTP_ENABLED": "true",
-        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "627774206464-ktg1e33crrdq398e6hiunvlg9pucf1j7.apps.googleusercontent.com"
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "627774206464-ktg1e33crrdq398e6hiunvlg9pucf1j7.apps.googleusercontent.com",
+        "EXPO_PUBLIC_FACEBOOK_APP_ID": ""
       }
     },
     "demo": {
@@ -44,7 +45,9 @@
       },
       "env": {
         "APP_ENV": "production",
-        "EXPO_PUBLIC_API_URL": "https://api.edukraft.tg"
+        "EXPO_PUBLIC_API_URL": "https://api.edukraft.tg",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "627774206464-ktg1e33crrdq398e6hiunvlg9pucf1j7.apps.googleusercontent.com",
+        "EXPO_PUBLIC_FACEBOOK_APP_ID": ""
       }
     }
   },

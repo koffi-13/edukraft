@@ -162,7 +162,9 @@ export function formatHash(hash, chars = 8) {
  * Retourne la couleur de grade selon le score
  */
 export function getBadgeTier(score) {
-  if (score >= 0.9) return { label: 'Or',     color: '#F0B429', emoji: '🥇' };
-  if (score >= 0.7) return { label: 'Argent', color: '#9CA3AF', emoji: '🥈' };
-  return               { label: 'Bronze', color: '#CD7C3A', emoji: '🥉' };
+  // v1.1 : badges texte ASCII uniquement (les emojis medailles peuvent
+  // s'afficher en caracteres parasites sur certains appareils Android)
+  if (score >= 0.9) return { label: 'Or',     color: '#F0B429', emoji: 'OR' };
+  if (score >= 0.7) return { label: 'Argent', color: '#9CA3AF', emoji: 'AG' };
+  return               { label: 'Bronze', color: '#CD7C3A', emoji: 'BR' };
 }

@@ -72,18 +72,29 @@ export function useSyncEngine() {
       }));
 
       // Envoyer au serveur (batch)
-      const response = await fetch(`${ENV.API_BASE}/api/sync`, {
-        method: 'POST',
-        headers: {
-          'Content-Type':  'application/json',
-          'X-Client':      'edukraft-mobile-v1',
-          'X-API-Key':     ENV.API_KEY,
-        },
-        body: JSON.stringify({
-          operations,
-          client_cursor: await db.getSyncMeta('sync_cursor') || '0',
-        }),
-      });
+      // v1.1 : timeout 30s via AbortController — Render (free tier) s'endort
+      // après 15 min d'inactivité et le premier appel peut prendre 15-30s ;
+      // sans timeout, le fetch pouvait bloquer la boucle de sync indéfiniment.
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      let response;
+      try {
+        response = await fetch(`${ENV.API_BASE}/api/sync`, {
+          method: 'POST',
+          headers: {
+            'Content-Type':  'application/json',
+            'X-Client':      'edukraft-mobile-v1',
+            'X-API-Key':     ENV.API_KEY,
+          },
+          body: JSON.stringify({
+            operations,
+            client_cursor: await db.getSyncMeta('sync_cursor') || '0',
+          }),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       if (!response.ok) {
         const text = await response.text().catch(() => '');

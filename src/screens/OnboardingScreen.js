@@ -50,6 +50,9 @@ export default function OnboardingScreen({ navigation }) {
         phone: phone.trim(),
         language: lang,
       });
+      // Le learner est créé → le gating d'AppNavigator bascule automatiquement
+      // vers le Dashboard (le learner local est la seule source de vérité).
+      // Pas de navigation manuelle nécessaire ici.
 
       if (setDailyGoal) {
         try { await setDailyGoal('lessons', 1); } catch (_) {}
@@ -73,7 +76,12 @@ export default function OnboardingScreen({ navigation }) {
       >
         <TouchableOpacity
           style={styles.backBtn}
-          onPress={() => { logout().catch(() => {}); }}
+          onPress={() => {
+            // v1.1 : logout() efface les tokens serveur MAIS GARDE le learner
+            // local (ek_learner). Puis on revient à l'écran Login.
+            logout().catch(() => {});
+            navigation?.navigate('Login');
+          }}
           activeOpacity={0.85}
         >
           <Text style={styles.backBtnText}>Retour</Text>

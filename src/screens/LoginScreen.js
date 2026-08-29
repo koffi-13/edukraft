@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../theme';
 import { t } from '../i18n';
 import { useAuth } from '../contexts/AuthContext';
+import ENV from '../config/env';
 
 // Imports dynamiques (peuvent ne pas être dispo en web/test)
 let WebBrowser = null;
@@ -28,24 +29,58 @@ try { WebBrowser = require('expo-web-browser'); } catch (_) {}
 try { AppleAuthentication = require('expo-apple-authentication'); } catch (_) {}
 try { AuthSession = require('expo-auth-session'); } catch (_) {}
 
-// Préparer le redirect URI (Expo proxy — HTTPS, accepté par Google)
-// ⚠️ Sur APK standalone, makeRedirectUri peut retourner le scheme natif (edukraft://)
-// au lieu du proxy HTTPS. Google refuse les custom schemes. On force le proxy.
-const EXPO_PROXY_REDIRECT = 'https://auth.expo.io/@orion-k/edukraft';
-let GOOGLE_REDIRECT_URI = EXPO_PROXY_REDIRECT;
-let FACEBOOK_REDIRECT_URI = EXPO_PROXY_REDIRECT;
+// ── OAuth via relais HTTPS maison (v1.1.2) ───────────────────────────────
+// Le proxy Expo (auth.expo.io) exige un projet enregistré chez Expo : notre
+// build Gradle direct n'y est pas (404 sur api.expo.dev) -> page d'erreur
+// "Something went wrong trying to finish signing in". Google n'acceptant
+// que des redirect_uri HTTPS, le backend Render sert une page relais
+// (/api/auth/google/callback) qui renvoie le id_token vers le scheme de
+// l'app via le paramètre `state` (aller-retour OAuth standard).
+const GOOGLE_REDIRECT_URI = ENV.API_BASE + '/api/auth/google/callback';
+const FACEBOOK_REDIRECT_URI = ENV.API_BASE + '/api/auth/facebook/callback';
+
+// returnUrl natif : scheme de l'app en APK (edukraft://) ou URL Expo Go
+// (exp://...) en développement — transporté dans `state` puis restitué
+// par la page relais après le consentement Google.
+let NATIVE_RETURN_URL = 'edukraft://'; // scheme déclaré dans app.json
 if (AuthSession) {
   try {
-    const proxyRedirect = AuthSession.makeRedirectUri({ useProxy: true });
-    // Ne garder le proxy que s'il commence par https (pas un custom scheme)
-    if (proxyRedirect && proxyRedirect.startsWith('https://')) {
-      GOOGLE_REDIRECT_URI = proxyRedirect;
-      FACEBOOK_REDIRECT_URI = proxyRedirect;
+    const nativeUri = AuthSession.makeRedirectUri({});
+    if (nativeUri && (
+      nativeUri.startsWith('edukraft://') ||
+      nativeUri.startsWith('exp://') ||
+      nativeUri.startsWith('https://exp.direct')
+    )) {
+      NATIVE_RETURN_URL = nativeUri;
     }
   } catch (_) {}
 }
 
-const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '';
+// Parse les paramètres (query OU fragment) d'une URL de retour OAuth.
+// openAuthSessionAsync renvoie { type, url } — PAS de champ `params` :
+// l'ancien `result.params.id_token` levait un TypeError silencieux.
+function parseAuthResultParams(url) {
+  const out = {};
+  if (!url || typeof url !== 'string') return out;
+  const parts = url.split(/[?#]/).slice(1);
+  parts.forEach(part => {
+    (part || '').split('&').forEach(kv => {
+      if (!kv) return;
+      const eq = kv.indexOf('=');
+      if (eq < 0) { out[decodeURIComponent(kv)] = ''; return; }
+      const k = decodeURIComponent(kv.slice(0, eq));
+      const v = decodeURIComponent(kv.slice(eq + 1));
+      if (!(k in out)) out[k] = v;
+    });
+  });
+  return out;
+}
+
+// Client ID Google — résolution : EXPO_PUBLIC_GOOGLE_CLIENT_ID (EAS/.env) >
+// valeur par défaut (publique, sans secret). évite l'alerte "non configuré"
+// en Expo Go quand aucun .env n'est présent.
+const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ||
+  '627774206464-ktg1e33crrdq398e6hiunvlg9pucf1j7.apps.googleusercontent.com';
 const FACEBOOK_APP_ID  = process.env.EXPO_PUBLIC_FACEBOOK_APP_ID || '';
 const PHONE_OTP_ENABLED = process.env.EXPO_PUBLIC_PHONE_OTP_ENABLED !== 'false';
 
@@ -67,9 +102,11 @@ export default function LoginScreen({ navigation }) {
       if (idToken) {
         // Nettoyer le hash
         window.history.replaceState(null, '', window.location.pathname);
-        // Connecter avec le token
+        // Connecter avec le token puis aller à l'Onboarding (pré-rempli)
         setOauthLoading('google');
-        loginGoogle(idToken).catch(e => {
+        loginGoogle(idToken).then(() => {
+          navigation?.navigate('Onboarding');
+        }).catch(e => {
           Alert.alert(t('auth.oauth_error'), e.message);
         }).finally(() => setOauthLoading(null));
       }
@@ -94,6 +131,8 @@ export default function LoginScreen({ navigation }) {
     setLoading(true);
     try {
       await login({ email: email.trim(), password });
+      // Succès → Onboarding pré-rempli (le learner local sera créé là-bas)
+      navigation?.navigate('Onboarding');
     } catch (e) {
       const msg = e.message || '';
       // Message plus clair pour les erreurs réseau
@@ -145,7 +184,8 @@ export default function LoginScreen({ navigation }) {
         return; // La page va se recharger
       }
 
-      // Natif : utiliser WebBrowser.openAuthSessionAsync avec le proxy Expo
+      // Natif : relais backend + state = returnUrl (la page relais renvoie
+      // les tokens vers NATIVE_RETURN_URL : scheme APK ou URL Expo Go en dev)
       if (!WebBrowser) {
         Alert.alert('Google', 'WebBrowser non disponible.');
         setOauthLoading(null);
@@ -158,15 +198,29 @@ export default function LoginScreen({ navigation }) {
         `&redirect_uri=${encodeURIComponent(GOOGLE_REDIRECT_URI)}`,
         '&response_type=id_token',
         '&scope=openid%20email%20profile',
+        `&state=${encodeURIComponent(NATIVE_RETURN_URL)}`,
         '&nonce=' + Math.random().toString(36).slice(2),
       ].join('');
 
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, GOOGLE_REDIRECT_URI);
-      if (result.type !== 'success' || !result.params.id_token) {
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, NATIVE_RETURN_URL);
+      if (result.type !== 'success' || !result.url) {
         setOauthLoading(null);
         return;
       }
-      await loginGoogle(result.params.id_token);
+      const params = parseAuthResultParams(result.url);
+      if (params.error) {
+        // access_denied = l'utilisateur a annulé : sortie silencieuse
+        if (params.error !== 'access_denied') {
+          throw new Error(params.error);
+        }
+        setOauthLoading(null);
+        return;
+      }
+      if (!params.id_token) {
+        throw new Error('id_token absent de la reponse Google');
+      }
+      await loginGoogle(params.id_token);
+      navigation?.navigate('Onboarding');
     } catch (e) {
       Alert.alert(t('auth.oauth_error'), e.message);
     } finally {
@@ -189,14 +243,24 @@ export default function LoginScreen({ navigation }) {
         `&redirect_uri=${encodeURIComponent(FACEBOOK_REDIRECT_URI)}`,
         '&response_type=token',
         '&scope=email,public_profile',
+        `&state=${encodeURIComponent(NATIVE_RETURN_URL)}`,
       ].join('');
 
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, FACEBOOK_REDIRECT_URI);
-      if (result.type !== 'success' || !result.params.access_token) {
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, NATIVE_RETURN_URL);
+      if (result.type !== 'success' || !result.url) {
         setOauthLoading(null);
         return;
       }
-      await loginFacebook(result.params.access_token);
+      const params = parseAuthResultParams(result.url);
+      if (params.error && params.error !== 'access_denied') {
+        throw new Error(params.error);
+      }
+      if (!params.access_token) {
+        setOauthLoading(null);
+        return;
+      }
+      await loginFacebook(params.access_token);
+      navigation?.navigate('Onboarding');
     } catch (e) {
       Alert.alert(t('auth.oauth_error'), e.message);
     } finally {
@@ -226,6 +290,7 @@ export default function LoginScreen({ navigation }) {
         identityToken: credential.identityToken,
         authorizationCode: credential.authorizationCode,
       });
+      navigation?.navigate('Onboarding');
     } catch (e) {
       if (e.code !== 'ERR_CANCELED') {
         Alert.alert(t('auth.oauth_error'), e.message);
@@ -266,6 +331,8 @@ export default function LoginScreen({ navigation }) {
     try {
       const cleaned = phone.replace(/[\s+()-]/g, '');
       await loginPhone({ phone: cleaned, action: 'verify', code: otpCode });
+      // v1.1 : OTP vérifié → Onboarding pré-rempli avec le téléphone
+      navigation?.navigate('Onboarding');
     } catch (e) {
       Alert.alert(t('auth.otp_verify_error'), e.message);
     } finally {
@@ -276,6 +343,8 @@ export default function LoginScreen({ navigation }) {
   // ── Skip (mode hors-ligne) ─────────────────────────────────────────────
   const handleSkip = async () => {
     try { await skip(); } catch (e) { console.warn('[Login] skip error:', e.message); }
+    // v1.1 : mode hors-ligne → Onboarding (création du learner local sans compte)
+    navigation?.navigate('Onboarding');
   };
 
   return (
@@ -371,15 +440,21 @@ export default function LoginScreen({ navigation }) {
             onPress={handleGoogle}
             accessibilityLabel={t('auth.google')}
           />
-          <OAuthButton
-            label="f"
-            bgColor="#1877F2"
-            textColor="#fff"
-            loading={oauthLoading === 'facebook'}
-            onPress={handleFacebook}
-            accessibilityLabel={t('auth.facebook')}
-          />
-          {AppleAuthentication && (
+          {/* v1.1.1 : Facebook differe — bouton MASQUE tant que l'App ID est vide.
+              Il reaparaitra automatiquement des que EXPO_PUBLIC_FACEBOOK_APP_ID
+              sera renseigne (eas.json / .env). Plus d'alerte "non configure". */}
+          {!!FACEBOOK_APP_ID && (
+            <OAuthButton
+              label="f"
+              bgColor="#1877F2"
+              textColor="#fff"
+              loading={oauthLoading === 'facebook'}
+              onPress={handleFacebook}
+              accessibilityLabel={t('auth.facebook')}
+            />
+          )}
+          {/* v1.1 : Apple Sign-In STRICTEMENT iOS — masqué sur Android/Web */}
+          {AppleAuthentication && Platform.OS === 'ios' && (
             <OAuthButton
               label=""
               bgColor="#000"

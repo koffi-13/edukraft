@@ -85,7 +85,7 @@ export default function ProfileScreen({ navigation }) {
       email: 'Email', google: 'Google', apple: 'Apple',
       facebook: 'Facebook', phone: 'SMS',
     };
-    return labels[provider] || provider || '—';
+    return labels[provider] || provider || '-';
   };
 
   const providerColor = (provider) => {
@@ -128,7 +128,7 @@ export default function ProfileScreen({ navigation }) {
         <Text style={styles.name}>{learner.name}</Text>
         <Text style={styles.phone}>{learner.phone}</Text>
         <Text style={styles.language}>
-          {learner.language === 'fr' ? 'Français' : 'Eʋe'}
+          {learner.language === 'fr' ? 'Français' : 'Ewe'}
         </Text>
       </View>
 
@@ -179,13 +179,13 @@ export default function ProfileScreen({ navigation }) {
           onPress={() => navigation.navigate('Payment')}
         >
           <View style={styles.premiumLeft}>
-            <Text style={styles.premiumIcon}>💎</Text>
+            <Text style={styles.premiumIcon}>[*]</Text>
             <View>
               <Text style={styles.premiumTitle}>{t('profile.go_premium')}</Text>
               <Text style={styles.premiumDesc}>{t('profile.premium_desc')}</Text>
             </View>
           </View>
-          <Text style={styles.premiumArrow}>›</Text>
+          <Text style={styles.premiumArrow}>&gt;</Text>
         </TouchableOpacity>
       </View>
 
@@ -194,7 +194,7 @@ export default function ProfileScreen({ navigation }) {
         <Text style={styles.sectionTitle}>{t('profile.badges_section')}</Text>
         {badges.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyEmoji}>🏆</Text>
+            <Text style={styles.emptyEmoji}>[*]</Text>
             <Text style={styles.emptyText}>{t('badge.empty_text')}</Text>
           </View>
         ) : (
@@ -213,7 +213,7 @@ export default function ProfileScreen({ navigation }) {
                   'Blockchain : ' + (badge.blockchain_tx || 'En attente de sync'),
                 )}
               >
-                <Text style={styles.badgeIcon}>🏅</Text>
+                <Text style={styles.badgeIcon}>[B]</Text>
                 <Text style={styles.badgeTitle} numberOfLines={2}>
                   {badge.module_title}
                 </Text>
@@ -235,13 +235,13 @@ export default function ProfileScreen({ navigation }) {
           activeOpacity={0.85}
         >
           <View style={styles.premiumLeft}>
-            <Text style={styles.premiumIcon}>🏆</Text>
+            <Text style={styles.premiumIcon}>[*]</Text>
             <View>
               <Text style={styles.premiumTitle}>{t('gamification.profile_link_title')}</Text>
               <Text style={styles.premiumDesc}>{t('gamification.profile_link_desc')}</Text>
             </View>
           </View>
-          <Text style={styles.premiumArrow}>›</Text>
+          <Text style={styles.premiumArrow}>&gt;</Text>
         </TouchableOpacity>
       </View>
 
@@ -253,13 +253,13 @@ export default function ProfileScreen({ navigation }) {
           activeOpacity={0.85}
         >
           <View style={styles.premiumLeft}>
-            <Text style={styles.premiumIcon}>👤</Text>
+            <Text style={styles.premiumIcon}>[P]</Text>
             <View>
               <Text style={styles.premiumTitle}>{t('profile.edit_title')}</Text>
               <Text style={styles.premiumDesc}>{t('profile.edit_desc')}</Text>
             </View>
           </View>
-          <Text style={styles.premiumArrow}>›</Text>
+          <Text style={styles.premiumArrow}>&gt;</Text>
         </TouchableOpacity>
       </View>
 
@@ -270,7 +270,7 @@ export default function ProfileScreen({ navigation }) {
           <View style={[styles.accountCard, Shadow.card]}>
             <View style={styles.accountRow}>
               <Text style={styles.accountLabel}>{t('auth.email_display')}</Text>
-              <Text style={styles.accountValue}>{user.email || user.phone || '—'}</Text>
+              <Text style={styles.accountValue}>{user.email || user.phone || '-'}</Text>
             </View>
             <View style={styles.accountRow}>
               <Text style={styles.accountLabel}>{t('auth.provider_label')}</Text>
@@ -288,7 +288,7 @@ export default function ProfileScreen({ navigation }) {
         ) : skipAuth ? (
           <View style={[styles.accountCard, Shadow.card]}>
             <Text style={styles.skipAuthText}>
-              {t('auth.skip')} — {t('auth.skip_description')}
+              {t('auth.skip')} - {t('auth.skip_description')}
             </Text>
           </View>
         ) : null}

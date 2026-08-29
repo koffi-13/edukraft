@@ -35,10 +35,11 @@ export default function StreakWidget({ streak, freezes = MAX_FREEZES, bestStreak
   if (compact) {
     return (
       <View style={styles.compact}>
-        <Animated.Text style={[styles.flameCompact, { transform: [{ scale: flameAnim }] }]}>🔥</Animated.Text>
+        {/* v1.1 : glyphe ASCII (aucun emoji — risque d'affichage parasite) */}
+        <Animated.Text style={[styles.flameCompact, { transform: [{ scale: flameAnim }] }]}>*</Animated.Text>
         <Text style={styles.streakNumCompact}>{streak}</Text>
         {freezes > 0 && (
-          <Text style={styles.freezeCompact}>❄{freezes}</Text>
+          <Text style={styles.freezeCompact}>[{freezes}]</Text>
         )}
       </View>
     );
@@ -49,7 +50,8 @@ export default function StreakWidget({ streak, freezes = MAX_FREEZES, bestStreak
   return (
     <View style={[styles.card, Shadow.card]}>
       <View style={styles.header}>
-        <Animated.Text style={[styles.flame, { fontSize: flameSize, transform: [{ scale: flameAnim }] }]}>🔥</Animated.Text>
+        {/* v1.1 : flamme remplacée par un badge texte ASCII */}
+        <Animated.Text style={[styles.flame, { fontSize: flameSize, transform: [{ scale: flameAnim }] }]}>*</Animated.Text>
         <View style={styles.info}>
           <Text style={styles.streakNum}>{streak}</Text>
           <Text style={styles.streakLabel}>
@@ -67,7 +69,7 @@ export default function StreakWidget({ streak, freezes = MAX_FREEZES, bestStreak
               key={i}
               style={[styles.freezeDot, i < freezes && styles.freezeDotActive]}
             >
-              <Text style={[styles.freezeDotText, i < freezes && styles.freezeDotTextActive]}>❄</Text>
+              <Text style={[styles.freezeDotText, i < freezes && styles.freezeDotTextActive]}>*</Text>
             </View>
           ))}
         </View>

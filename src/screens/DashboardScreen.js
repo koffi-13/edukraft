@@ -72,11 +72,11 @@ export default function DashboardScreen({ navigation }) {
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <View>
-          <Text style={styles.greeting}>{greeting()}, {learner?.name?.split(' ')[0]} 👋</Text>
-          <Text style={styles.levelChip}>{current.label} · {t('dashboard.level_label')} {current.level}</Text>
+          <Text style={styles.greeting}>{greeting()}, {learner?.name?.split(' ')[0]} !</Text>
+          <Text style={styles.levelChip}>{current.label} - {t('dashboard.level_label')} {current.level}</Text>
         </View>
         <View style={styles.streakBadge}>
-          <Text style={styles.streakEmoji}>🔥</Text>
+          <Text style={styles.streakEmoji}>*</Text>
           <Text style={styles.streakNum}>{learner?.streak_days ?? 0}</Text>
         </View>
       </View>
@@ -106,7 +106,7 @@ export default function DashboardScreen({ navigation }) {
                   <View style={[styles.profileBarFill, { width: `${completion}%` }]} />
                 </View>
               </View>
-              <Text style={styles.profileBannerArrow}>›</Text>
+              <Text style={styles.profileBannerArrow}>&gt;</Text>
             </TouchableOpacity>
           );
         })()}
@@ -153,7 +153,7 @@ export default function DashboardScreen({ navigation }) {
             onPress={() => navigation.navigate('Achievements')}
             activeOpacity={0.85}
           >
-            <Text style={styles.achievementsLinkIcon}>🏆</Text>
+            <Text style={styles.achievementsLinkIcon}>[*]</Text>
             <View style={styles.achievementsLinkText}>
               <Text style={styles.achievementsLinkTitle}>
                 {t('gamification.achievements_link_title')}
@@ -165,7 +165,7 @@ export default function DashboardScreen({ navigation }) {
                 })}
               </Text>
             </View>
-            <Text style={styles.achievementsLinkArrow}>›</Text>
+            <Text style={styles.achievementsLinkArrow}>&gt;</Text>
           </TouchableOpacity>
         )}
 
@@ -208,13 +208,13 @@ export default function DashboardScreen({ navigation }) {
                 {/* Stats */}
                 <View style={styles.moduleStats}>
                   <Text style={styles.statText}>
-                    📚 {t('module.lessons_count', { count: totalLessons })}
+                    [L] {t('module.lessons_count', { count: totalLessons })}
                   </Text>
                   <Text style={styles.statText}>
-                    ⏱ {module.duration} {t('lesson.read_time')}
+                    [t] {module.duration} {t('lesson.read_time')}
                   </Text>
                   <Text style={styles.statText}>
-                    ⭐ {module.xp} XP
+                    [+] {module.xp} XP
                   </Text>
                 </View>
 
@@ -237,7 +237,7 @@ export default function DashboardScreen({ navigation }) {
                 <View style={[styles.cta, { backgroundColor: (module.color || Colors.primary) + '18' }]}>
                   <Text style={[styles.ctaText, { color: module.color || Colors.primary }]}>
                     {status === 'not_started' ? t('module.start')
-                      : status === 'completed' ? '✓ ' + t('module.completed')
+                      : status === 'completed' ? 'OK ' + t('module.completed')
                       : t('module.resume')} >
                   </Text>
                 </View>
@@ -261,7 +261,7 @@ function StatBox({ value, label, color }) {
 
 function StatusChip({ status }) {
   const map = {
-    completed:   { label: '✓',         bg: Colors.tealLight,    text: Colors.teal   },
+    completed:   { label: 'OK',         bg: Colors.tealLight,    text: Colors.teal   },
     in_progress: { label: 'En cours',  bg: Colors.amberLight,   text: Colors.amber  },
     not_started: { label: 'Nouveau',   bg: Colors.primaryLight, text: Colors.primary },
   };

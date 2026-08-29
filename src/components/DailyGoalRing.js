@@ -48,12 +48,13 @@ export default function DailyGoalRing({ goal, todayValue, onPress }) {
         activeOpacity={0.85}
       >
         <View style={styles.emptyContent}>
-          <Text style={styles.emptyIcon}>🎯</Text>
+          {/* v1.1 : ASCII uniquement */}
+          <Text style={styles.emptyIcon}>[+]</Text>
           <View style={styles.emptyText}>
             <Text style={styles.emptyTitle}>{t('gamification.set_goal_title')}</Text>
             <Text style={styles.emptyDesc}>{t('gamification.set_goal_desc')}</Text>
           </View>
-          <Text style={styles.emptyArrow}>›</Text>
+          <Text style={styles.emptyArrow}>&gt;</Text>
         </View>
       </TouchableOpacity>
     );
@@ -109,7 +110,7 @@ export default function DailyGoalRing({ goal, todayValue, onPress }) {
                   remaining: Math.max(0, goal.target - (todayValue || 0)),
                 })}
           </Text>
-          {goalMet && <Text style={styles.check}>✓</Text>}
+          {goalMet && <Text style={styles.check}>OK</Text>}
         </View>
       </View>
     </TouchableOpacity>
