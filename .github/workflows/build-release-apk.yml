@@ -1,14 +1,16 @@
-# Build APK + Publish to GitHub Releases
-# Déclenché manuellement (workflow_dispatch) ou sur tag v*
+# Build APK + Publish to GitHub Releases — SANS EAS
+# Déclenché sur tag v* ou manuellement (workflow_dispatch).
 #
 # Ce workflow :
-#   1. Build l'APK via EAS (sur les serveurs Expo, gratuit)
-#   2. Télécharge l'APK
-#   3. Crée une GitHub Release avec l'APK en pièce jointe
+#   1. Génère le projet natif android/ (expo prebuild --clean)
+#   2. Injecte le keystore STABLE versionné dans android-signing/
+#      (signature identique à chaque build -> mises à jour sans désinstallation)
+#   3. Compile l'APK release avec Gradle directement sur le runner
+#   4. Crée une GitHub Release avec l'APK en pièce jointe
 #
-# ⚠️ Prérequis :
-#   - EXPO_TOKEN en secret GitHub (https://expo.dev/accounts/[user]/settings/access-tokens)
-#   - Le backend doit être déployé (Fly.io) avec l'URL dans eas.json
+# ✅ AUCUN secret requis (ni EXPO_TOKEN, ni keystore externe).
+#    Le keystore de test est versionné dans android-signing/ — à remplacer par
+#    un keystore privé pour une publication Play Store (voir docs/DEPLOYMENT-V1.md).
 #
 # Une fois le workflow terminé, l'APK est téléchargeable depuis :
 #   https://github.com/koffi-13/edukraft/releases
@@ -19,9 +21,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version (ex: v1.0.0)'
+        description: 'Version (ex: v1.1.1)'
         required: true
-        default: 'v1.0.0'
+        default: 'v1.1.1'
   push:
     tags:
       - 'v*'
@@ -32,7 +34,7 @@ permissions:
 
 jobs:
   build:
-    name: Build APK and Create Release
+    name: Build APK (Gradle direct) and Create Release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,69 +45,20 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
-      - name: Install EAS CLI
-        run: npm install -g eas-cli
-
-      - name: Verify EXPO_TOKEN is set
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          if [ -z "$EXPO_TOKEN" ]; then
-            echo "EXPO_TOKEN is NOT set in GitHub Secrets!"
-            exit 1
-          fi
-          echo "EXPO_TOKEN is set (length: ${#EXPO_TOKEN})"
-
-      - name: Initialize EAS project
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          echo "Running eas init --force (creates project on first run)..."
-          eas init --non-interactive --force
-          echo "=== eas.json after init ==="
-          cat eas.json
-
-      - name: Build APK (EAS)
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          eas build --profile preview --platform android --non-interactive --no-wait --json > build_info.json
-          BUILD_ID=$(cat build_info.json | jq -r '.[0].id')
-          echo "BUILD_ID=$BUILD_ID" >> $GITHUB_ENV
-          echo "Building APK with ID: $BUILD_ID"
-
-      - name: Wait for build to complete
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          echo "Waiting for EAS build to complete..."
-          while true; do
-            STATUS=$(eas build:view ${{ env.BUILD_ID }} --json 2>/dev/null | jq -r '.status' | tr '[:upper:]' '[:lower:]')
-            echo "Build status: $STATUS"
-            if [ "$STATUS" = "finished" ]; then
-              echo "Build finished!"
-              break
-            elif [ "$STATUS" = "errored" ]; then
-              echo "Build FAILED! Fetching error details..."
-              eas build:view ${{ env.BUILD_ID }} --json 2>/dev/null | jq '.'
-              echo "=== Full build log URL ==="
-              eas build:view ${{ env.BUILD_ID }} --json 2>/dev/null | jq -r '.metadata.buildLogsUrl // "N/A"'
-              exit 1
-            fi
-            sleep 30
-          done
-
-      - name: Get build URL and download APK
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          BUILD_URL=$(eas build:view ${{ env.BUILD_ID }} --json | jq -r '.artifacts.buildUrl')
-          echo "Downloading APK from: $BUILD_URL"
-          curl -L -o edukraft.apk "$BUILD_URL"
-          ls -lh edukraft.apk
+      - name: Gradle cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('package.json') }}
+          restore-keys: gradle-${{ runner.os }}-
 
       - name: Determine version
         id: version
@@ -115,6 +68,50 @@ jobs:
           else
             echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           fi
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Prebuild Android (clean)
+        run: npx expo prebuild --platform android --clean --no-install
+
+      # Le template Expo signe le build release avec signingConfigs.debug
+      # (storeFile android/app/debug.keystore, password 'android',
+      #  alias 'androiddebugkey'). On écrase ce fichier par notre keystore
+      # stable : signature IDENTIQUE à chaque build -> les APK se mettent à
+      # jour par-dessus les versions précédentes sans désinstallation.
+      - name: Inject stable signing keystore
+        run: |
+          cp android-signing/edukraft-release.keystore android/app/debug.keystore
+          echo "Keystore injecte (SHA-256 du certificat) :"
+          keytool -list -v -keystore android/app/debug.keystore -storepass android 2>/dev/null | grep "SHA256:" | head -1
+
+      - name: Build release APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease
+
+      - name: Verify APK is signed
+        run: |
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          ls -lh "$APK"
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/apksigner" verify --print-certs "$APK" || { echo "::error::APK non signé !"; exit 1; }
+          echo "APK signé, signature vérifiée."
+
+      - name: Rename APK
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk \
+             "edukraft-${{ steps.version.outputs.VERSION }}.apk"
+          ls -lh edukraft-*.apk
+
+      - name: Upload APK (artifact de secours)
+        uses: actions/upload-artifact@v4
+        with:
+          name: edukraft-${{ steps.version.outputs.VERSION }}
+          path: edukraft-${{ steps.version.outputs.VERSION }}.apk
+          retention-days: 30
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
@@ -130,13 +127,14 @@ jobs:
             3. Autorisez "Sources inconnues" si demandé
             4. Ouvrez EduKraft
 
-            ## Nouveautés
-            - 8 parcours de formation (42 leçons)
-            - Authentification (email, Google, SMS)
-            - Gamification (streaks, succès, badges blockchain)
-            - Mode hors-ligne (offline-first)
-            - Profil étendu (photo, coordonnées, bio)
-          files: edukraft.apk
+            ## Nouveautés v1.1
+            - Persistance réparée : le profil/apprenti survit aux redémarrages
+            - Parcours Onboarding monté + bouton Retour fonctionnel
+            - OAuth Google fonctionnel sur APK (redirect proxy + scheme natif)
+            - Purge Unicode (glyphes -> ASCII pur, plus de caractères parasites)
+            - Timeouts 30 s + retry sur tous les appels réseau (Render)
+            - Apple Sign-In : iOS uniquement · Facebook : différé (bouton masqué)
+          files: edukraft-${{ steps.version.outputs.VERSION }}.apk
           draft: false
           prerelease: false
         env:

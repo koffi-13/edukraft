@@ -394,14 +394,19 @@ export default function LoginScreen({ navigation }) {
             onPress={handleGoogle}
             accessibilityLabel={t('auth.google')}
           />
-          <OAuthButton
-            label="f"
-            bgColor="#1877F2"
-            textColor="#fff"
-            loading={oauthLoading === 'facebook'}
-            onPress={handleFacebook}
-            accessibilityLabel={t('auth.facebook')}
-          />
+          {/* v1.1.1 : Facebook differe — bouton MASQUE tant que l'App ID est vide.
+              Il reaparaitra automatiquement des que EXPO_PUBLIC_FACEBOOK_APP_ID
+              sera renseigne (eas.json / .env). Plus d'alerte "non configure". */}
+          {!!FACEBOOK_APP_ID && (
+            <OAuthButton
+              label="f"
+              bgColor="#1877F2"
+              textColor="#fff"
+              loading={oauthLoading === 'facebook'}
+              onPress={handleFacebook}
+              accessibilityLabel={t('auth.facebook')}
+            />
+          )}
           {/* v1.1 : Apple Sign-In STRICTEMENT iOS — masqué sur Android/Web */}
           {AppleAuthentication && Platform.OS === 'ios' && (
             <OAuthButton
