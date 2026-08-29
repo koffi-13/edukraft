@@ -33,7 +33,7 @@
     "in_progress":        "le ɖoɖo me",
     "lessons_done":       "Ðaŋuwo wòdzo",
     "streak_label":       "Ɓe ƒe ɖe siwo le afɔme",
-    "offline_banner":     "Offline — wò ɖoɖo le wò xexeame la me"
+    "offline_banner":     "Offline - wò ɖoɖo le wò xexeame la me"
   },
 
   "lesson": {
@@ -152,7 +152,7 @@
     "email_label":            "Email",
     "email_placeholder":      "wò@email.com",
     "password_label":         "Nywɔsɔdzi",
-    "password_placeholder":   "••••••••",
+    "password_placeholder":   "********",
     "login_button":           "Ðe xexe",
     "login_loading":          "Le ɖoɖo me...",
     "forgot_password":        "Xɔ nywɔsɔdji na wò ?",
@@ -180,7 +180,7 @@
     "phone_placeholder":      "228 90 XX XX XX",
     "send_code":              "Ɖo code ɖa",
     "code_label":             "Code si na ƒoƒoƒo",
-    "code_placeholder":       "• • • • • •",
+    "code_placeholder":       "* * * * * *",
     "verify_code":            "Ðo code ƒo",
     "code_sent":              "Code ƒo le SMS me",
     "otp_send_error":         "Code ƒo va yi",
@@ -225,7 +225,7 @@
     "goal_met":                  "Taɖaɖa wɔ nyuie !",
     "goal_remaining":            "{{remaining}} nɔnɔ na wò taɖaɖa",
     "set_goal_title":            "Ðo wò taɖaɖa",
-    "set_goal_desc":             "Ðo mɔɖaɖa si le wò si — wɔa ɖo ɖe keke.",
+    "set_goal_desc":             "Ðo mɔɖaɖa si le wò si - wɔa ɖo ɖe keke.",
     "choose_goal":               "Ðo taɖaɖa ɖeka",
     "goal_confirm_title":        "Ðo taɖaɖa ŋu",
     "goal_confirm_msg":          "Wò taɖaɖa: {{goal}}",
@@ -259,7 +259,7 @@
     "celebration_goal_met_title":"Ŋkeke ƒe taɖaɖa wɔ nyuie",
     "celebration_achievement_title": "Nyatefe yeye woɖo",
     "celebration_streak_title":  "Wò ƒe ɖe le ɖoɖo me",
-    "streak_restarted":          "ƒe ɖe yeye — ŋkeke ɖeka ɖeka xɔ",
+    "streak_restarted":          "ƒe ɖe yeye - ŋkeke ɖeka ɖeka xɔ",
     "daily_goal_reached":        " Ɣlɔɖe, wò ŋkeke ƒe taɖaɖa wɔ nyuie.",
 
     "profile_link_title":        "Ƒoƒoƒo kple nyatefewo",

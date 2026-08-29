@@ -62,7 +62,10 @@ function _interpolate(template, vars) {
 }
 
 // ── Catalogue disponibles pour le sélecteur de langue ──────────────────────
+// v1.1 : codes ASCII ("FR"/"TG") au lieu d'emojis drapeaux — les emojis
+// régionaux (🇫🇷 🇹🇬) s'affichent en lettres isolées (F R / T G) sur certains
+// appareils Android et peuvent planter le rendu sur les anciennes versions.
 export const AVAILABLE_LANGUAGES = [
-  { code: 'fr',  label: 'Français',       flag: '🇫🇷' },
-  { code: 'ewe', label: 'Eʋegbe (Ewe)',   flag: '🇹🇬' },
+  { code: 'fr',  label: 'Français',     flag: 'FR' },
+  { code: 'ewe', label: 'Ewe',          flag: 'TG' },
 ];

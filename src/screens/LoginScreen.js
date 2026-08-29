@@ -29,11 +29,16 @@ try { AppleAuthentication = require('expo-apple-authentication'); } catch (_) {}
 try { AuthSession = require('expo-auth-session'); } catch (_) {}
 
 // Préparer le redirect URI (Expo proxy — HTTPS, accepté par Google)
-// ⚠️ Sur APK standalone, makeRedirectUri peut retourner le scheme natif (edukraft://)
-// au lieu du proxy HTTPS. Google refuse les custom schemes. On force le proxy.
+// ⚠️ Sur APK standalone, makeRedirectUri peut retourner le scheme natif
+// (edukraft://) au lieu du proxy HTTPS. Google REFUSE les custom schemes :
+// on garde le proxy HTTPS hardcodé comme redirect_uri envoyé à Google.
+// Le returnUrl (2e arg d'openAuthSessionAsync) doit au contraire être le
+// SCHEME NATIF : après le détour par auth.expo.io, le navigateur revient à
+// edukraft:// et la session se referme proprement.
 const EXPO_PROXY_REDIRECT = 'https://auth.expo.io/@orion-k/edukraft';
 let GOOGLE_REDIRECT_URI = EXPO_PROXY_REDIRECT;
 let FACEBOOK_REDIRECT_URI = EXPO_PROXY_REDIRECT;
+let NATIVE_RETURN_URL = 'edukraft://'; // scheme déclaré dans app.json
 if (AuthSession) {
   try {
     const proxyRedirect = AuthSession.makeRedirectUri({ useProxy: true });
@@ -42,10 +47,17 @@ if (AuthSession) {
       GOOGLE_REDIRECT_URI = proxyRedirect;
       FACEBOOK_REDIRECT_URI = proxyRedirect;
     }
+    // returnUrl natif = scheme de l'app (fallback 'edukraft://')
+    const nativeUri = AuthSession.makeRedirectUri({});
+    if (nativeUri && nativeUri.startsWith('edukraft://')) NATIVE_RETURN_URL = nativeUri;
   } catch (_) {}
 }
 
-const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '';
+// Client ID Google — résolution : EXPO_PUBLIC_GOOGLE_CLIENT_ID (EAS/.env) >
+// valeur par défaut (publique, sans secret). évite l'alerte "non configuré"
+// en Expo Go quand aucun .env n'est présent.
+const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ||
+  '627774206464-ktg1e33crrdq398e6hiunvlg9pucf1j7.apps.googleusercontent.com';
 const FACEBOOK_APP_ID  = process.env.EXPO_PUBLIC_FACEBOOK_APP_ID || '';
 const PHONE_OTP_ENABLED = process.env.EXPO_PUBLIC_PHONE_OTP_ENABLED !== 'false';
 
@@ -67,9 +79,11 @@ export default function LoginScreen({ navigation }) {
       if (idToken) {
         // Nettoyer le hash
         window.history.replaceState(null, '', window.location.pathname);
-        // Connecter avec le token
+        // Connecter avec le token puis aller à l'Onboarding (pré-rempli)
         setOauthLoading('google');
-        loginGoogle(idToken).catch(e => {
+        loginGoogle(idToken).then(() => {
+          navigation?.navigate('Onboarding');
+        }).catch(e => {
           Alert.alert(t('auth.oauth_error'), e.message);
         }).finally(() => setOauthLoading(null));
       }
@@ -94,6 +108,8 @@ export default function LoginScreen({ navigation }) {
     setLoading(true);
     try {
       await login({ email: email.trim(), password });
+      // Succès → Onboarding pré-rempli (le learner local sera créé là-bas)
+      navigation?.navigate('Onboarding');
     } catch (e) {
       const msg = e.message || '';
       // Message plus clair pour les erreurs réseau
@@ -161,12 +177,13 @@ export default function LoginScreen({ navigation }) {
         '&nonce=' + Math.random().toString(36).slice(2),
       ].join('');
 
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, GOOGLE_REDIRECT_URI);
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, NATIVE_RETURN_URL);
       if (result.type !== 'success' || !result.params.id_token) {
         setOauthLoading(null);
         return;
       }
       await loginGoogle(result.params.id_token);
+      navigation?.navigate('Onboarding');
     } catch (e) {
       Alert.alert(t('auth.oauth_error'), e.message);
     } finally {
@@ -191,12 +208,13 @@ export default function LoginScreen({ navigation }) {
         '&scope=email,public_profile',
       ].join('');
 
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, FACEBOOK_REDIRECT_URI);
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, NATIVE_RETURN_URL);
       if (result.type !== 'success' || !result.params.access_token) {
         setOauthLoading(null);
         return;
       }
       await loginFacebook(result.params.access_token);
+      navigation?.navigate('Onboarding');
     } catch (e) {
       Alert.alert(t('auth.oauth_error'), e.message);
     } finally {
@@ -226,6 +244,7 @@ export default function LoginScreen({ navigation }) {
         identityToken: credential.identityToken,
         authorizationCode: credential.authorizationCode,
       });
+      navigation?.navigate('Onboarding');
     } catch (e) {
       if (e.code !== 'ERR_CANCELED') {
         Alert.alert(t('auth.oauth_error'), e.message);
@@ -266,6 +285,8 @@ export default function LoginScreen({ navigation }) {
     try {
       const cleaned = phone.replace(/[\s+()-]/g, '');
       await loginPhone({ phone: cleaned, action: 'verify', code: otpCode });
+      // v1.1 : OTP vérifié → Onboarding pré-rempli avec le téléphone
+      navigation?.navigate('Onboarding');
     } catch (e) {
       Alert.alert(t('auth.otp_verify_error'), e.message);
     } finally {
@@ -276,6 +297,8 @@ export default function LoginScreen({ navigation }) {
   // ── Skip (mode hors-ligne) ─────────────────────────────────────────────
   const handleSkip = async () => {
     try { await skip(); } catch (e) { console.warn('[Login] skip error:', e.message); }
+    // v1.1 : mode hors-ligne → Onboarding (création du learner local sans compte)
+    navigation?.navigate('Onboarding');
   };
 
   return (
@@ -379,7 +402,8 @@ export default function LoginScreen({ navigation }) {
             onPress={handleFacebook}
             accessibilityLabel={t('auth.facebook')}
           />
-          {AppleAuthentication && (
+          {/* v1.1 : Apple Sign-In STRICTEMENT iOS — masqué sur Android/Web */}
+          {AppleAuthentication && Platform.OS === 'ios' && (
             <OAuthButton
               label=""
               bgColor="#000"

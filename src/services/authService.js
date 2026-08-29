@@ -21,6 +21,8 @@
 //   getStoredAuth()            > {user, accessToken, skipAuth} depuis le storage
 //   authHeader()               > {Authorization: 'Bearer xxx'} ou {}
 //   authenticatedFetch(url, opts)
+//   clearAll()                 > efface tokens + user + skip (sans toucher ek_learner)
+//   clearTokens()              > efface tokens + user uniquement
 
 import ENV from '../config/env';
 import { Platform } from 'react-native';
@@ -131,7 +133,7 @@ async function saveAuth({ accessToken, refreshToken, user }) {
   ]);
 }
 
-async function clearTokens() {
+export async function clearTokens() {
   await Promise.all([
     store.deleteItem(KEYS.ACCESS_TOKEN).catch(() => {}),
     store.deleteItem(KEYS.REFRESH_TOKEN).catch(() => {}),
@@ -139,7 +141,9 @@ async function clearTokens() {
   ]);
 }
 
-async function clearAll() {
+/** Efface tokens + user + flag skip. NE TOUCHE PAS à 'ek_learner' /
+ *  'ek_progress' / 'ek_badges' (le learner local survit à la déconnexion). */
+export async function clearAll() {
   await Promise.all([
     store.deleteItem(KEYS.ACCESS_TOKEN).catch(() => {}),
     store.deleteItem(KEYS.REFRESH_TOKEN).catch(() => {}),
@@ -183,7 +187,10 @@ async function authFetch(url, options = {}) {
     ...(options.headers || {}),
   };
 
-  let response = await fetch(url, { ...options, headers });
+  // Timeout 30s aussi ici (Render free tier s'endort : premier appel lent)
+  const opts = { ...options, headers };
+  delete opts._retried;
+  let response = await fetchWithTimeout(url, opts);
 
   // Si 401 et qu'on a un refresh token > tenter le refresh puis retry
   if (response.status === 401 && !options._retried) {
@@ -201,8 +208,8 @@ async function authFetch(url, options = {}) {
           ...headers,
           Authorization: `Bearer ${newToken}`,
         };
-        response = await fetch(url, {
-          ...options,
+        response = await fetchWithTimeout(url, {
+          ...opts,
           headers: retryHeaders,
           _retried: true,
         });
@@ -249,7 +256,7 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 30000) {
     clearTimeout(timeoutId);
     // Si timeout ou réseau, retry une fois après 2s (Render en train de se réveiller)
     if (error.name === 'AbortError' || error.message.includes('Network')) {
-      console.log('[authService] Retry dans 2s (serveur en cours de réveillon)...');
+      console.log('[authService] Retry dans 2s (serveur en cours de réveil)...');
       await new Promise(resolve => setTimeout(resolve, 2000));
       const controller2 = new AbortController();
       const timeoutId2 = setTimeout(() => controller2.abort(), 30000);

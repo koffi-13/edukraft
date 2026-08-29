@@ -113,7 +113,7 @@ export default function LessonScreen({ route, navigation }) {
           {lesson.subtitle && (
             <Text style={styles.lessonSubtitle}>{lesson.subtitle}</Text>
           )}
-          <Text style={styles.durationText}>⏱ {lesson.duration_min} {t('lesson.read_time')}</Text>
+          <Text style={styles.durationText}>[t] {lesson.duration_min} {t('lesson.read_time')}</Text>
         </View>
 
         {/* Introduction */}
@@ -152,7 +152,7 @@ export default function LessonScreen({ route, navigation }) {
             activeOpacity={0.85}
           >
             <Text style={styles.continueReadingText}>
-              {visibleSections === 0 ? '📖 Commencer la lecture' : '👇 Continuer'}
+              {visibleSections === 0 ? '[>] Commencer la lecture' : 'Continuer [>]'}
             </Text>
           </TouchableOpacity>
         )}
@@ -160,7 +160,7 @@ export default function LessonScreen({ route, navigation }) {
         {/* Key takeaway — visible uniquement quand toutes les sections sont lues */}
         {content.key_takeaway && visibleSections >= sections.length && (
           <View style={[styles.takeawayCard, Shadow.card]}>
-            <Text style={styles.takeawayLabel}>💡 {t('lesson.key_takeaway')}</Text>
+            <Text style={styles.takeawayLabel}>[!] {t('lesson.key_takeaway')}</Text>
             <Text style={styles.takeawayText}>{content.key_takeaway}</Text>
           </View>
         )}
@@ -173,7 +173,7 @@ export default function LessonScreen({ route, navigation }) {
       <View style={[styles.footer, { paddingBottom: insets.bottom + 8 }]}>
         {!isFirst && (
           <TouchableOpacity style={styles.secondaryBtn} onPress={goPrevLesson}>
-            <Text style={styles.secondaryBtnText}>← {t('lesson.prev_lesson')}</Text>
+            <Text style={styles.secondaryBtnText}>&lt;&lt; {t('lesson.prev_lesson')}</Text>
           </TouchableOpacity>
         )}
 
@@ -187,7 +187,7 @@ export default function LessonScreen({ route, navigation }) {
             </Text>
           </TouchableOpacity>
         ) : (
-          <Text style={styles.readHint}>📖 Lis toutes les sections pour continuer</Text>
+          <Text style={styles.readHint}>Lis toutes les sections pour continuer</Text>
         )}
       </View>
     </View>

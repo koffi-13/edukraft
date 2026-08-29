@@ -347,7 +347,7 @@ export default function QuizScreen({ route, navigation }) {
                 {step === STEP_FEEDBACK && (
                   <View style={[styles.feedbackBox, answers[answers.length - 1]?.correct ? styles.feedbackCorrect : styles.feedbackWrong]}>
                     <Text style={styles.feedbackText}>
-                      {answers[answers.length - 1]?.correct ? '✓ Correct !' : '✗ Réponse attendue : ' + (currentQ.accepted_answers?.[0] || currentQ.options?.[0]?.text || '')}
+                      {answers[answers.length - 1]?.correct ? 'OK - Correct !' : 'X - Réponse attendue : ' + (currentQ.accepted_answers?.[0] || currentQ.options?.[0]?.text || '')}
                     </Text>
                   </View>
                 )}
@@ -392,8 +392,8 @@ export default function QuizScreen({ route, navigation }) {
                       isSelected && styles.radioButtonSelected,
                       step === STEP_FEEDBACK && isCorrectOption && styles.radioButtonCorrect,
                     ]}>
-                      {(step === STEP_FEEDBACK && isCorrectOption) && <Text style={styles.checkMark}>✓</Text>}
-                      {step === STEP_FEEDBACK && isSelected && !isCorrect && <Text style={styles.xMark}>✗</Text>}
+                      {(step === STEP_FEEDBACK && isCorrectOption) && <Text style={styles.checkMark}>OK</Text>}
+                      {step === STEP_FEEDBACK && isSelected && !isCorrect && <Text style={styles.xMark}>X</Text>}
                       {step === STEP_QUESTION && isSelected && <View style={styles.radioDot} />}
                     </View>
                     <Text style={textStyle}>{option.text}</Text>
@@ -422,7 +422,7 @@ export default function QuizScreen({ route, navigation }) {
                     style={styles.explanationToggle}
                   >
                     <Text style={styles.explanationToggleText}>
-                      {showExplanation ? '▼' : '▶'} Explication
+                      {showExplanation ? 'v' : '>'} Explication
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -511,7 +511,7 @@ export default function QuizScreen({ route, navigation }) {
           {totalXP > 0 && (
             <View style={styles.xpBanner}>
               <Text style={styles.xpBannerText}>
-                ⭐ {t('lesson.xp_won', { xp: totalXP })}
+                [+] {t('lesson.xp_won', { xp: totalXP })}
               </Text>
               {isPerfect && (
                 <Text style={styles.perfectText}>
@@ -531,7 +531,7 @@ export default function QuizScreen({ route, navigation }) {
               return (
                 <View key={a.qId} style={styles.answerRow}>
                   <Text style={[styles.answerIcon, { color: a.correct ? Colors.teal : Colors.error }]}>
-                    {a.correct ? '✓' : '✗'}
+                    {a.correct ? 'OK' : 'X'}
                   </Text>
                   <Text style={styles.answerQuestion} numberOfLines={2}>{q?.text}</Text>
                 </View>

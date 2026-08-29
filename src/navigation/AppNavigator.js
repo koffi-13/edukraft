@@ -3,11 +3,18 @@
 //
 // Logique :
 //   1. DB pas prête → splash
-//   2. Pas de learner local → Login (avec "Continuer hors ligne")
+//   2. Pas de learner local → Auth stack (Login / Register / Onboarding)
 //   3. Learner existe → Dashboard direct
 //
-// PAS de isAuthenticated, PAS de skipAuth, PAS de tokens.
+// PAS de isAuthenticated, PAS de skipAuth, PAS de tokens dans le gating.
 // Le serveur est optionnel (backup uniquement).
+//
+// v1.1 (correctif critique) : Onboarding est maintenant MONTÉ dans AuthStack.
+// Avant, l'écran était importé mais aucune route ne le rendait → impossible
+// de créer un learner → bloqué sur Login / profil perdu.
+// LoginScreen/RegisterScreen naviguent vers 'Onboarding' après un login
+// réussi OU après "Continuer hors ligne" ; Onboarding crée le learner →
+// le gating bascule automatiquement vers Root (Dashboard).
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
@@ -37,17 +44,20 @@ const Tab   = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
 function TabIcon({ name, focused, color }) {
+  // Icônes ASCII uniquement — les emojis/glyphes Unicode peuvent s'afficher
+  // en caractères parasites (ex. "IJ" au lieu d'une flèche) ou crasher sur
+  // certains appareils Android anciens.
   const icons = {
-    dashboard: focused ? '⬛' : '□',
-    learn:   focused ? '📖' : '📄',
-    badges:  focused ? '🏅' : '🏷️',
-    community: focused ? '👥' : '◯',
-    profile: focused ? '👤' : '◯',
+    dashboard: focused ? '[#]' : '[ ]',
+    learn:     focused ? '[=]' : '[ ]',
+    badges:    focused ? '[B]' : '[ ]',
+    community: focused ? '[C]' : '[ ]',
+    profile:  focused ? '[P]' : '[ ]',
   };
   return (
     <View style={styles.iconWrap}>
       <Text style={[styles.iconText, { opacity: focused ? 1 : 0.5 }]}>
-        {icons[name]}
+        {icons[name] || '[ ]'}
       </Text>
     </View>
   );
@@ -105,6 +115,11 @@ function AuthStack() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
+      {/* Correctif : Onboarding doit être ATTEIGNABLE — c'est le seul écran
+          qui appelle createLearner. Login/Register y naviguent après succès
+          auth OU "Continuer hors ligne". */}
+      <Stack.Screen name="Onboarding" component={OnboardingScreen}
+        options={{ gestureEnabled: false }} />
     </Stack.Navigator>
   );
 }
@@ -137,7 +152,7 @@ export default function AppNavigator() {
 
 const styles = StyleSheet.create({
   iconWrap: { alignItems: 'center', justifyContent: 'center' },
-  iconText: { fontSize: 18 },
+  iconText: { fontSize: 14, fontWeight: '600', letterSpacing: 1 },
   splash: {
     flex: 1, backgroundColor: Colors.primary,
     alignItems: 'center', justifyContent: 'center', gap: Spacing.sm,

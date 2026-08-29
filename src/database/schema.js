@@ -185,7 +185,9 @@ export const MIGRATE_LEARNER_V3 = [
 
 export const QUERIES = {
   // Learner
-  GET_LEARNER:              'SELECT * FROM learner LIMIT 1',
+  // v1.1 : ORDER BY created_at DESC — si plusieurs lignes existaient (ancien
+  // bug d'UPSERT), on retourne toujours la plus récente de façon déterministe.
+  GET_LEARNER:              'SELECT * FROM learner ORDER BY created_at DESC LIMIT 1',
   UPSERT_LEARNER:           `INSERT INTO learner (id, name, phone, language, total_xp, streak_days, last_active_at, created_at, updated_at, sync_status)
                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
                               ON CONFLICT(id) DO UPDATE SET

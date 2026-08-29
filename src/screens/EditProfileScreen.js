@@ -350,7 +350,7 @@ export default function EditProfileScreen({ navigation }) {
               </View>
             )}
             <View style={styles.photoBadge}>
-              <Text style={styles.photoBadgeText}>📷</Text>
+              <Text style={styles.photoBadgeText}>[C]</Text>
             </View>
           </TouchableOpacity>
           <Text style={styles.photoHint}>{t('profile.photo_hint')}</Text>

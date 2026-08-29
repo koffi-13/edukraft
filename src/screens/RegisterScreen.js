@@ -26,6 +26,8 @@ try { AuthSession = require('expo-auth-session'); } catch (_) {}
 const EXPO_PROXY_REDIRECT = 'https://auth.expo.io/@orion-k/edukraft';
 let GOOGLE_REDIRECT_URI = EXPO_PROXY_REDIRECT;
 let FACEBOOK_REDIRECT_URI = EXPO_PROXY_REDIRECT;
+// v1.1 : returnUrl natif = scheme de l'app (voir LoginScreen pour le détail)
+let NATIVE_RETURN_URL = 'edukraft://'; // scheme déclaré dans app.json
 if (AuthSession) {
   try {
     const proxyRedirect = AuthSession.makeRedirectUri({ useProxy: true });
@@ -33,10 +35,14 @@ if (AuthSession) {
       GOOGLE_REDIRECT_URI = proxyRedirect;
       FACEBOOK_REDIRECT_URI = proxyRedirect;
     }
+    const nativeUri = AuthSession.makeRedirectUri({});
+    if (nativeUri && nativeUri.startsWith('edukraft://')) NATIVE_RETURN_URL = nativeUri;
   } catch (_) {}
 }
 
-const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '';
+// v1.1 : fallback public du Client ID Google (évite "non configuré" sans .env)
+const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ||
+  '627774206464-ktg1e33crrdq398e6hiunvlg9pucf1j7.apps.googleusercontent.com';
 const FACEBOOK_APP_ID  = process.env.EXPO_PUBLIC_FACEBOOK_APP_ID || '';
 
 export default function RegisterScreen({ navigation }) {
@@ -73,6 +79,8 @@ export default function RegisterScreen({ navigation }) {
         password,
         language: lang,
       });
+      // v1.1 : succès → Onboarding pré-rempli (le learner est créé là-bas)
+      navigation?.navigate('Onboarding');
     } catch (e) {
       Alert.alert(t('auth.error_generic'), e.message);
     } finally {
@@ -102,12 +110,13 @@ export default function RegisterScreen({ navigation }) {
         '&scope=openid%20email%20profile',
         '&nonce=' + Math.random().toString(36).slice(2),
       ].join('');
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, NATIVE_RETURN_URL);
       if (result.type !== 'success' || !result.params.id_token) {
         setOauthLoading(null);
         return;
       }
       await loginGoogle(result.params.id_token);
+      navigation?.navigate('Onboarding');
     } catch (e) {
       Alert.alert(t('auth.oauth_error'), e.message);
     } finally {
@@ -131,12 +140,13 @@ export default function RegisterScreen({ navigation }) {
         '&response_type=token',
         '&scope=email,public_profile',
       ].join('');
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, FACEBOOK_REDIRECT_URI);
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, NATIVE_RETURN_URL);
       if (result.type !== 'success' || !result.params.access_token) {
         setOauthLoading(null);
         return;
       }
       await loginFacebook(result.params.access_token);
+      navigation?.navigate('Onboarding');
     } catch (e) {
       Alert.alert(t('auth.oauth_error'), e.message);
     } finally {
@@ -164,6 +174,7 @@ export default function RegisterScreen({ navigation }) {
         identityToken: credential.identityToken,
         authorizationCode: credential.authorizationCode,
       });
+      navigation?.navigate('Onboarding');
     } catch (e) {
       if (e.code !== 'ERR_CANCELED') {
         Alert.alert(t('auth.oauth_error'), e.message);
@@ -298,7 +309,8 @@ export default function RegisterScreen({ navigation }) {
             loading={oauthLoading === 'facebook'} onPress={handleFacebook}
             accessibilityLabel={t('auth.facebook')}
           />
-          {AppleAuthentication && (
+          {/* v1.1 : Apple Sign-In STRICTEMENT iOS — masqué sur Android/Web */}
+          {AppleAuthentication && Platform.OS === 'ios' && (
             <OAuthButton
               label="" bgColor="#000" textColor="#fff" icon="apple"
               loading={oauthLoading === 'apple'} onPress={handleApple}
