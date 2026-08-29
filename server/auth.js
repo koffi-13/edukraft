@@ -428,6 +428,57 @@ function mountAuthRoutes(app, db) {
   cleanupExpiredTokens(db);
   setInterval(() => cleanupExpiredTokens(db), 60 * 60 * 1000);
 
+  // ── GET /api/auth/google/callback · GET /api/auth/facebook/callback ──────
+  // Page relais OAuth (v1.1.2) : Google/Facebook n'acceptent que des
+  // redirect_uri HTTPS ; le proxy Expo (auth.expo.io) exige un projet
+  // enregistré chez Expo, incompatible avec un build Gradle direct.
+  // Cette page, servie par le backend, lit le fragment (#id_token=...&state=...)
+  // posé par le provider et redirige vers l'URL de retour de l'app portée par
+  // `state` (edukraft:// en APK, exp://... en Expo Go), avec liste blanche de
+  // préfixes. Aucun secret n'est manipulé ici : le id_token est vérifié
+  // côté serveur ensuite via POST /api/auth/google.
+  const sendOAuthRelayPage = (req, res) => {
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.set('Cache-Control', 'no-store');
+    res.set('Referrer-Policy', 'no-referrer');
+    res.send('<!doctype html>\n' +
+      '<html lang="fr"><head><meta charset="utf-8"/>' +
+      '<meta name="viewport" content="width=device-width,initial-scale=1"/>' +
+      '<title>EduKraft - Connexion</title>' +
+      '<style>' +
+      "body{font-family:-apple-system,Roboto,'Segoe UI',sans-serif;background:#F4F2FA;color:#241C4B;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}" +
+      '.card{max-width:420px;padding:28px;text-align:center}' +
+      'h1{font-size:18px;margin:0 0 8px}p{font-size:14px;line-height:1.5;color:#555;margin:0}' +
+      'a.btn{display:inline-block;margin-top:16px;padding:12px 22px;background:#5B4ABB;color:#fff;text-decoration:none;border-radius:10px;font-weight:600}' +
+      '.spin{display:inline-block;width:26px;height:26px;border:3px solid #DDD6F3;border-top-color:#5B4ABB;border-radius:50%;animation:r 1s linear infinite;margin-bottom:14px}' +
+      '@keyframes r{to{transform:rotate(360deg)}}' +
+      '</style></head><body><div class="card">' +
+      '<div class="spin"></div>' +
+      '<h1>Finalisation de la connexion...</h1>' +
+      '<p id="msg">Retour vers EduKraft en cours...</p>' +
+      '<a id="btn" class="btn" href="#" style="display:none">Revenir a l\'application</a>' +
+      '</div>' +
+      '<scr' + 'ipt>(function(){' +
+      "var ALLOWED=['edukraft://','exp://','https://exp.direct','http://localhost','http://127.0.0.1'];" +
+      "function ps(str){var o={};(str||'').split('&').forEach(function(kv){if(!kv)return;var i=kv.indexOf('=');if(i<0){o[decodeURIComponent(kv)]=''}else{o[decodeURIComponent(kv.slice(0,i))]=decodeURIComponent(kv.slice(i+1))}});return o}" +
+      'var p={};' +
+      'if(location.search.length>1){var q=ps(location.search.slice(1));for(var k in q){p[k]=q[k]}}' +
+      'if(location.hash.length>1){var h=ps(location.hash.slice(1));for(var k2 in h){p[k2]=h[k2]}}' +
+      "var st=p.state||'edukraft://';" +
+      'var ok=false;for(var i=0;i<ALLOWED.length;i++){if(st.indexOf(ALLOWED[i])===0){ok=true;break}}' +
+      "if(!ok){document.getElementById('msg').textContent='Destination non autorisee. Fermez cet ecran et rouvrez EduKraft.';return}" +
+      "var frag=Object.keys(p).filter(function(k){return k!=='state'}).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(p[k])}).join('&');" +
+      "var target=st+(st.indexOf('?')>=0?'&':'?')+frag;" +
+      'location.replace(target);' +
+      'setTimeout(function(){' +
+      "document.getElementById('msg').textContent='Touchez le bouton ci-dessous pour revenir a EduKraft, puis fermez cet ecran.';" +
+      "var b=document.getElementById('btn');b.href=target;b.style.display='inline-block';" +
+      '},1500);' +
+      '})();</scr' + 'ipt></body></html>');
+  };
+  app.get('/api/auth/google/callback', sendOAuthRelayPage);
+  app.get('/api/auth/facebook/callback', sendOAuthRelayPage);
+
   // ── POST /api/auth/register ──────────────────────────────────────────────
   app.post('/api/auth/register', async (req, res) => {
     try {

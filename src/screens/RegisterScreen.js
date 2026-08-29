@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../theme';
 import { t, setLanguage, AVAILABLE_LANGUAGES } from '../i18n';
 import { useAuth } from '../contexts/AuthContext';
+import ENV from '../config/env';
 
 // Imports dynamiques (peuvent ne pas être dispo en web/test)
 let WebBrowser = null;
@@ -23,21 +24,47 @@ try { WebBrowser = require('expo-web-browser'); } catch (_) {}
 try { AppleAuthentication = require('expo-apple-authentication'); } catch (_) {}
 try { AuthSession = require('expo-auth-session'); } catch (_) {}
 
-const EXPO_PROXY_REDIRECT = 'https://auth.expo.io/@orion-k/edukraft';
-let GOOGLE_REDIRECT_URI = EXPO_PROXY_REDIRECT;
-let FACEBOOK_REDIRECT_URI = EXPO_PROXY_REDIRECT;
-// v1.1 : returnUrl natif = scheme de l'app (voir LoginScreen pour le détail)
+// ── OAuth via relais HTTPS maison (v1.1.2) — voir LoginScreen pour le détail ──
+// Le proxy Expo (auth.expo.io) exige un projet enregistré chez Expo (404 sur
+// api.expo.dev pour @orion-k/edukraft) : le backend Render sert une page
+// relais /api/auth/{google,facebook}/callback qui renvoie les tokens vers le
+// scheme de l'app via le paramètre `state` (aller-retour OAuth standard).
+const GOOGLE_REDIRECT_URI = ENV.API_BASE + '/api/auth/google/callback';
+const FACEBOOK_REDIRECT_URI = ENV.API_BASE + '/api/auth/facebook/callback';
+
+// returnUrl natif : scheme de l'app en APK (edukraft://) ou URL Expo Go (exp://...)
 let NATIVE_RETURN_URL = 'edukraft://'; // scheme déclaré dans app.json
 if (AuthSession) {
   try {
-    const proxyRedirect = AuthSession.makeRedirectUri({ useProxy: true });
-    if (proxyRedirect && proxyRedirect.startsWith('https://')) {
-      GOOGLE_REDIRECT_URI = proxyRedirect;
-      FACEBOOK_REDIRECT_URI = proxyRedirect;
-    }
     const nativeUri = AuthSession.makeRedirectUri({});
-    if (nativeUri && nativeUri.startsWith('edukraft://')) NATIVE_RETURN_URL = nativeUri;
+    if (nativeUri && (
+      nativeUri.startsWith('edukraft://') ||
+      nativeUri.startsWith('exp://') ||
+      nativeUri.startsWith('https://exp.direct')
+    )) {
+      NATIVE_RETURN_URL = nativeUri;
+    }
   } catch (_) {}
+}
+
+// Parse les paramètres (query OU fragment) d'une URL de retour OAuth.
+// openAuthSessionAsync renvoie { type, url } — PAS de champ `params` :
+// l'ancien `result.params.id_token` levait un TypeError silencieux.
+function parseAuthResultParams(url) {
+  const out = {};
+  if (!url || typeof url !== 'string') return out;
+  const parts = url.split(/[?#]/).slice(1);
+  parts.forEach(part => {
+    (part || '').split('&').forEach(kv => {
+      if (!kv) return;
+      const eq = kv.indexOf('=');
+      if (eq < 0) { out[decodeURIComponent(kv)] = ''; return; }
+      const k = decodeURIComponent(kv.slice(0, eq));
+      const v = decodeURIComponent(kv.slice(eq + 1));
+      if (!(k in out)) out[k] = v;
+    });
+  });
+  return out;
 }
 
 // v1.1 : fallback public du Client ID Google (évite "non configuré" sans .env)
@@ -108,14 +135,26 @@ export default function RegisterScreen({ navigation }) {
         `&redirect_uri=${encodeURIComponent(redirectUri)}`,
         '&response_type=id_token',
         '&scope=openid%20email%20profile',
+        `&state=${encodeURIComponent(NATIVE_RETURN_URL)}`,
         '&nonce=' + Math.random().toString(36).slice(2),
       ].join('');
       const result = await WebBrowser.openAuthSessionAsync(authUrl, NATIVE_RETURN_URL);
-      if (result.type !== 'success' || !result.params.id_token) {
+      if (result.type !== 'success' || !result.url) {
         setOauthLoading(null);
         return;
       }
-      await loginGoogle(result.params.id_token);
+      const params = parseAuthResultParams(result.url);
+      if (params.error) {
+        if (params.error !== 'access_denied') {
+          throw new Error(params.error);
+        }
+        setOauthLoading(null);
+        return;
+      }
+      if (!params.id_token) {
+        throw new Error('id_token absent de la reponse Google');
+      }
+      await loginGoogle(params.id_token);
       navigation?.navigate('Onboarding');
     } catch (e) {
       Alert.alert(t('auth.oauth_error'), e.message);
@@ -139,13 +178,22 @@ export default function RegisterScreen({ navigation }) {
         `&redirect_uri=${encodeURIComponent(FACEBOOK_REDIRECT_URI)}`,
         '&response_type=token',
         '&scope=email,public_profile',
+        `&state=${encodeURIComponent(NATIVE_RETURN_URL)}`,
       ].join('');
       const result = await WebBrowser.openAuthSessionAsync(authUrl, NATIVE_RETURN_URL);
-      if (result.type !== 'success' || !result.params.access_token) {
+      if (result.type !== 'success' || !result.url) {
         setOauthLoading(null);
         return;
       }
-      await loginFacebook(result.params.access_token);
+      const params = parseAuthResultParams(result.url);
+      if (params.error && params.error !== 'access_denied') {
+        throw new Error(params.error);
+      }
+      if (!params.access_token) {
+        setOauthLoading(null);
+        return;
+      }
+      await loginFacebook(params.access_token);
       navigation?.navigate('Onboarding');
     } catch (e) {
       Alert.alert(t('auth.oauth_error'), e.message);
