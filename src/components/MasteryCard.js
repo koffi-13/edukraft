@@ -37,10 +37,9 @@ export default function MasteryCard({ mastery = [] }) {
           <Text style={styles.title}>{t('gamification.mastery_title')}</Text>
           <Text style={styles.subtitle}>{t('gamification.mastery_subtitle')}</Text>
         </View>
-        {/* v1.1 : chevrons ASCII (les triangles Unicode peuvent s'afficher en
-            caractères parasites sur certains Android) */}
+        {/* v1.1.3 : icône d'origine restaurée */}
         <Text style={[styles.chevron, !expanded && styles.chevronCollapsed]}>
-          {expanded ? '^' : 'v'}
+          {expanded ? '▲' : '▼'}
         </Text>
       </TouchableOpacity>
 

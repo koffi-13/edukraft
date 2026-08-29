@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../theme';
 import { t } from '../i18n';
 import { useAuth } from '../contexts/AuthContext';
+import { useDb } from '../database/DbProvider';
 import ENV from '../config/env';
 
 // Imports dynamiques (peuvent ne pas être dispo en web/test)
@@ -87,11 +88,25 @@ const PHONE_OTP_ENABLED = process.env.EXPO_PUBLIC_PHONE_OTP_ENABLED !== 'false';
 export default function LoginScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { login, loginGoogle, loginApple, loginFacebook, loginPhone, skip, error, clearError } = useAuth();
+  const { learner, linkLearnerToAccount } = useDb();
 
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading]   = useState(false);
   const [oauthLoading, setOauthLoading] = useState(null);
+
+  // ── Après une authentification réussie ─────────────────────────────
+  // v1.1.3 : si un learner local existe (invité ou utilisateur déconnecté),
+  // on LIE le compte au learner existant — ses données sont restaurées
+  // directement (le gating bascule vers le Dashboard automatiquement,
+  // sessionEnded étant retiré par handleAuthSuccess). Sinon → Onboarding.
+  const afterAuthSuccess = async (authData) => {
+    if (learner) {
+      try { await linkLearnerToAccount(authData?.user || authData); } catch (_) {}
+      return; // gating → Dashboard direct (données locales restaurées)
+    }
+    navigation?.navigate('Onboarding');
+  };
 
   // ── Détecter le hash fragment #id_token=... au chargement (retour Google OAuth web) ──
   useEffect(() => {
@@ -104,8 +119,8 @@ export default function LoginScreen({ navigation }) {
         window.history.replaceState(null, '', window.location.pathname);
         // Connecter avec le token puis aller à l'Onboarding (pré-rempli)
         setOauthLoading('google');
-        loginGoogle(idToken).then(() => {
-          navigation?.navigate('Onboarding');
+        loginGoogle(idToken).then((data) => {
+          afterAuthSuccess(data);
         }).catch(e => {
           Alert.alert(t('auth.oauth_error'), e.message);
         }).finally(() => setOauthLoading(null));
@@ -130,9 +145,10 @@ export default function LoginScreen({ navigation }) {
     }
     setLoading(true);
     try {
-      await login({ email: email.trim(), password });
-      // Succès → Onboarding pré-rempli (le learner local sera créé là-bas)
-      navigation?.navigate('Onboarding');
+      const data = await login({ email: email.trim(), password });
+      // v1.1.3 : learner existant → données restaurées directement ;
+      // sinon → Onboarding pré-rempli
+      await afterAuthSuccess(data);
     } catch (e) {
       const msg = e.message || '';
       // Message plus clair pour les erreurs réseau
@@ -220,7 +236,7 @@ export default function LoginScreen({ navigation }) {
         throw new Error('id_token absent de la reponse Google');
       }
       await loginGoogle(params.id_token);
-      navigation?.navigate('Onboarding');
+      await afterAuthSuccess(null);
     } catch (e) {
       Alert.alert(t('auth.oauth_error'), e.message);
     } finally {
@@ -260,7 +276,7 @@ export default function LoginScreen({ navigation }) {
         return;
       }
       await loginFacebook(params.access_token);
-      navigation?.navigate('Onboarding');
+      await afterAuthSuccess(null);
     } catch (e) {
       Alert.alert(t('auth.oauth_error'), e.message);
     } finally {
@@ -290,7 +306,7 @@ export default function LoginScreen({ navigation }) {
         identityToken: credential.identityToken,
         authorizationCode: credential.authorizationCode,
       });
-      navigation?.navigate('Onboarding');
+      await afterAuthSuccess(null);
     } catch (e) {
       if (e.code !== 'ERR_CANCELED') {
         Alert.alert(t('auth.oauth_error'), e.message);
@@ -330,9 +346,10 @@ export default function LoginScreen({ navigation }) {
     setOtpLoading(true);
     try {
       const cleaned = phone.replace(/[\s+()-]/g, '');
-      await loginPhone({ phone: cleaned, action: 'verify', code: otpCode });
-      // v1.1 : OTP vérifié → Onboarding pré-rempli avec le téléphone
-      navigation?.navigate('Onboarding');
+      const data = await loginPhone({ phone: cleaned, action: 'verify', code: otpCode });
+      // v1.1.3 : OTP vérifié → learner existant = données restaurées ;
+      // sinon Onboarding pré-rempli avec le téléphone
+      await afterAuthSuccess(data);
     } catch (e) {
       Alert.alert(t('auth.otp_verify_error'), e.message);
     } finally {
@@ -341,10 +358,16 @@ export default function LoginScreen({ navigation }) {
   };
 
   // ── Skip (mode hors-ligne) ─────────────────────────────────────────────
+  // v1.1.3 : « Continuer sans compte » REPREND la session locale si elle
+  // existe (learner + progressions déjà sur l'appareil) — skip() retire le
+  // flag sessionEnded → le gating bascule directement vers le Dashboard.
   const handleSkip = async () => {
     try { await skip(); } catch (e) { console.warn('[Login] skip error:', e.message); }
-    // v1.1 : mode hors-ligne → Onboarding (création du learner local sans compte)
-    navigation?.navigate('Onboarding');
+    // Premier lancement (aucun learner) → Onboarding pour créer le profil
+    if (!learner) {
+      navigation?.navigate('Onboarding');
+    }
+    // Sinon : rien à faire — le gating affiche le Dashboard automatiquement
   };
 
   return (

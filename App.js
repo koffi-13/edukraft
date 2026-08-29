@@ -1,6 +1,42 @@
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, Alert, Platform } from 'react-native';
+
+// Polyfill Alert pour le WEB (v1.1.3) :
+// react-native-web implémente Alert.alert comme un NO-OP ({}), donc aucune
+// alerte (déconnexion, confirmation, erreur) ne s'affichait sur web — le
+// bouton « Se déconnecter » ne faisait littéralement rien. On remplace donc
+// Alert.alert par window.confirm / window.alert, en mappant :
+//   • 0-1 bouton  → window.alert (informatif) puis callback du bouton
+//   • 2+ boutons  → window.confirm : OK = dernier bouton non-cancel,
+//                   Annuler = bouton de style 'cancel'
+// Sur natif (Android/iOS), l'Alert système est utilisée (inchangée).
+if (Platform.OS === 'web' && typeof window !== 'undefined') {
+  Alert.alert = (title, message, buttons = []) => {
+    const btns = Array.isArray(buttons) ? buttons.filter(Boolean) : [];
+
+    if (btns.length <= 1) {
+      window.alert(`${title || ''}${message ? (title ? '\n\n' : '') + message : ''}`);
+      const cb = btns[0]?.onPress;
+      if (typeof cb === 'function') cb();
+      return;
+    }
+
+    // 2+ boutons → confirm (OK / Annuler)
+    const cancelBtn = btns.find(b => b.style === 'cancel');
+    // Le bouton « positif » : le dernier qui n'est pas cancel (convention RN :
+    // le bouton principal est généralement en dernier sur Android)
+    const positiveBtns = btns.filter(b => b.style !== 'cancel');
+    const positive = positiveBtns[positiveBtns.length - 1] || btns[btns.length - 1];
+
+    const ok = window.confirm(`${title || ''}${message ? (title ? '\n\n' : '') + message : ''}`);
+    if (ok) {
+      if (typeof positive?.onPress === 'function') positive.onPress();
+    } else if (typeof cancelBtn?.onPress === 'function') {
+      cancelBtn.onPress();
+    }
+  };
+}
 
 // Polyfill pour TextEncoder dans Hermes
 if (typeof TextEncoder === 'undefined') {

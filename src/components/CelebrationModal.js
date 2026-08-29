@@ -81,8 +81,8 @@ export default function CelebrationModal({
             )}
             {streak && (
               <View style={styles.statItem}>
-                {/* v1.1 : ASCII uniquement */}
-                <Text style={[styles.statValue, { color: Colors.coral }]}>{streak.current} j</Text>
+                {/* v1.1.3 : icône d'origine restaurée */}
+                <Text style={[styles.statValue, { color: Colors.coral }]}>{streak.current} 🔥</Text>
                 <Text style={styles.statLabel}>{t('gamification.day_plural')}</Text>
               </View>
             )}
@@ -113,9 +113,8 @@ export default function CelebrationModal({
                 const cat = ACHIEVEMENT_CATEGORIES[ach.category] || {};
                 return (
                   <View key={ach.key} style={styles.achievementItem}>
-                    {/* v1.1 : icône ASCII (les emojis peuvent manquer sur
-                        certains appareils) */}
-                    <Text style={styles.achievementIcon}>{cat.icon || '[*]'}</Text>
+                    {/* v1.1.3 : icône d'origine restaurée */}
+                    <Text style={styles.achievementIcon}>{cat.icon || '🏆'}</Text>
                     <View style={styles.achievementText}>
                       <Text style={styles.achievementTitle}>{ach.title}</Text>
                       <Text style={styles.achievementDesc}>{ach.description}</Text>

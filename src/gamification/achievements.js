@@ -16,12 +16,12 @@
 //   - Pas de succès secrets non documentés (frustration)
 
 export const ACHIEVEMENT_CATEGORIES = {
-  // v1.1 : icones ASCII uniquement (emojis remplaces pour compatibilite Android)
-  first_step:  { label: 'Premiers pas', color: '#5B4ABB', icon: '[1]' },
-  consistency: { label: 'Constance',    color: '#D85A30', icon: '[*]' },
-  mastery:     { label: 'Maitrise',     color: '#1D9E75', icon: '[M]' },
-  curiosity:   { label: 'Curiosite',    color: '#BA7517', icon: '[?]' },
-  resilience:  { label: 'Resilience',   color: '#F0B429', icon: '[R]' },
+  // v1.1.3 : icône d'origine restaurée
+  first_step:  { label: 'Premiers pas', color: '#5B4ABB', icon: '🌱' },
+  consistency: { label: 'Constance',    color: '#D85A30', icon: '🔥' },
+  mastery:     { label: 'Maîtrise',     color: '#1D9E75', icon: '🎯' },
+  curiosity:   { label: 'Curiosité',    color: '#BA7517', icon: '🔍' },
+  resilience:  { label: 'Résilience',   color: '#F0B429', icon: '💪' },
 };
 
 export const ACHIEVEMENTS = [

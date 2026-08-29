@@ -26,9 +26,9 @@ import {
 
 // ── Produits disponibles ────────────────────────────────────────────────────
 const PRODUCTS = [
-  { key: 'module_premium', icon: '[B]', color: Colors.primary },
-  { key: 'certification',  icon: '[#]', color: Colors.teal },
-  { key: 'bundle_all',     icon: '[P]', color: Colors.xpGold },
+  { key: 'module_premium', icon: '📘', color: Colors.primary },
+  { key: 'certification',  icon: '🔗', color: Colors.teal },
+  { key: 'bundle_all',     icon: '📦', color: Colors.xpGold },
 ];
 
 // ── Composant principal ─────────────────────────────────────────────────────
@@ -226,7 +226,7 @@ export default function PaymentScreen({ route, navigation }) {
             </View>
             {selectedProduct === product.key && (
               <View style={[styles.checkMark, { backgroundColor: product.color }]}>
-                <Text style={styles.checkMarkText}>OK</Text>
+                <Text style={styles.checkMarkText}>✓</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -290,7 +290,7 @@ export default function PaymentScreen({ route, navigation }) {
                 <ActivityIndicator color={Colors.surface} />
               ) : (
                 <Text style={styles.payButtonText}>
-                  {t('payment.pay')} - {formatAmount(amount)}
+                  {t('payment.pay')} — {formatAmount(amount)}
                 </Text>
               )}
             </TouchableOpacity>
@@ -328,7 +328,7 @@ export default function PaymentScreen({ route, navigation }) {
             paymentResult !== 'confirmed' && styles.resultCardFailed,
           ]}>
             <Text style={styles.resultEmoji}>
-              {paymentResult === 'confirmed' ? '[OK]' : '[X]'}
+              {paymentResult === 'confirmed' ? '✅' : '❌'}
             </Text>
             <Text style={styles.resultText}>
               {paymentResult === 'confirmed'

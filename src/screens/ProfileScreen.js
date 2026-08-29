@@ -14,7 +14,6 @@ export default function ProfileScreen({ navigation }) {
   const { user, skipAuth, logout } = useAuth();
   const [badges, setBadges] = useState([]);
   const [syncInfo, setSyncInfo] = useState({ pending: 0, lastSync: null });
-
   const loadBadges = useCallback(async () => {
     try {
       const userBadges = await getAllBadges();
@@ -62,7 +61,31 @@ export default function ProfileScreen({ navigation }) {
     );
   };
 
+  // v1.1.3 — Déconnexion CONDITIONNELLE (cahier des charges) :
+  //   • Utilisateur SANS compte (mode « sans compte » / invité) : ses données
+  //     (XP, badges, progressions) ne vivent que sur ce téléphone. Avant de
+  //     l'autoriser à se déconnecter, il doit créer un compte pour stocker
+  //     ses données et pouvoir les retrouver à sa prochaine connexion.
+  //     → On l'oriente vers l'inscription (modal). S'il refuse, ses données
+  //     locales restent dans l'app — rien n'est supprimé.
+  //   • Utilisateur AVEC compte : déconnexion normale (confirmée) — le flag
+  //     sessionEnded s'affiche et l'écran Login réapparaît ; ses données
+  //     locales ET serveur sont conservées.
   const handleLogout = () => {
+    if (!user) {
+      Alert.alert(
+        'Crée ton compte pour te déconnecter',
+        'Tes données (progression, badges, XP) sont enregistrées uniquement sur ce téléphone.\n\nCrée un compte : elles seront sauvegardées en ligne et restaurées automatiquement à ta prochaine connexion, même sur un autre appareil.',
+        [
+          { text: 'Plus tard', style: 'cancel' },
+          {
+            text: 'Créer un compte',
+            onPress: () => navigation.navigate('RegisterAccount', { fromLogout: true }),
+          },
+        ],
+      );
+      return;
+    }
     Alert.alert(
       t('auth.logout_button'),
       t('auth.logout_confirm'),
@@ -85,7 +108,7 @@ export default function ProfileScreen({ navigation }) {
       email: 'Email', google: 'Google', apple: 'Apple',
       facebook: 'Facebook', phone: 'SMS',
     };
-    return labels[provider] || provider || '-';
+    return labels[provider] || provider || '—';
   };
 
   const providerColor = (provider) => {
@@ -128,7 +151,7 @@ export default function ProfileScreen({ navigation }) {
         <Text style={styles.name}>{learner.name}</Text>
         <Text style={styles.phone}>{learner.phone}</Text>
         <Text style={styles.language}>
-          {learner.language === 'fr' ? 'Français' : 'Ewe'}
+          {learner.language === 'fr' ? 'Français' : 'Eʋe'}
         </Text>
       </View>
 
@@ -179,13 +202,13 @@ export default function ProfileScreen({ navigation }) {
           onPress={() => navigation.navigate('Payment')}
         >
           <View style={styles.premiumLeft}>
-            <Text style={styles.premiumIcon}>[*]</Text>
+            <Text style={styles.premiumIcon}>💎</Text>
             <View>
               <Text style={styles.premiumTitle}>{t('profile.go_premium')}</Text>
               <Text style={styles.premiumDesc}>{t('profile.premium_desc')}</Text>
             </View>
           </View>
-          <Text style={styles.premiumArrow}>&gt;</Text>
+          <Text style={styles.premiumArrow}>›</Text>
         </TouchableOpacity>
       </View>
 
@@ -194,7 +217,7 @@ export default function ProfileScreen({ navigation }) {
         <Text style={styles.sectionTitle}>{t('profile.badges_section')}</Text>
         {badges.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyEmoji}>[*]</Text>
+            <Text style={styles.emptyEmoji}>🏆</Text>
             <Text style={styles.emptyText}>{t('badge.empty_text')}</Text>
           </View>
         ) : (
@@ -213,7 +236,7 @@ export default function ProfileScreen({ navigation }) {
                   'Blockchain : ' + (badge.blockchain_tx || 'En attente de sync'),
                 )}
               >
-                <Text style={styles.badgeIcon}>[B]</Text>
+                <Text style={styles.badgeIcon}>🏅</Text>
                 <Text style={styles.badgeTitle} numberOfLines={2}>
                   {badge.module_title}
                 </Text>
@@ -235,13 +258,13 @@ export default function ProfileScreen({ navigation }) {
           activeOpacity={0.85}
         >
           <View style={styles.premiumLeft}>
-            <Text style={styles.premiumIcon}>[*]</Text>
+            <Text style={styles.premiumIcon}>🏆</Text>
             <View>
               <Text style={styles.premiumTitle}>{t('gamification.profile_link_title')}</Text>
               <Text style={styles.premiumDesc}>{t('gamification.profile_link_desc')}</Text>
             </View>
           </View>
-          <Text style={styles.premiumArrow}>&gt;</Text>
+          <Text style={styles.premiumArrow}>›</Text>
         </TouchableOpacity>
       </View>
 
@@ -253,13 +276,13 @@ export default function ProfileScreen({ navigation }) {
           activeOpacity={0.85}
         >
           <View style={styles.premiumLeft}>
-            <Text style={styles.premiumIcon}>[P]</Text>
+            <Text style={styles.premiumIcon}>👤</Text>
             <View>
               <Text style={styles.premiumTitle}>{t('profile.edit_title')}</Text>
               <Text style={styles.premiumDesc}>{t('profile.edit_desc')}</Text>
             </View>
           </View>
-          <Text style={styles.premiumArrow}>&gt;</Text>
+          <Text style={styles.premiumArrow}>›</Text>
         </TouchableOpacity>
       </View>
 
@@ -288,16 +311,17 @@ export default function ProfileScreen({ navigation }) {
         ) : skipAuth ? (
           <View style={[styles.accountCard, Shadow.card]}>
             <Text style={styles.skipAuthText}>
-              {t('auth.skip')} - {t('auth.skip_description')}
+              {t('auth.skip')} — {t('auth.skip_description')}
             </Text>
           </View>
         ) : null}
 
-        {(user || skipAuth) && (
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.logoutButtonText}>{t('auth.logout_button')}</Text>
-          </TouchableOpacity>
-        )}
+        {/* v1.1.3 : le bouton de déconnexion est TOUJOURS visible (invité
+            compris) — pour l'invité, il déclenche le parcours « créer un
+            compte pour sécuriser tes données » (handleLogout). */}
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutButtonText}>{t('auth.logout_button')}</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Reset */}

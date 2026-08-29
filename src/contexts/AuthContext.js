@@ -17,6 +17,15 @@
 //   - logout() appelle authService.logout() (révocation serveur + clearAll,
 //     désormais exporté) SANS toucher au learner local (ek_learner).
 //   - skip() persiste le flag ek_skip_auth (mode hors-ligne détectable).
+//
+// v1.1.3 (persistance hors-ligne — cahier des charges) :
+//   - Nouvel état sessionEnded : « l'utilisateur s'est déconnecté
+//     volontairement ». Il est restauré au démarrage et utilisé par le gating
+//     de AppNavigator : learner && !sessionEnded → Dashboard direct ;
+//     learner && sessionEnded → écran Login (données locales conservées).
+//   - Toute authentification réussie (login / register / Google / OTP…)
+//     ré-ouvre la session (sessionEnded = false).
+//   - « Continuer sans compte » reprend la session locale existante.
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import * as authService from '../services/authService';
@@ -26,15 +35,18 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser]           = useState(null);
   const [skipAuth, setSkipAuth]   = useState(false);
+  const [sessionEnded, setSessionEnded] = useState(false);
   const [restored, setRestored]   = useState(false);
   const [error, setError]         = useState(null);
 
   const clearError = useCallback(() => setError(null), []);
 
   // ── Restauration de la session au démarrage (non bloquante) ────────────
-  // Navigation ne dépend PAS de cet état (elle dépend du learner local),
-  // mais ProfileScreen a besoin de savoir si l'utilisateur a un compte
-  // serveur (user) ou est en mode hors-ligne (skipAuth).
+  // v1.1.3 : la navigation dépend du couple (learner local, sessionEnded) :
+  //   - learner && !sessionEnded → Dashboard direct (auto-chargement du
+  //     profil invité et de ses progressions — cahier des charges)
+  //   - learner && sessionEnded  → écran Login (déconnexion volontaire : les
+  //     données restent sur l'appareil, restaurées à la reconnexion)
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -43,6 +55,7 @@ export function AuthProvider({ children }) {
         if (!mounted) return;
         if (stored && stored.user) setUser(stored.user);
         if (stored && stored.skipAuth) setSkipAuth(true);
+        if (stored && stored.sessionEnded) setSessionEnded(true);
       } catch (_) {
         // Storage indisponible → mode invité, non bloquant
       } finally {
@@ -55,6 +68,7 @@ export function AuthProvider({ children }) {
   const handleAuthSuccess = useCallback((data) => {
     setUser(data.user);
     setSkipAuth(false);
+    setSessionEnded(false); // reconnexion → session ré-ouverte
     setError(null);
   }, []);
 
@@ -134,29 +148,36 @@ export function AuthProvider({ children }) {
 
   // Skip = mode hors-ligne (pas de compte serveur). On persiste le flag
   // pour que ProfileScreen l'affiche correctement après un restart.
+  // v1.1.3 : skip REPREND la session locale — si un learner existe déjà
+  // (ex : utilisateur déconnecté qui revient sans se connecter), ses
+  // données sont rechargées automatiquement (sessionEnded retiré).
   const skip = useCallback(async () => {
     setUser(null);
     setError(null);
     try {
       await authService.skip();
-      setSkipAuth(true);
-    } catch (_) {
-      setSkipAuth(true);
-    }
+    } catch (_) {}
+    setSkipAuth(true);
+    setSessionEnded(false);
   }, []);
 
-  // Logout = supprime les tokens serveur MAIS GARDE le learner local.
-  // authService.logout() ne touche PAS à la clé 'ek_learner' ni aux données
-  // de progression ('ek_progress', 'ek_badges').
+  // Logout = supprime les tokens serveur MAIS GARDE le learner local et
+  // toutes ses progressions. v1.1.3 : marque la session terminée → l'écran
+  // Login s'affiche (fin de session réelle), les données locales attendent
+  // la reconnexion pour être restaurées.
   const logout = useCallback(async () => {
     try {
-      await authService.logout(); // révocation serveur + clearAll (tokens/user/skip)
+      await authService.logout(); // révocation serveur + clearAll + markSessionEnded
     } catch (_) {
       // Réseau indisponible : on force au moins le nettoyage local
-      try { await authService.clearAll(); } catch (_) {}
+      try {
+        await authService.clearAll();
+        await authService.markSessionEnded();
+      } catch (_) {}
     }
     setUser(null);
     setSkipAuth(false);
+    setSessionEnded(true);
     setError(null);
   }, []);
 
@@ -173,6 +194,7 @@ export function AuthProvider({ children }) {
   const value = {
     user,
     skipAuth,
+    sessionEnded,
     restored,
     error,
     isAuthenticated: !!user,
