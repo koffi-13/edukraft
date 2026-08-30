@@ -298,11 +298,26 @@ Le correctif CORS v1.1.3 (`server/index.js`) est EN LIGNE sur Render
 et POST /api/auth/login cross-origin. Le site Vercel peut donc appeler
 l'API sans aucune configuration supplémentaire (`CORS_ORIGINS` par défaut `*`).
 
-### Google OAuth sur le web
+### Google OAuth : les redirect_uri EXACTS à déclarer (erreur 400 redirect_uri_mismatch)
 
-Ajouter dans Google Cloud Console > Credentials > Authorized redirect URIs :
-`https://<domaine-vercel>` (l'origine exacte). Le flux web redirige vers
-l'origine avec le `id_token` en fragment hash.
+L'erreur « Accès bloqué : Erreur 400 : redirect_uri_mismatch » signifie que le
+redirect_uri envoyé par l'app n'est PAS déclaré dans Google Cloud Console.
+Les URI envoyés par EduKraft (à ajouter dans Google Cloud Console >
+Credentials > ton Client ID OAuth > **Authorized redirect URIs**) :
+
+| Plateforme | redirect_uri envoyé par l'app |
+|---|---|
+| APK Android (natif) | `https://edukraft-api.onrender.com/api/auth/google/callback` (relais maison v1.1.2) |
+| Site web (Vercel) | `https://edukraft.vercel.app` (l'origine exacte du site) |
+| Expo Go (dev) | `https://auth.expo.io/@orion-k/edukraft` (déjà déclaré — proxy Expo) |
+
+Étapes : console.cloud.google.com → APIs & Services → Credentials → ton
+Client ID (type « Web application ») → Authorized redirect URIs → ajouter les
+2 premières URI ci-dessus → Save. Effet immédiat, aucune rebuild nécessaire.
+
+Sur le web, après consentement, Google redirige vers l'origine du site avec
+l'`id_token` en fragment hash (`https://edukraft.vercel.app#id_token=...`),
+que LoginScreen capte au chargement pour terminer la connexion.
 
 ---
 
