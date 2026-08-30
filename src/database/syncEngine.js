@@ -1,28 +1,46 @@
 // src/database/syncEngine.js
-// Moteur de synchronisation différentielle EduKraft v2
+// Moteur de synchronisation EduKraft v3 (v1.1.7 — offline-first complet)
 //
-// Utilise le endpoint batch POST /sync pour envoyer toutes les opérations
-// en attente en une seule requête HTTP.
-//
-// Flux :
+// PUSH (montée) — les données locales vers le serveur :
 //   1. Chaque écriture locale (DbProvider) enqueue dans sync_queue
 //   2. Ce moteur vérifie la file toutes les 30s quand online
 //   3. Envoie un batch > le serveur traite et renvoie les résultats
 //   4. Pour les badges : récupère le tx hash blockchain du serveur
 //   5. Supprime les entrées syncées de la file
+//   + v1.1.7 : sync IMMÉDIATE au retour du réseau (poll 5s pendant l'offline)
+//     et au retour au premier plan (AppState 'active') — plus d'attente de
+//     30s après une reconnexion, l'exigence étant « à la prochaine connexion
+//     à Internet, ses données locales doivent être synchronisées en ligne ».
+//
+// PULL (descente) — v1.1.7 :
+//   - Toutes les 5 min (et à chaque premier-plan / reconnexion) : pull de
+//     l'état du compte (fusion MAX anti-rétrograde via restoreFromServer)
+//     → les activités faites sur un AUTRE appareil apparaissent.
+//   - Rafraîchissement du catalogue de cours distant (GET /api/content/modules)
+//     → les nouveaux cours publiés sur le serveur apparaissent dans l'app
+//     sans mise à jour de l'APK (cache AsyncStorage pour l'offline).
 
 import { useEffect, useCallback, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import * as Network from 'expo-network';
 import { useDb } from './DbProvider';
 import ENV from '../config/env';
+import * as authService from '../services/authService';
+import { refreshRemoteModules } from '../content/moduleRegistry';
+
+const PULL_INTERVAL_MS = 5 * 60 * 1000; // pull serveur toutes les 5 min
+const OFFLINE_POLL_MS  = 5 * 1000;      // poll réseau rapide quand offline
 
 // ── Hook principal ────────────────────────────────────────────────────────────
 export function useSyncEngine() {
   const db            = useDb();
   const timerRef      = useRef(null);
   const isSyncingRef  = useRef(false);
+  const lastPullRef   = useRef(0);
+  const wasOnlineRef  = useRef(true);
   const [syncState, setSyncState] = useState('idle'); // idle | syncing | error
   const [lastSync, setLastSync]   = useState(null);
+  const [lastPull, setLastPull]   = useState(null);
   const [pendingCount, setPendingCount] = useState(0);
   const [lastError, setLastError] = useState(null);
 
@@ -163,28 +181,113 @@ export function useSyncEngine() {
     }
   }, [db, syncState]);
 
-  // Lancer la sync périodique
+  // ── v1.1.7 : PULL (descente) ─────────────────────────────────────────────
+  // Pull de l'état du compte (fusion MAX via restoreFromServer : activités
+  // des autres appareils) + rafraîchissement du catalogue de cours distant.
+  // Cadencé à PULL_INTERVAL_MS, forcé au premier plan et à la reconnexion.
+  const pull = useCallback(async (force = false) => {
+    const nowMs = Date.now();
+    if (!force && nowMs - lastPullRef.current < PULL_INTERVAL_MS) return;
+    lastPullRef.current = nowMs;
+
+    // 1. État du compte (progressions multi-appareils)
+    try {
+      const stored = await authService.getStoredAuth();
+      if (stored?.user && stored.accessToken && !stored.sessionEnded && db.restoreFromServer) {
+        await db.restoreFromServer(stored.user);
+        setLastPull(new Date().toISOString());
+      }
+    } catch (e) {
+      // best-effort : le pull suivant retentera
+      console.log('[Sync] Pull compte différé :', e.message);
+    }
+
+    // 2. Catalogue de cours distant (nouveaux cours publiés sur le serveur)
+    try {
+      await refreshRemoteModules();
+    } catch (_) {}
+  }, [db]);
+
+  // Refs toujours à jour (les timers appellent les dernières versions)
+  const syncRef = useRef(sync);
+  const pullRef = useRef(pull);
+  useEffect(() => { syncRef.current = sync; }, [sync]);
+  useEffect(() => { pullRef.current = pull; }, [pull]);
+
+  // ── Boucle principale : sync au démarrage + périodique ─────────────────────
   useEffect(() => {
     if (!db.ready) return;
 
     // Sync immédiate au démarrage (délai court pour laisser l'UI se rendre)
     const startTimer = setTimeout(() => {
-      sync();
+      syncRef.current();
+      pullRef.current(); // premier pull (cache catalogue déjà appliqué à l'init)
     }, 3000);
 
     // Sync périodique
-    timerRef.current = setInterval(sync, ENV.SYNC_INTERVAL_MS);
+    timerRef.current = setInterval(() => {
+      syncRef.current();
+      pullRef.current();
+    }, ENV.SYNC_INTERVAL_MS);
 
     return () => {
       clearTimeout(startTimer);
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [db.ready, sync]);
+  }, [db.ready]);
+
+  // ── v1.1.7 : détection de reconnexion (poll rapide pendant l'offline) ─────
+  // Exigence : « à la prochaine connexion à Internet, ses données locales
+  // doivent être synchronisées en ligne ». Quand le réseau revient, on ne
+  // laisse PAS passer 30s : sync + pull immédiats.
+  useEffect(() => {
+    if (!db.ready) return;
+    let stopped = false;
+
+    const check = async () => {
+      let online = true;
+      try {
+        const net = await Network.getNetworkStateAsync();
+        online = !!net.isInternetReachable;
+      } catch (_) {
+        online = true; // module indisponible : supposer online (le fetch décidera)
+      }
+      if (stopped) return;
+      if (wasOnlineRef.current && !online) {
+        console.log('[Sync] Réseau perdu — passage en mode hors ligne');
+      } else if (!wasOnlineRef.current && online) {
+        console.log('[Sync] Réseau de retour — sync immédiate');
+        syncRef.current();
+        pullRef.current(true);
+      }
+      wasOnlineRef.current = online;
+    };
+
+    check();
+    const poll = setInterval(check, OFFLINE_POLL_MS);
+    return () => { stopped = true; clearInterval(poll); };
+  }, [db.ready]);
+
+  // ── v1.1.7 : sync au retour au premier plan (AppState) ────────────────────
+  // L'utilisateur rouvre l'app depuis le sélecteur d'applications → les
+  // données saisies hors ligne partent immédiatement + pull des màj.
+  useEffect(() => {
+    if (!db.ready) return;
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        syncRef.current();
+        pullRef.current(true);
+      }
+    });
+    return () => sub.remove();
+  }, [db.ready]);
 
   return {
     triggerSync: sync,
+    triggerPull: pull,
     syncState,
     lastSync,
+    lastPull,
     pendingCount,
     lastError,
   };

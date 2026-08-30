@@ -1,0 +1,258 @@
+{
+  "$schema": "https://schema.edukraft.tg/module/v1.json",
+  "_comment": "Schéma EduKraft Module v1. Ajouter un nouveau module = créer un nouveau fichier JSON dans content/modules/ et l'importer dans moduleRegistry.js. Aucun code à modifier.",
+
+  "id":           "marketing-digital-local-v1",
+  "version":      "1.0.0",
+  "filiere":      "Marketing & Commerce",
+  "difficulty":   2,
+  "language":     "fr",
+  "available_translations": ["ewe"],
+
+  "meta": {
+    "title":       "Marketing Digital Local",
+    "subtitle":    "Attire des clients avec ton téléphone",
+    "description": "Apprends à promouvoir ton activité sur Facebook, WhatsApp Business et Google Maps pour attirer plus de clients dans ta boutique ou ton atelier.",
+    "duration_min": 6,
+    "xp_reward":    150,
+    "badge_title":  "Certifié Marketing Digital Local",
+    "icon":         "megaphone",
+    "color":        "#5B4ABB",
+    "tags":         ["commerce", "digital", "réseaux sociaux", "PME", "artisanat"],
+    "target_audience": "Commerçants, artisans, micro-entrepreneurs souhaitant développer leur visibilité en ligne.",
+    "prerequisites": []
+  },
+
+  "lessons": [
+    {
+      "index":    0,
+      "title":    "Ton client est sur son téléphone",
+      "subtitle": "Comprendre le comportement digital local",
+      "duration_min": 2,
+      "xp_per_lesson": 30,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Aujourd'hui au Togo, plus de 7 personnes sur 10 cherchent un commerçant ou un artisan via WhatsApp ou Facebook avant de se déplacer. Si tu n'es pas visible en ligne, tu perds ces clients — même si tu es excellent dans ton métier.\n\nLe marketing digital local, c'est utiliser ton téléphone pour faire connaître ton activité aux gens de ton quartier et de ta ville.",
+        "sections": [
+          {
+            "heading": "Pourquoi le digital local ?",
+            "body":    "Contrairement au marketing classique (flyers, bouche-à-oreille), une publication Facebook ou un statut WhatsApp peut toucher des centaines de personnes à Lomé en moins d'une heure, sans frais d'impression. Le coût d'entrée est presque zéro — juste ton temps et ton téléphone."
+          },
+          {
+            "heading": "Les 3 canaux essentiels pour une PME togolaise",
+            "body":    "1. WhatsApp Business : catalogue produits, réponses automatiques, statuts sponsorisés.\n2. Facebook Page : publications, événements locaux, avis clients visibles.\n3. Google Maps : ta boutique sur la carte, visible quand quelqu'un cherche près de chez toi.",
+            "highlight": true
+          },
+          {
+            "heading": "Le principe de base",
+            "body":    "Un client satisfait partage. Une photo bien prise de ton produit, postée régulièrement (2 à 3 fois par semaine), crée une présence durable. La régularité compte plus que la perfection."
+          }
+        ],
+        "key_takeaway": "Sois là où sont tes clients — sur leur téléphone."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q0_0",
+            "text":     "Combien de personnes sur 10 au Togo recherchent un commerçant via téléphone avant de se déplacer ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "3 sur 10" },
+              { "id": "b", "text": "5 sur 10" },
+              { "id": "c", "text": "7 sur 10", "correct": true },
+              { "id": "d", "text": "9 sur 10" }
+            ],
+            "explanation": "Selon les études récentes en Afrique de l'Ouest, plus de 70 % des consommateurs utilisent leur téléphone pour trouver un commerce local."
+          },
+          {
+            "id":       "q0_1",
+            "text":     "Parmi ces canaux, lequel permet d'apparaître sur la carte quand quelqu'un cherche près de ta boutique ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Facebook Page" },
+              { "id": "b", "text": "WhatsApp Business" },
+              { "id": "c", "text": "Google Maps", "correct": true },
+              { "id": "d", "text": "TikTok" }
+            ],
+            "explanation": "Google Maps te géolocalise et affiche ta boutique aux personnes qui cherchent un service comme le tien à proximité."
+          },
+          {
+            "id":       "q0_2",
+            "text":     "Quelle est la règle de base pour créer une présence durable sur les réseaux sociaux ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Poster une seule fois une publication parfaite" },
+              { "id": "b", "text": "Publier régulièrement 2 à 3 fois par semaine", "correct": true },
+              { "id": "c", "text": "Attendre d'avoir 1000 abonnés avant de commencer" },
+              { "id": "d", "text": "Utiliser uniquement des photos professionnelles payantes" }
+            ],
+            "explanation": "La régularité construit la confiance. Mieux vaut 3 publications simples par semaine qu'une publication parfaite par mois."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    1,
+      "title":    "Crée ta Page WhatsApp Business",
+      "subtitle": "Transforme ton numéro en vitrine professionnelle",
+      "duration_min": 2,
+      "xp_per_lesson": 50,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "WhatsApp Business est gratuit et déjà installé sur la plupart des téléphones au Togo. En 30 minutes, tu peux transformer ton simple numéro de téléphone en véritable vitrine commerciale avec un catalogue de produits, une description de ton activité et des réponses automatiques.",
+        "sections": [
+          {
+            "heading": "Étape 1 : Configure ton profil professionnel",
+            "body":    "Dans WhatsApp Business > Paramètres > Profil :\n• Nom de l'entreprise (ex: 'Couture Ama Lomé')\n• Description courte (ex: 'Tailleur femme et enfant, livraison Lomé')\n• Adresse de ta boutique\n• Heures d'ouverture\n• Email professionnel (optionnel)\n\nUn profil complet inspire confiance. Les clients hésitent moins à contacter un commerce bien présenté."
+          },
+          {
+            "heading": "Étape 2 : Crée ton catalogue de produits",
+            "body":    "WhatsApp Business > Outils Business > Catalogue.\nAjoute tes 5 produits ou services les plus demandés avec :\n• Une photo claire prise en bonne lumière naturelle\n• Un nom précis et descriptif\n• Un prix (si tu veux le mentionner)\n• Une courte description",
+            "highlight": true
+          },
+          {
+            "heading": "Étape 3 : Configure une réponse automatique",
+            "body":    "Paramètres > Outils Business > Message d'absence.\nExemple : 'Bonjour ! Merci de me contacter. Je vous réponds dans les 2 heures. Consultez mon catalogue ici : [lien]'\n\nCette automatisation te fait paraître professionnel même quand tu travailles."
+          }
+        ],
+        "key_takeaway": "Un profil WhatsApp Business complet peut doubler le nombre de contacts entrants en 2 semaines."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 15,
+        "questions": [
+          {
+            "id":       "q1_0",
+            "text":     "Quel est le principal avantage du catalogue WhatsApp Business pour un artisan ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Il permet de vendre en dehors du Togo uniquement" },
+              { "id": "b", "text": "Il présente tes produits aux clients avant même qu'ils ne t'appellent", "correct": true },
+              { "id": "c", "text": "Il remplace complètement une boutique physique" },
+              { "id": "d", "text": "Il est réservé aux grandes entreprises" }
+            ],
+            "explanation": "Le catalogue est une vitrine numérique : les clients voient tes produits, leur prix et leur description avant de te contacter, ce qui accélère la décision d'achat."
+          },
+          {
+            "id":       "q1_1",
+            "text":     "Où configures-tu les heures d'ouverture de ta boutique dans WhatsApp Business ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Dans les Paramètres > Profil", "correct": true },
+              { "id": "b", "text": "Dans les Outils Business > Catalogue" },
+              { "id": "c", "text": "En écrivant un statut WhatsApp chaque matin" },
+              { "id": "d", "text": "Il n'est pas possible de le faire" }
+            ],
+            "explanation": "Le profil professionnel regroupe toutes les informations de ton entreprise : nom, description, adresse, horaires et email."
+          },
+          {
+            "id":       "q1_2",
+            "text":     "Quel est l'effet d'un message de réponse automatique bien rédigé ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Il fait fuir les clients car c'est impersonnel" },
+              { "id": "b", "text": "Il n'a aucun effet sur la perception du client" },
+              { "id": "c", "text": "Il donne une image professionnelle et rassure le client même en ton absence", "correct": true },
+              { "id": "d", "text": "Il remplace tout le travail de marketing" }
+            ],
+            "explanation": "Un message automatique bien formulé montre que tu es organisé, que tu prends les clients au sérieux, et donne un délai de réponse clair qui réduit l'anxiété du client."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    2,
+      "title":    "Ta première publication qui convertit",
+      "subtitle": "La méthode AIDA adaptée aux PME togolaises",
+      "duration_min": 2,
+      "xp_per_lesson": 70,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Publier, c'est bien. Publier pour vendre, c'est mieux. La méthode AIDA (Attention, Intérêt, Désir, Action) est utilisée par les meilleurs vendeurs du monde. Adaptée à Facebook et WhatsApp, elle transforme une simple photo en message qui convainc.",
+        "sections": [
+          {
+            "heading": "La méthode AIDA expliquée simplement",
+            "body":    "A — Attention : la première ligne doit forcer le client à s'arrêter de défiler.\nEx: '🔴 PROMO ce weekend seulement à Lomé-Nord'\n\nI — Intérêt : explique le bénéfice principal en une phrase.\nEx: 'Robes sur mesure livrées en 48h dans tout Lomé'\n\nD — Désir : crée l'envie avec un détail émotionnel ou une preuve sociale.\nEx: 'Plus de 200 clientes satisfaites depuis 2020'\n\nA — Action : dis exactement quoi faire.\nEx: 'Envoie 'COMMANDE' sur WhatsApp > 90 XX XX XX'",
+            "highlight": true
+          },
+          {
+            "heading": "La règle de la photo sur mobile",
+            "body":    "Au Togo, 90 % des gens voient tes publications sur mobile. Ta photo doit être :\n• Prise en lumière naturelle (près d'une fenêtre)\n• Cadrée proprement (pas de désordre en arrière-plan)\n• En format portrait (vertical) — s'affiche mieux sur mobile\n• Nette — évite le flou, prends 5 photos et garde la meilleure"
+          },
+          {
+            "heading": "Fréquence et timing",
+            "body":    "Les meilleures heures pour poster au Togo :\n• 7h–8h (avant le travail)\n• 12h–13h (pause déjeuner)\n• 19h–21h (retour à la maison)\n\nPublie au moins 3 fois par semaine. Utilise les 'Histoires' Facebook et WhatsApp Status pour partager des coulisses de ton travail — ça crée de la confiance."
+          }
+        ],
+        "key_takeaway": "Une publication qui suit la méthode AIDA peut générer 5× plus de messages entrants qu'une simple photo de produit."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 20,
+        "questions": [
+          {
+            "id":       "q2_0",
+            "text":     "Dans la méthode AIDA, que signifie la lettre 'A' finale (Action) ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Ajouter une belle image à la publication" },
+              { "id": "b", "text": "Attirer l'attention avec la première phrase" },
+              { "id": "c", "text": "Dire exactement au client quoi faire pour acheter", "correct": true },
+              { "id": "d", "text": "Analyser les statistiques de la publication" }
+            ],
+            "explanation": "L'Action (Call-to-Action) est la directive finale : 'Appelle-moi', 'Envoie COMMANDE sur WhatsApp', 'Viens en boutique'. Sans instruction claire, le client ne sait pas quoi faire et passe à autre chose."
+          },
+          {
+            "id":       "q2_1",
+            "text":     "Pourquoi faut-il prendre des photos en format portrait (vertical) pour les réseaux sociaux ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "C'est une règle de Facebook uniquement" },
+              { "id": "b", "text": "Parce que 90 % des gens utilisent leur téléphone à la verticale", "correct": true },
+              { "id": "c", "text": "Les photos horizontales sont interdites sur WhatsApp" },
+              { "id": "d", "text": "Le format portrait prend moins de données mobiles" }
+            ],
+            "explanation": "L'écran d'un téléphone mobile est utilisé verticalement dans 90 % des cas. Une photo en portrait occupe tout l'écran et attire mieux l'attention qu'une photo horizontale qui s'affiche toute petite."
+          },
+          {
+            "id":       "q2_2",
+            "text":     "Parmi ces créneaux horaires, lequel est le MOINS efficace pour poster une publication au Togo ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "7h–8h du matin" },
+              { "id": "b", "text": "12h–13h (pause déjeuner)" },
+              { "id": "c", "text": "2h–4h du matin", "correct": true },
+              { "id": "d", "text": "19h–21h le soir" }
+            ],
+            "explanation": "À 2h–4h du matin, quasiment personne n'utilise les réseaux sociaux. Ta publication sera enterrée sous de nouvelles publications au moment où tes clients se connecteront le matin."
+          }
+        ]
+      }
+    }
+  ],
+
+  "completion_criteria": {
+    "all_lessons_passed": true,
+    "min_total_score":    0.67,
+    "issues_badge":       true,
+    "xp_completion_bonus": 0
+  },
+
+  "i18n": {
+    "ewe": {
+      "meta.title":       "Digital Marketing fe dɔwɔwɔ",
+      "meta.subtitle":    "Ðe ablɔɖe kpɔvi wò dɔ sinya",
+      "meta.description": "Ðe nunya bena wòaŋlɔ wò dɔ ŋu Facebook kple WhatsApp Business dzi."
+    }
+  }
+}

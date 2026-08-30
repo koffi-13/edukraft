@@ -26,6 +26,15 @@
 //   - Toute authentification réussie (login / register / Google / OTP…)
 //     ré-ouvre la session (sessionEnded = false).
 //   - « Continuer sans compte » reprend la session locale existante.
+//
+// v1.1.7 (session-first) :
+//   - Nouveau dérivé sessionActive = (user || skipAuth) && !sessionEnded.
+//     EXIGENCE : « l'utilisateur doit TOUJOURS voir son dashboard jusqu'à ce
+//     qu'il se déconnecte ». Le gating de AppNavigator ne renvoie vers l'écran
+//     Login QUE si aucune session active n'existe. Combiné au
+//     ensureSessionLearner de DbProvider (recréation du profil de secours
+//     depuis ek_user), l'écran Login devient impossible tant que la session
+//     est ouverte — même si une couche de stockage échoue.
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import * as authService from '../services/authService';
@@ -198,6 +207,10 @@ export function AuthProvider({ children }) {
     restored,
     error,
     isAuthenticated: !!user,
+    // v1.1.7 : session active = authentifié OU invité assumé, sans logout.
+    // NB : le gating de AppNavigator utilise la variante AUTHENTIFIÉE
+    // (!!user) — un invité sans learner local retourne à l'Onboarding.
+    sessionActive: (!!user || skipAuth) && !sessionEnded,
     login, register,
     loginGoogle, loginApple, loginFacebook, loginPhone,
     skip, logout, refreshUser, clearError,

@@ -1,0 +1,474 @@
+{
+  "$schema": "https://schema.edukraft.tg/module/v1.json",
+  "_comment": "Schéma EduKraft Module v1. Approfondissement de la filière Marketing & Commerce (suite de marketing_digital_local-v1). Community management, contenu mobile, boost Facebook, TikTok, mesure et réputation en ligne — ancré Togo (Lomé, FCFA, Android Go, hashtags togolais).",
+
+  "id":           "community-manager-v1",
+  "version":      "1.0.0",
+  "filiere":      "Marketing & Commerce",
+  "difficulty":   2,
+  "language":     "fr",
+  "available_translations": ["ewe"],
+
+  "meta": {
+    "title":         "Community Manager & Growth Marketing",
+    "subtitle":      "Fais grandir ta communauté",
+    "description":   "Deviens community manager : anime une page Facebook pro, crée du contenu avec ton téléphone, boost tes publications et mesure ce qui marche.",
+    "duration_min":  7,
+    "xp_reward":     170,
+    "badge_title":   "Certifié Community Manager",
+    "icon":          "megaphone",
+    "color":         "#D85A30",
+    "tags":          ["marketing", "community manager", "Facebook", "TikTok", "contenu", "PME"],
+    "target_audience": "Community managers débutants, gérants de PME, entrepreneurs souhaitant gérer leur présence en ligne.",
+    "prerequisites": []
+  },
+
+  "lessons": [
+    {
+      "index":    0,
+      "title":    "Animer une page Facebook pro",
+      "subtitle": "Calendrier éditorial, posts, stories",
+      "duration_min": 2,
+      "xp_per_lesson": 25,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Animer une page Facebook, ce n'est pas poster quand on en a envie. C'est suivre un calendrier éditorial — un plan hebdomadaire qui dit quoi poster, quand, et pourquoi. Les pages les plus actives de Lomé ne laissent jamais leur communauté 4 jours sans nouveauté.\n\nUne page Facebook pro se distingue d'un simple compte personnel : photo de couverture soignée, infos complètes (adresse, horaires, WhatsApp), et publications variées — photos produits, témoignages clients, coulisses de l'atelier. C'est cette variété qui fidélise.\n\nDans cette leçon, tu vas construire ton calendrier éditorial d'une semaine, découvrir les types de posts qui performant à Lomé, et apprendre à utiliser les Stories pour rester proche de ta communauté au quotidien.",
+        "sections": [
+          {
+            "heading": "Construis ton calendrier éditorial hebdomadaire",
+            "body": "Un calendrier éditorial est un simple tableau (carnet, Notes téléphone, ou Google Sheets gratuit) où tu décides à l'avance :\n• Lundi 7h30 : photo produit + prix\n• Mercredi 12h : témoignage client (capture WhatsApp)\n• Vendredi 19h : vidéo coulisses (atelier, livraison)\n• Samedi 9h : story du weekend (promo limitée)\n\nL'avantage : tu ne cherches plus quoi poster le matin. Tu suis le plan. Meta Business Suite (gratuit) propose même un créateur de calendrier automatique qui suggère les meilleurs créneaux selon ton audience.",
+            "highlight": true
+          },
+          {
+            "heading": "Les 5 types de posts qui marchent à Lomé",
+            "body": "1. Photo produit nette + prix + numéro WhatsApp en commentaire\n2. Témoignage client (capture d'écran avec son accord)\n3. Avant / après (couture, coiffure, menuiserie, pâtisserie)\n4. Promo limitée dans le temps (urgence = action immédiate)\n5. Question à la communauté (engage, augmente la portée)\n\nÉvite les longs textes : 2 à 3 lignes maximum. Les Togolais défilent vite sur leur téléphone — un pavé de 10 lignes sera ignoré."
+          },
+          {
+            "heading": "Stories : ton arme secrète pour la proximité",
+            "body": "Les Stories disparaissent après 24h — c'est justement leur force. Tu peux y montrer un colis en préparation, une livraison en cours dans Lomé, un client satisfait, sans la pression d'un post permanent.\n\nPoste 1 à 2 stories par jour depuis Facebook Business Suite. Ajoute un sticker sondage ('Quelle couleur préférez-vous ?') pour booster l'engagement — l'algorithme Facebook adore les interactions et les fait ressortir dans le fil d'actualité."
+          }
+        ],
+        "key_takeaway": "Un calendrier éditorial hebdomadaire transforme ton temps en résultats : tu postes moins au hasard, tu touches plus de gens."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q0_0",
+            "text":     "Quelle est la principale raison de tenir un calendrier éditorial pour ta page Facebook ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Pour ne pas poster le même jour que tes concurrents" },
+              { "id": "b", "text": "Pour ne plus chercher quoi poster chaque matin et garder une régularité", "correct": true },
+              { "id": "c", "text": "Pour impressionner les clients avec ton organisation" },
+              { "id": "d", "text": "Parce que Facebook l'exige pour toutes les pages pro" }
+            ],
+            "explanation": "Le calendrier éditorial élimine la charge mentale du 'quoi poster aujourd'hui ?'. Tu sais à l'avance ce que tu publies, ce qui garantit la régularité — facteur n°1 de croissance d'une page."
+          },
+          {
+            "id":       "q0_1",
+            "text":     "Parmi ces 5 types de posts, lequel génère généralement le plus d'engagement à Lomé ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Un long texte descriptif du produit en 10 lignes" },
+              { "id": "b", "text": "Une photo floue du stock en arrière-boutique" },
+              { "id": "c", "text": "Une question à la communauté avec sticker sondage", "correct": true },
+              { "id": "d", "text": "Un lien vers un site externe sans image d'aperçu" }
+            ],
+            "explanation": "Les questions et sondages forcent l'interaction (commentaires, votes). L'algorithme Facebook interprète ces interactions comme 'ce post intéresse' et le montre à plus de gens — c'est l'effet boule de neige de l'engagement."
+          },
+          {
+            "id":       "q0_2",
+            "text":     "Quelle est la principale force des Stories Facebook par rapport aux posts classiques ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Elles restent visibles à vie sur ta page" },
+              { "id": "b", "text": "Elles permettent de montrer des coulisses sans la pression d'un post permanent", "correct": true },
+              { "id": "c", "text": "Elles ne comptent pas dans l'algorithme Facebook" },
+              { "id": "d", "text": "Elles consomment moins de data mobile pour le client" }
+            ],
+            "explanation": "Le caractère éphémère (24h) des Stories libère la créativité : tu montres ton atelier en désordre, une livraison en cours, un ratage — des moments authentiques qui créent la confiance sans alourdir ta page principale."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    1,
+      "title":    "Créer du contenu avec son téléphone",
+      "subtitle": "Photos, montages gratuits (CapCut)",
+      "duration_min": 2,
+      "xp_per_lesson": 30,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Un smartphone Android Go à 60 000 FCFA suffit pour créer du contenu professionnel. Pas besoin d'appareil photo à 500 000 FCFA ni d'ordinateur puissant. Tes clients jugent d'abord la clarté de l'image et la netteté du son — pas le matériel qui a produit la photo.\n\nDans cette leçon, tu vas apprendre à prendre des photos qui vendent, à les retoucher gratuitement avec Canva mobile, et à monter de courtes vidéos avec CapCut — l'app gratuite préférée des créateurs de contenu africains.\n\nL'objectif : qu'à la fin, tu puisses créer une publication complète (photo + texte + vidéo de 15s) en moins de 20 minutes, depuis ton téléphone, sans dépenser un FCFA.",
+        "sections": [
+          {
+            "heading": "Prends des photos qui vendent (règles de base)",
+            "body": "• Lumière naturelle : place ton produit près d'une fenêtre, jamais sous un néon\n• Fond propre : un tissu uni (noir ou blanc) vaut mieux qu'un mur encombré\n• Cadrage vertical : tourne ton téléphone en mode portrait\n• 3 angles minimum : de face, de côté, en gros plan sur un détail\n• Stabilise : pose le téléphone sur un livre si tes mains tremblent\n\nÉvite le zoom numérique — approche-toi plutôt. Le zoom floute l'image et fait immédiatement amateur."
+          },
+          {
+            "heading": "Canva mobile : design gratuit en 5 minutes",
+            "body": "Canva (gratuit sur Play Store) propose des milliers de modèles pour Facebook, TikTok et stories. Tu peux :\n• Ajouter le nom de ta boutique en bas de chaque image\n• Créer une couverture de page pro à partir d'un modèle\n• Faire un visuel 'promo' en 2 minutes avec un modèle prêt à l'emploi\n• Retoucher luminosité et contraste en un geste\n\nAstuce : crée un 'kit de marque' (couleurs + logo + police) une fois, et réutilise-le sur toutes tes publications pour une cohérence professionnelle immédiatement reconnaissable.",
+            "highlight": true
+          },
+          {
+            "heading": "CapCut : monte des vidéos de 15s qui accrochent",
+            "body": "CapCut (gratuit, propriété de ByteDance — même entreprise que TikTok) est l'app de montage n°1 en Afrique de l'Ouest.\n• Importe 3 à 4 clips de 4 secondes chacun\n• Ajoute une musique tendance (bibliothèque intégrée gratuite)\n• Coupe les temps morts — une vidéo pro n'a jamais de silence blanc\n• Ajoute un texte d'accroche en gros pendant les 2 premières secondes\n• Exporte en 720p (bon équilibre qualité/taille pour la data mobile)\n\nUne vidéo CapCut bien montée peut passer de 200 vues à 5000 vues sur Facebook — la différence se joue dans le rythme."
+          }
+        ],
+        "key_takeaway": "Avec un téléphone Android Go, Canva et CapCut — tous gratuits — tu produis un contenu qui rivalise avec celui des grandes marques."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q1_0",
+            "text":     "Quelle est la meilleure lumière pour photographier un produit avec son téléphone ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Sous un néon au plafond de la boutique" },
+              { "id": "b", "text": "Avec le flash la nuit, en extérieur" },
+              { "id": "c", "text": "Lumière naturelle près d'une fenêtre en journée", "correct": true },
+              { "id": "d", "text": "Peu importe, la retouche rattrape tout" }
+            ],
+            "explanation": "La lumière naturelle diffuse (près d'une fenêtre) révèle les couleurs réelles du produit sans ombres dures. Les néons donnent une dominante jaune/bleue que même Canva peine à corriger — et le flash écrase les détails."
+          },
+          {
+            "id":       "q1_1",
+            "text":     "Que permet de faire Canva mobile gratuitement ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Acheter automatiquement des followers Facebook" },
+              { "id": "b", "text": "Créer des visuels à partir de modèles, ajouter ton logo, retoucher luminosité", "correct": true },
+              { "id": "c", "text": "Booster gratuitement tes publications à 5000 personnes" },
+              { "id": "d", "text": "Remplacer complètement un photographe professionnel pour un mariage" }
+            ],
+            "explanation": "Canva est un outil de design : modèles, ajout de texte, retouche légère, kit de marque. Il ne remplace pas un pro pour un shooting haut de gamme, mais pour 95 % des publications Facebook d'une PME togolaise, c'est largement suffisant."
+          },
+          {
+            "id":       "q1_2",
+            "text":     "Quelle est la durée idéale d'une vidéo montée sur CapCut pour Facebook ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "15 à 30 secondes", "correct": true },
+              { "id": "b", "text": "2 à 3 minutes minimum" },
+              { "id": "c", "text": "Au moins 5 minutes pour bien raconter l'histoire" },
+              { "id": "d", "text": "La durée n'a aucune importance, seul le son compte" }
+            ],
+            "explanation": "Sur Facebook, 70 % des utilisateurs décrochent après 30 secondes. Une vidéo courte et rythmée retient l'attention jusqu'au bout — c'est ce que l'algorithme récompense en poussant la vidéo vers plus de gens."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    2,
+      "title":    "Boost Facebook ciblé pour PME",
+      "subtitle": "Audience, budget (dès 2000 FCFA), mesure",
+      "duration_min": 2,
+      "xp_per_lesson": 30,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Booster une publication, c'est payer Facebook pour la montrer à plus de gens. Au Togo, tu peux démarrer avec 2000 FCFA seulement — l'équivalent d'un repas à Lomé — et toucher 800 à 1500 personnes ciblées. C'est le meilleur rapport coût/résultat marketing qui existe aujourd'hui pour une PME.\n\nMais booster n'importe comment, c'est jeter ton argent. Sans ciblage (qui voir ? où ? quel intérêt ?), tes 2000 FCFA partent en fumée. Cette leçon t'apprend à paramétrer un boost qui convertit réellement en clients.\n\nNous allons voir les 3 réglages clés : l'audience (qui), le budget (combien, combien de temps), et la mesure (qu'est-ce qui a marché). À la fin, tu sauras lancer une campagne rentable de 5000 FCFA pour la semaine.",
+        "sections": [
+          {
+            "heading": "Cibler ton audience : la règle des 3 cercles",
+            "body": "Sur Meta Business Suite, quand tu boostes, choisis 'Créer une audience personnalisée' plutôt que 'Public automatique' :\n• Lieu : Lomé (+ 10 km), ou ta ville (Kara, Sokodé, Atakpamé, Kpalimé)\n• Âge : adapte à ton produit (ex : cosmétiques 18-35, formation pro 25-45)\n• Centres d'intérêt : 'mode', 'cuisine', 'football' — choisis-en 2 à 3 maximum\n\nÉvite le ciblage 'tout le monde' : tu paies pour des gens qui n'achèteront jamais. Mieux vaut toucher 500 bonnes personnes à Lomé que 2000 au hasard partout en Afrique de l'Ouest."
+          },
+          {
+            "heading": "Budget : démarre petit, mesure, recommence",
+            "body": "Plan de boost recommandé pour une PME togolaise débutante :\n• Test 1 (semaine 1) : 2000 FCFA sur 3 jours, audience Lomé, 1 publication\n  > Observe portée, clics, messages reçus\n• Test 2 (semaine 2) : 3000 FCFA sur 5 jours, audience élargie (Lomé + Kara)\n  > Si clics > test 1, continue ; sinon change la publication\n• Test 3 (semaine 3) : 5000 FCFA sur 7 jours, sur la publication qui a le mieux marché\n  > Là où tu investis vraiment\n\nNe mets jamais 10 000 FCFA d'un coup sur une publication non testée. Le boost fonctionne par itération : tu testes petit, tu mesures, tu réinvestis sur ce qui marche.",
+            "highlight": true
+          },
+          {
+            "heading": "Mesurer ce qui marche : 3 chiffres à suivre",
+            "body": "Après chaque boost, ouvre Meta Business Suite > Insights > Publications boostées :\n• Portée : combien de personnes ont VU la publication (visé : 800+ pour 2000 FCFA)\n• Clics sur le lien : combien ont cliqué vers WhatsApp ou ton site (visé : 20+ pour 2000 FCFA)\n• Messages reçus : combien t'ont écrit suite au boost (visé : 3+ pour 2000 FCFA)\n\nSi 2000 FCFA t'ont rapporté 5 clients qui dépensent chacun 4000 FCFA, ton retour sur investissement est de 10×. C'est ça, le growth marketing : mettre 1 FCFA et en récupérer 10."
+          }
+        ],
+        "key_takeaway": "Un boost bien ciblé à 2000 FCFA peut rapporter 10× sa valeur en ventes — mais seulement si tu mesures et ajustes."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q2_0",
+            "text":     "Avec un budget boost de 2000 FCFA bien ciblé sur Lomé, combien de personnes peut-on raisonnablement espérer toucher ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "50 à 100 personnes" },
+              { "id": "b", "text": "800 à 1500 personnes", "correct": true },
+              { "id": "c", "text": "5000 à 10000 personnes" },
+              { "id": "d", "text": "Plus de 50000 personnes" }
+            ],
+            "explanation": "Au Togo, le coût pour mille vues (CPM) Facebook se situe autour de 1500-2500 FCFA. Avec 2000 FCFA bien ciblées sur Lomé, tu peux atteindre 800 à 1500 personnes — un excellent rapport coût/portée pour une PME locale."
+          },
+          {
+            "id":       "q2_1",
+            "text":     "Quelle est la meilleure stratégie de boost pour une PME débutante ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Mettre 10 000 FCFA d'un coup sur une publication non testée" },
+              { "id": "b", "text": "Tester 2000 FCFA, mesurer, puis réinvestir sur ce qui marche", "correct": true },
+              { "id": "c", "text": "Booster toutes les publications avec le même budget" },
+              { "id": "d", "text": "Ne jamais booster, attendre que ça marche tout seul" }
+            ],
+            "explanation": "Le boost est un investissement expérimental. Tu testes petit (2000 FCFA), tu mesures ce qui marche, et tu réinvestis sur le contenu gagnant. C'est la méthode du 'lean marketing' : minimiser le risque, maximiser l'apprentissage."
+          },
+          {
+            "id":       "q2_2",
+            "text":     "Parmi ces 4 métriques, laquelle est le meilleur indicateur de conversion en ventes réelles ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "La portée seule (nombre de vues)" },
+              { "id": "b", "text": "Le nombre de 'j'aime' sur la publication" },
+              { "id": "c", "text": "Les messages WhatsApp reçus via la publication", "correct": true },
+              { "id": "d", "text": "Le nombre total d'impressions" }
+            ],
+            "explanation": "Une publication peut avoir 2000 vues et 0 vente. Ce qui compte, c'est la conversion : combien de gens t'ont écrit pour commander ? Les messages reçus sont le vrai signal de business — les 'j'aime' sont de la vanité."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    3,
+      "title":    "TikTok pour business local",
+      "subtitle": "Tendances, format, hashtags Togo",
+      "duration_min": 2,
+      "xp_per_lesson": 30,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "TikTok est devenu le réseau n°1 des 18-35 ans au Togo. Contrairement à Facebook, l'algorithme TikTok montre tes vidéos à des inconnus — même si tu as 0 abonné. Une vidéo locale bien faite peut atteindre 50 000 vues en 48h sans dépenser un FCFA.\n\nPour une PME togolaise, TikTok est une opportunité énorme : montrer un savoir-faire (couture, pâtisserie, mécanique, coiffure), faire découvrir ta boutique, créer une marque locale reconnue. Les Togolais adorent voir comment les choses sont faites — c'est ton avantage compétitif.\n\nCette leçon t'apprend le format qui marche, les hashtags togolais à utiliser, et comment exploiter une tendance (trend) pour booster ta visibilité sans copier bêtement les créateurs étrangers.",
+        "sections": [
+          {
+            "heading": "Le format gagnant : 15 à 30 secondes, rythmé, en mouvement",
+            "body": "Sur TikTok, les vidéos qui marchent :\n• Durent 15 à 30 secondes (au-delà, 60 % des gens décrochent)\n• Commencent par un mouvement ou une phrase choc ('Voici comment je...')\n• Montrent un processus (avant > pendant > après) en accéléré\n• Ont une musique tendance en fond (clique sur le disque en bas d'une vidéo populaire)\n• Ont un texte explicatif en gros au centre pendant les 3 premières secondes\n\nÉvite les vidéos posées comme des pubs TV — TikTok veut du naturel, du vécu, du brut. Une vidéo tournée dans ton atelier à Lomé vaut mieux qu'une vidéo studio calquée sur une pub européenne."
+          },
+          {
+            "heading": "Hashtags Togo : ta clé pour la portée locale",
+            "body": "TikTok utilise les hashtags pour comprendre à qui montrer ta vidéo. Utilise 4 à 6 hashtags par vidéo, en mélangeant large + local :\n• Locaux : #Lomé #Togo #LomeFood #TogoBusiness #CoutureTogo #LomeLife (varie selon ton secteur)\n• Sectoriels : #Couture #Pâtisserie #Mécanique\n• Tendance : un #Trend en cours cette semaine\n\nÀ éviter : les hashtags internationaux uniquement (#fashion #business) — tu seras noyé parmi des millions de vidéos. Les hashtags locaux te ramènent des clients potentiels qui reconnaissent ton univers.",
+            "highlight": true
+          },
+          {
+            "heading": "Surfer sur les trends sans copier bêtement",
+            "body": "Un 'trend', c'est une musique ou un format qui devient viral pendant 1 à 2 semaines. Pour le trouver : page 'Pour Toi' > repère les sons qui reviennent souvent.\n• Adapte le trend à TON métier (ex : un trend danse > montre ton atelier en fond)\n• Poste dans les 5 jours du trend (après, c'est trop tard, l'algorithme est passé à autre chose)\n• Garde ton authenticité — n'imite pas un créateur américain, reste toi avec ton accent et ton univers togolais\n\nUn trend bien exploité peut t'apporter plus d'abonnés en 1 semaine que 3 mois de posts réguliers."
+          }
+        ],
+        "key_takeaway": "TikTok récompense le naturel et la régularité locale : 3 vidéos par semaine avec hashtags Togo valent mieux qu'une vidéo parfaite par mois."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q3_0",
+            "text":     "Pourquoi TikTok est-il particulièrement intéressant pour une PME togolaise débutante ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Parce qu'il faut obligatoirement payer pour être visible" },
+              { "id": "b", "text": "Parce que l'algorithme montre tes vidéos à des inconnus même avec 0 abonné", "correct": true },
+              { "id": "c", "text": "Parce qu'il n'y a aucune concurrence au Togo" },
+              { "id": "d", "text": "Parce que toutes les vidéos y deviennent automatiquement virales" }
+            ],
+            "explanation": "Contrairement à Facebook (où tu touches surtout tes abonnés), TikTok a un algorithme 'Pour Toi' qui teste tes vidéos sur des inconnus selon leurs intérêts. Une PME avec 0 abonné peut toucher 10 000 personnes dès sa première vidéo si le contenu est bon."
+          },
+          {
+            "id":       "q3_1",
+            "text":     "Quelle combinaison d'hashtags est la plus efficace pour un couturier de Lomé sur TikTok ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "#fashion #style #ootd uniquement" },
+              { "id": "b", "text": "#CoutureTogo #Lomé #Couture + un hashtag tendance", "correct": true },
+              { "id": "c", "text": "Aucun hashtag, ça dessert la portée" },
+              { "id": "d", "text": "20 hashtags internationaux aléatoires" }
+            ],
+            "explanation": "Le mélange 'local + sectoriel + tendance' dit à TikTok : 'montre cette vidéo aux gens intéressés par la couture ET qui vivent au Togo'. C'est le combo qui maximise la portée pertinente — pas juste n'importe quelle vue."
+          },
+          {
+            "id":       "q3_2",
+            "text":     "Quelle est la bonne attitude face à un 'trend' TikTok ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "L'ignorer complètement, ce n'est pas ton style" },
+              { "id": "b", "text": "Copier exactement un créateur américain pour être sûr que ça marche" },
+              { "id": "c", "text": "Adapter le trend à ton métier en gardant ton authenticité, dans les 5 jours", "correct": true },
+              { "id": "d", "text": "Attendre que le trend passe pour poster en mode classique" }
+            ],
+            "explanation": "Un trend a une fenêtre de tir de 5 à 10 jours. Au-delà, l'algorithme est passé à autre chose. L'adapter à ton métier (et pas copier) te différencie des milliers de copies identiques — et garde ta crédibilité locale."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    4,
+      "title":    "Mesurer ce qui marche (insights gratuits)",
+      "subtitle": "Portée, clics, ajustements",
+      "duration_min": 2,
+      "xp_per_lesson": 30,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Publier sans mesurer, c'est conduire les yeux fermés. Meta Business Suite, TikTok Studio et WhatsApp Business offrent tous des statistiques gratuites — mais la plupart des community managers togolais ne les regardent jamais. C'est ton avantage compétitif.\n\nDans cette leçon, tu vas apprendre à lire les 4 chiffres qui comptent vraiment (portée, engagement, clics, conversions), à identifier le contenu qui performe, et à ajuster ton calendrier éditorial selon ce que les données te disent.\n\nL'objectif : transformer tes intuitions en certitudes. Tu sauras exactement quel type de post génère des ventes, et tu arrêteras de perdre du temps sur ce qui ne marche pas.",
+        "sections": [
+          {
+            "heading": "Les 4 métriques qui comptent vraiment",
+            "body": "Quand tu ouvres Meta Business Suite > Insights, tu vois plein de chiffres. Concentre-toi sur 4 :\n• Portée : nombre de personnes qui ont vu ton post (indique la visibilité)\n• Taux d'engagement : (j'aime + commentaires + partages) ÷ portée (visé : > 5 %)\n• Clics sur lien : combien ont cliqué vers WhatsApp ou ton site (indique l'intérêt d'achat)\n• Messages reçus via le post : le vrai signal de vente\n\nIgnore les 'j'aime' seuls — un post peut avoir 200 j'aime et 0 message. Ce qui compte, c'est la conversion en contact client, pas la vanité."
+          },
+          {
+            "heading": "Identifier ton contenu qui performe",
+            "body": "Fais cet exercice chaque dimanche soir (15 minutes) :\n1. Ouvre Meta Business Suite > Insights > Publications (7 derniers jours)\n2. Classe tes posts par portée décroissante\n3. Note dans un carnet les 2 posts qui ont le mieux marché\n4. Demande-toi POURQUOI : type de contenu ? heure ? jour ? photo vs vidéo ? hashtag local ?\n\nAu bout de 4 semaines, tu verras un pattern : peut-être que tes vidéos coulisses marchent 3× mieux que tes photos produits, ou que les posts du vendredi soir génèrent 2× plus de messages. C'est cette découverte qui change ta stratégie — pas tes intuitions.",
+            "highlight": true
+          },
+          {
+            "heading": "Ajuster son calendrier selon les données",
+            "body": "Une fois que tu sais ce qui marche, ajuste ton calendrier :\n• Si vidéos > photos : remplace 2 photos par 1 vidéo par semaine\n• Si posts du soir > posts du matin : décale tes publications de 6h\n• Si témoignages clients > produits seuls : crée une rubrique hebdo 'avis client' chaque mercredi\n• Si posts boostés > posts organiques : identifie le seuil de budget rentable (ex : 3000 FCFA = 8 messages, 5000 FCFA = 9 messages > reste à 3000 FCFA)\n\nLe growth marketing, c'est ça : tester > mesurer > ajuster > retester. Tu ne devines jamais, tu laisses les données décider."
+          }
+        ],
+        "key_takeaway": "Quatre semaines de mesure valent mieux que quatre mois d'intuitions — laisse les données décider de ton calendrier."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q4_0",
+            "text":     "Parmi ces 4 métriques, laquelle est la moins utile pour mesurer l'efficacité marketing d'une publication ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "La portée (nombre de vues)" },
+              { "id": "b", "text": "Le taux d'engagement" },
+              { "id": "c", "text": "Le nombre de 'j'aime' seuls, sans autre contexte", "correct": true },
+              { "id": "d", "text": "Les messages WhatsApp reçus via la publication" }
+            ],
+            "explanation": "Un 'j'aime' ne coûte rien à l'utilisateur et n'indique pas une intention d'achat. Une publication peut avoir 500 j'aime et 0 vente, ou 20 j'aime et 5 ventes. Les 'j'aime' seuls sont une métrique de vanité — il faut les combiner avec clics et messages pour qu'ils aient du sens."
+          },
+          {
+            "id":       "q4_1",
+            "text":     "Quel exercice régulier permet d'identifier ton contenu qui performe ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Comparer ta page à celle de tes concurrents une fois par mois" },
+              { "id": "b", "text": "Classer ses posts par portée décroissante chaque semaine et noter les 2 meilleurs", "correct": true },
+              { "id": "c", "text": "Demander l'avis de ta famille sur tes publications" },
+              { "id": "d", "text": "Compter le nombre total de publications par mois" }
+            ],
+            "explanation": "Le classement hebdomadaire des posts par portée révèle les patterns : type de contenu, jour, heure, format. Au bout de 4 semaines, tu sais objectivement ce qui marche — sans deviner. C'est l'analyse comparative qui produit l'apprentissage."
+          },
+          {
+            "id":       "q4_2",
+            "text":     "Que signifie 'tester > mesurer > ajuster > retester' en growth marketing ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Publier au hasard et espérer que ça marche" },
+              { "id": "b", "text": "Laisser les données décider de ta stratégie plutôt que tes intuitions", "correct": true },
+              { "id": "c", "text": "Changer de stratégie chaque jour pour trouver ce qui marche" },
+              { "id": "d", "text": "Ne publier qu'une fois par mois pour bien mesurer chaque post" }
+            ],
+            "explanation": "Le growth marketing est une boucle scientifique : hypothèse (tester) > donnée (mesurer) > apprentissage (ajuster) > nouvelle hypothèse (retester). Tu ne changes pas de stratégie chaque jour (ça fausse les mesures), tu laisses à chaque test le temps de produire une donnée exploitable."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    5,
+      "title":    "Gérer avis et réputation en ligne",
+      "subtitle": "Répondre, gérer le négatif, preuve sociale",
+      "duration_min": 2,
+      "xp_per_lesson": 25,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Un avis client en ligne, c'est 10 fois plus puissant qu'une publicité. Au Togo, 8 consommateurs sur 10 lisent les avis Facebook et Google Maps avant de contacter une entreprise. Un mauvais avis non répondu peut te coûter 5 clients. Un bon avis bien exploité peut t'en ramener 20.\n\nMais gérer sa réputation en ligne ne s'improvise pas : il faut répondre vite (sous 24h), rester professionnel même face à l'agressivité, et transformer chaque client satisfait en prescripteur. C'est le travail le plus invisible du community manager — et le plus stratégique.\n\nCette leçon t'apprend les 3 compétences clés : répondre aux avis (positifs ET négatifs), gérer une crise (commentaire agressif, fausse accusation), et récolter activement des preuves sociales (photos clients, témoignages, notations 5 étoiles).",
+        "sections": [
+          {
+            "heading": "Répondre à un avis : la méthode 3 étapes",
+            "body": "Pour un AVIS POSITIF :\n• Remercie par le prénom ('Merci Akossiwa pour ton retour !')\n• Mentionne un détail concret ('Content que la robe te plaise pour la cérémonie')\n• Invite à revenir ('À bientôt pour la prochaine commande')\n\nPour un AVIS NÉGATIF :\n• Excuse-toi sans contester ('Désolé que l'expérience n'ait pas été à la hauteur')\n• Propose une solution concrète en privé ('Envoie-moi un WhatsApp au 90 XX XX XX pour qu'on règle ça')\n• Ne JAMAIS répondre publiquement de façon agressive — les autres clients te jugent sur ta réaction, pas sur l'avis initial."
+          },
+          {
+            "heading": "Gérer une crise : 3 règles d'or",
+            "body": "Une crise, c'est un commentaire qui s'enflamme : 10 réponses négatives, partage massif, mauvaise publicité. Règles :\n1. Réponds UNE fois, calmement, publiquement — puis passe en privé pour la suite\n2. Ne supprime JAMAIS le commentaire négatif (ça empire la crise, on te reprochera la censure)\n3. Si fausse accusation : reste factuel, apporte la preuve (photo livraison, message WhatsApp avec timestamp), sans attaquer la personne\n\nUne crise bien gérée peut te faire GAGNER des clients : les gens observent comment tu réagis sous pression. Un community manager calme et professionnel inspire confiance bien plus qu'un échange qui s'éternise.",
+            "highlight": true
+          },
+          {
+            "heading": "Récolter activement la preuve sociale",
+            "body": "La preuve sociale, c'est ce qui montre que d'autres gens te font déjà confiance. Récolte-la activement :\n• Demande à chaque client satisfait de laisser un avis Google Maps (envoie-lui le lien par WhatsApp juste après la livraison)\n• Prends en photo les clients avec leur commande (avec leur accord explicite) et poste-les en story\n• Garde les messages de remerciement WhatsApp (capture d'écran, floute le numéro pour la vie privée)\n• Affiche ta note Google (4,5★ et +) dans ta boutique physique et sur ta photo de couverture Facebook\n\nUne page Facebook avec 30 avis 5 étoiles convertit 3× mieux qu'une page sans avis. La preuve sociale est le meilleur outil de vente — et elle est gratuite."
+          }
+        ],
+        "key_takeaway": "Ta réputation en ligne se construit un avis à la fois — réponds vite, reste calme, et récolte activement chaque témoignage client."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q5_0",
+            "text":     "Quelle est la première règle pour répondre à un avis négatif en ligne ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Supprimer l'avis immédiatement pour cacher le problème" },
+              { "id": "b", "text": "Contester publiquement avec agressivité pour défendre ta réputation" },
+              { "id": "c", "text": "S'excuser sans contester et proposer une solution en privé", "correct": true },
+              { "id": "d", "text": "Ignorer l'avis, il disparaîtra tout seul avec le temps" }
+            ],
+            "explanation": "L'excuse (même si tu penses avoir raison) désamorce l'émotion du client et montre aux autres lecteurs que tu es professionnel. Proposer une solution en privé évite que l'échange s'enflamme publiquement. Les autres clients jugent ta maturité, pas le conflit initial."
+          },
+          {
+            "id":       "q5_1",
+            "text":     "Pourquoi ne faut-il JAMAIS supprimer un commentaire négatif sur ta page Facebook ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Parce que Facebook interdit techniquement de supprimer des commentaires" },
+              { "id": "b", "text": "Parce que ça empire la crise et qu'on te reprochera la censure", "correct": true },
+              { "id": "c", "text": "Parce que c'est impossible sans payer Facebook" },
+              { "id": "d", "text": "Parce que ça coûte des FCFA à chaque suppression" }
+            ],
+            "explanation": "Sur internet, supprimer un commentaire est perçu comme une tentative de cacher la vérité. Le client mécontent va s'en plaindre ailleurs (groupes Facebook, WhatsApp), et la crise empire. Mieux vaut laisser le commentaire et y répondre calmement — ta réponse devient ta défense publique."
+          },
+          {
+            "id":       "q5_2",
+            "text":     "Qu'est-ce que la 'preuve sociale' pour une PME togolaise ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Une facture de paiement en ligne archivée" },
+              { "id": "b", "text": "Les éléments montrant que d'autres clients te font déjà confiance (avis, photos, témoignages)", "correct": true },
+              { "id": "c", "text": "Un compte Instagram officiellement vérifié par la plateforme" },
+              { "id": "d", "text": "Avoir plus de 1000 abonnés sur Facebook" }
+            ],
+            "explanation": "La preuve sociale, c'est l'ensemble des signaux qui disent à un nouveau client : 'd'autres avant toi m'ont fait confiance et ont été satisfaits'. Avis Google Maps, photos clients, captures de témoignages WhatsApp, note 4,5★ — tout ça est gratuit à récolter et c'est ton meilleur argument de vente."
+          }
+        ]
+      }
+    }
+  ],
+
+  "completion_criteria": {
+    "all_lessons_passed": true,
+    "min_total_score":    0.67,
+    "issues_badge":       true,
+    "xp_completion_bonus": 0
+  },
+
+  "i18n": {
+    "ewe": {
+      "meta.title":       "Community Manager kple Growth Marketing",
+      "meta.subtitle":    "De wɔ asrafowo ƒe hatsotso gã",
+      "meta.description": "Xɔ nya be nàŋlɔ Facebook axa, awɔ nu kple wɔ xa, abɔɔst wɔ nyadzɔdzɔ eye nàbu mɔxeɖeɖe."
+    }
+  }
+}

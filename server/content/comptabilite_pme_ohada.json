@@ -1,0 +1,474 @@
+{
+  "$schema": "https://schema.edukraft.tg/module/v1.json",
+  "_comment": "Parcours Comptabilité PME SYSCOHADA — suite du module Comptabilité Artisanale. Passe de la comptabilité de caisse au système OHADA.",
+
+  "id":           "comptabilite-pme-ohada-v1",
+  "version":      "1.0.0",
+  "filiere":      "Comptabilité & Gestion",
+  "difficulty":   3,
+  "language":     "fr",
+  "available_translations": ["ewe"],
+
+  "meta": {
+    "title":       "Comptabilité PME SYSCOHADA",
+    "subtitle":    "Du cahier au plan comptable OHADA",
+    "description": "Passe de la comptabilité manuelle au système SYSCOHADA : journal de banque, facturation conforme, déclarations fiscales Togo et clôture d'exercice.",
+    "duration_min": 8,
+    "xp_reward":    220,
+    "badge_title":  "Certifié Comptable PME OHADA",
+    "icon":         "calculator",
+    "color":        "#5B4ABB",
+    "tags":         ["comptabilité", "SYSCOHADA", "OHADA", "fiscalité", "PME", "OTR"],
+    "target_audience": "Gérants de PME, secrétaires comptables, entrepreneurs ayant besoin d'une comptabilité conforme.",
+    "prerequisites": []
+  },
+
+  "lessons": [
+    {
+      "index":    0,
+      "title":    "Du cahier au SYSCOHADA : les bases",
+      "subtitle": "Le plan comptable OHADA simplifié",
+      "duration_min": 2,
+      "xp_per_lesson": 35,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Si tu tiens déjà un cahier de recettes et dépenses, tu fais de la comptabilité de caisse. C'est utile pour savoir combien tu as en poche, mais ça ne suffit pas pour l'OTR (Office Togolais des Recettes) ni pour une banque qui te demande un bilan.\n\nLe SYSCOHADA est le système comptable commun à 17 pays d'Afrique, dont le Togo. Il organise tes écritures dans un plan comptable précis, avec des classes de comptes numérotés. La bonne nouvelle : tu n'as pas besoin d'être expert-comptable pour l'utiliser — juste de comprendre la logique.",
+        "sections": [
+          {
+            "heading": "Les 8 classes du plan comptable OHADA",
+            "body":    "Classe 1 : Capitaux (ton argent investi, les prêts).\nClasse 2 : Immobilisations (matériel, mobilier, véhicule).\nClasse 3 : Stocks (marchandises, matières premières).\nClasse 4 : Tiers (clients qui te doivent, fournisseurs à payer).\nClasse 5 : Trésorerie (banque, caisse, T-Money).\nClasse 6 : Achats et charges (ce que tu dépenses pour fonctionner).\nClasse 7 : Ventes et produits (ce que tu gagnons).\nClasse 8 : Résultats (bénéfice ou perte).\n\nChaque opération va dans un compte précis. Ex : achat de tissu > compte 601 (achats de marchandises).",
+            "highlight": true
+          },
+          {
+            "heading": "Le principe de la partie double",
+            "body":    "OHADA fonctionne en partie double : chaque opération est enregistrée DEUX fois — une fois au débit (ce qui entre), une fois au crédit (ce qui sort). Le total des débits doit toujours égaliser le total des crédits. Si ça ne matche pas, il y a une erreur.\n\nExemple : tu vends un pagne à 5000 FCFA en espèces.\n• Débit compte 571 (Caisse) : 5000 FCFA (l'argent entre)\n• Crédit compte 701 (Ventes de marchandises) : 5000 FCFA (la vente)"
+          },
+          {
+            "heading": "Caisse vs engagement : la grande différence",
+            "body":    "La comptabilité de caisse (ton cahier) note l'argent quand il bouge. La comptabilité d'engagement (OHADA) note l'opération quand elle a lieu, même si l'argent n'a pas encore bougé.\n\nEx : tu factures un client le 15 mars, il paie le 5 avril. En caisse : tu notes le 5 avril. En OHADA : tu notes la vente le 15 mars (créance client) puis l'encaissement le 5 avril. C'est plus précis pour voir la réalité de ton activité."
+          }
+        ],
+        "key_takeaway": "SYSCOHADA = un langage commun pour classer chaque FCFA qui entre ou sort de ton entreprise."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q0_0",
+            "text":     "Dans le plan comptable OHADA, quelle classe regroupe les comptes de trésorerie (banque, caisse) ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Classe 1" },
+              { "id": "b", "text": "Classe 3" },
+              { "id": "c", "text": "Classe 5", "correct": true },
+              { "id": "d", "text": "Classe 7" }
+            ],
+            "explanation": "La classe 5 regroupe les comptes de trésorerie : banque, caisse, et même les comptes mobile money comme T-Money ou Flooz utilisés professionnellement."
+          },
+          {
+            "id":       "q0_1",
+            "text":     "Tu vends un produit à 10 000 FCFA, payé en espèces. Quelle écriture correcte en partie double ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Débit 701 (Ventes) 10 000 / Crédit 571 (Caisse) 10 000" },
+              { "id": "b", "text": "Débit 571 (Caisse) 10 000 / Crédit 701 (Ventes) 10 000", "correct": true },
+              { "id": "c", "text": "Débit 601 (Achats) 10 000 / Crédit 571 (Caisse) 10 000" },
+              { "id": "d", "text": "Débit 571 (Caisse) 10 000 / Crédit 601 (Achats) 10 000" }
+            ],
+            "explanation": "L'argent entre en caisse (débit 571) et la vente est enregistrée comme produit (crédit 701). Débit = ce qui entre dans le compte, crédit = la source."
+          },
+          {
+            "id":       "q0_2",
+            "text":     "Quelle est la principale différence entre la comptabilité de caisse et la comptabilité d'engagement (OHADA) ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "La caisse note les opérations quand l'argent bouge, l'engagement note quand l'opération a lieu", "correct": true },
+              { "id": "b", "text": "La caisse est pour les grandes entreprises, l'engagement pour les petites" },
+              { "id": "c", "text": "Il n'y a aucune différence" },
+              { "id": "d", "text": "La caisse utilise l'euro, l'engagement utilise le FCFA" }
+            ],
+            "explanation": "La comptabilité d'engagement reflète la réalité économique : une vente facturée le 15 mars est enregistrée le 15 mars, même si le client paie en avril. C'est plus précis pour piloter l'entreprise."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    1,
+      "title":    "Tenir un journal de banque et caisse",
+      "subtitle": "Enregistrements et justificatifs",
+      "duration_min": 1,
+      "xp_per_lesson": 35,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Le journal est le livre où tu enregistres chaque opération dans l'ordre chronologique. En SYSCOHADA, tu tiens au minimum deux journaux : le journal de banque et le journal de caisse. Si tu utilises T-Money ou Flooz pour ton activité, ça compte comme de la caisse (ou un sous-compte de trésorerie).\n\nLa règle d'or : aucune écriture sans justificatif. Chaque ligne doit avoir une facture, un reçu ou un ticket derrière.",
+        "sections": [
+          {
+            "heading": "Comment tenir ton journal (sur tableur gratuit)",
+            "body":    "Utilise Google Sheets, Excel gratuit, ou l'app gratuite Soro (conçue pour l'Afrique de l'Ouest). Colonnes minimum :\n• Date\n• N° de pièce (ex : FAC-2024-001)\n• Compte débité (ex : 601)\n• Compte crédité (ex : 571)\n• Libellé (ex : Achat tissu chez M. Kossi)\n• Montant débit\n• Montant crédit\n\nChaque ligne doit être équilibrée : débit = crédit.",
+            "highlight": true
+          },
+          {
+            "heading": "Les justificatifs obligatoires",
+            "body":    "Pour chaque dépense : facture fournisseur ou reçu. Pour chaque vente : ta facture numérotée. Pour la banque : relevé bancaire mensuel. Pour T-Money/Flooz : SMS de confirmation ou historique dans l'app.\n\nConserve tout pendant 10 ans (loi fiscale togolaise). Numérise-les avec ton téléphone (app CamScanner gratuite) et stocke-les sur Google Drive."
+          },
+          {
+            "heading": "Le rapprochement bancaire mensuel",
+            "body":    "Une fois par mois, compare ton journal de banque avec le relevé de ta banque (Ecobank, Orabank, BOA...). Si les montants ne matchent pas, cherche :\n• Frais bancaires que tu n'as pas enregistrés\n• Chèques émis mais non encaissés\n• Erreurs de saisie (un 0 oublié)\n\nCe rapprochement t'évite des erreurs qui coûtent cher à la clôture annuelle."
+          }
+        ],
+        "key_takeaway": "Un journal tenu chaque jour = 10 minutes de travail. Un journal en retard de 3 mois = 2 jours de galère."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q1_0",
+            "text":     "Quelle est la règle d'or du journal comptable ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Enregistrer seulement les grosses sommes" },
+              { "id": "b", "text": "Aucune écriture sans justificatif", "correct": true },
+              { "id": "c", "text": "Attendre la fin du mois pour tout noter d'un coup" },
+              { "id": "d", "text": "Utiliser uniquement un crayon pour pouvoir effacer" }
+            ],
+            "explanation": "Chaque écriture doit avoir un justificatif (facture, reçu, ticket). Sans preuve, l'écriture peut être rejetée par l'OTR en cas de contrôle. C'est la base de la traçabilité comptable."
+          },
+          {
+            "id":       "q1_1",
+            "text":     "Combien de temps doit-on conserver ses justificatifs comptables au Togo ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "1 an" },
+              { "id": "b", "text": "3 ans" },
+              { "id": "c", "text": "5 ans" },
+              { "id": "d", "text": "10 ans", "correct": true }
+            ],
+            "explanation": "La loi fiscale togolaise impose une conservation de 10 ans des pièces comptables. Numérise-les pour gagner de la place et éviter la dégradation."
+          },
+          {
+            "id":       "q1_2",
+            "text":     "Qu'est-ce que le rapprochement bancaire ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Comparer ton journal de banque avec le relevé bancaire pour trouver les écarts", "correct": true },
+              { "id": "b", "text": "Demander un prêt à la banque" },
+              { "id": "c", "text": "Changer de banque tous les mois" },
+              { "id": "d", "text": "Compter la caisse à la fin de la journée" }
+            ],
+            "explanation": "Le rapprochement bancaire compare ce que tu as enregistré dans ton journal avec ce que la banque a réellement sur ton compte. Il révèle les frais bancaires oubliés, les chèques non encaissés et les erreurs de saisie."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    2,
+      "title":    "Facturer conforme (TVA, TSS, TIM)",
+      "subtitle": "Mentions obligatoires et calcul des taxes Togo",
+      "duration_min": 1,
+      "xp_per_lesson": 40,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Une facture ce n'est pas juste un papier avec un montant. Au Togo, une facture conforme doit contenir des mentions obligatoires et inclure les taxes (TVA, TSS, TIM). Si ta facture n'est pas conforme, l'OTR peut la refuser et ton client ne peut pas la déduire.\n\nLa bonne nouvelle : une fois que tu connais les mentions et le calcul des taxes, tu peux créer un modèle sur ton téléphone et le réutiliser à chaque vente.",
+        "sections": [
+          {
+            "heading": "Les 10 mentions obligatoires d'une facture togolaise",
+            "body":    "1. Identité du vendeur : nom, adresse, NIF (Numéro d'Identification Fiscale), RCCM ou carte de commerçant.\n2. Identité du client : nom et adresse.\n3. Numéro de facture unique et chronologique (FAC-2024-001).\n4. Date de facturation.\n5. Désignation des biens/services vendus.\n6. Quantité et prix unitaire HT (Hors Taxes).\n7. Taux et montant de la TVA (18% au Togo).\n8. TSS (Taxe sur les Salaires) si applicable.\n9. TIM (Timbre fiscal) si montant > 5000 FCFA.\n10. Montant total TTC (Toutes Taxes Comprises).",
+            "highlight": true
+          },
+          {
+            "heading": "Le calcul des taxes (exemple concret)",
+            "body":    "Tu vends 100 000 FCFA HT de marchandises. Calcul :\n• TVA (18%) : 18 000 FCFA\n• TSS (7% du brut, si tu as des employés) : 7 000 FCFA\n• TIM (1% au-delà de 5000 FCFA) : 1 000 FCFA\n\nTotal TTC = 100 000 + 18 000 + 7 000 + 1 000 = 126 000 FCFA\n\nNote : la TSS ne s'applique que si tu as des employés déclarés. Si tu travailles seul, tu ne factures que TVA + TIM."
+          },
+          {
+            "heading": "Facture simple vs facture taxes incluses",
+            "body":    "Si tu es petit commerçant (régime de base, chiffre d'affaires < 20 millions FCFA/an), tu peux facturer en TTC sans détailler la TVA. Mais garde le détail dans tes notes.\n\nAu-delà de 20 millions FCFA/an, tu bascules au régime du réel : facturation obligatoire avec TVA détaillée et déclaration mensuelle à l'OTR."
+          }
+        ],
+        "key_takeaway": "Une facture conforme = ton client peut la déduire + l'OTR t'accepte. Une facture non conforme = refusée + risque d'amende."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q2_0",
+            "text":     "Quel est le taux de TVA standard au Togo ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "10%" },
+              { "id": "b", "text": "18%", "correct": true },
+              { "id": "c", "text": "20%" },
+              { "id": "d", "text": "0% (pas de TVA au Togo)" }
+            ],
+            "explanation": "La TVA au Togo est de 18%. Elle s'applique sur la valeur ajoutée à chaque étape de la chaîne commerciale. Certaines activités (produits de première nécessité) sont exonérées."
+          },
+          {
+            "id":       "q2_1",
+            "text":     "Tu vends 50 000 FCFA HT. Quel est le montant de la TVA à ajouter ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "5 000 FCFA" },
+              { "id": "b", "text": "9 000 FCFA", "correct": true },
+              { "id": "c", "text": "10 000 FCFA" },
+              { "id": "d", "text": "50 000 FCFA" }
+            ],
+            "explanation": "TVA = 50 000 × 18% = 9 000 FCFA. Le total TTC serait donc 59 000 FCFA (plus le TIM de 1% si applicable)."
+          },
+          {
+            "id":       "q2_2",
+            "text":     "À partir de quel chiffre d'affaires annuel bascules-tu au régime du réel (facturation TVA obligatoire) ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "5 millions FCFA/an" },
+              { "id": "b", "text": "10 millions FCFA/an" },
+              { "id": "c", "text": "20 millions FCFA/an", "correct": true },
+              { "id": "d", "text": "50 millions FCFA/an" }
+            ],
+            "explanation": "Au-delà de 20 millions FCFA de chiffre d'affaires annuel, tu bascules au régime du réel : facturation avec TVA détaillée et déclaration mensuelle à l'OTR obligatoire."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    3,
+      "title":    "Déclarations fiscales mensuelles",
+      "subtitle": "OTR en ligne, échéances, pénalités",
+      "duration_min": 1,
+      "xp_per_lesson": 40,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "La déclaration fiscale, c'est dire à l'OTR combien tu as vendu et combien de taxes tu dois. Au Togo, la TVA se déclare chaque mois, avant le 15 du mois suivant. Un retard = pénalités. Mais l'OTR a mis en place une plateforme en ligne qui simplifie tout.\n\nSi tu déclares en retard ou te trompes, les pénalités peuvent atteindre 100% de l'impôt dû. Mieux vaut être rigoureux.",
+        "sections": [
+          {
+            "heading": "La plateforme en ligne de l'OTR",
+            "body":    "L'OTR (Office Togolais des Recettes) propose une déclaration en ligne sur otr.tg. Tu crées un compte avec ton NIF, puis chaque mois :\n1. Tu déclares ton chiffre d'affaires HT du mois\n2. Tu déclares la TVA collectée (sur tes ventes)\n3. Tu déclares la TVA déductible (sur tes achats)\n4. Tu paies la TVA nette (collectée - déductible) via T-Money, Flooz ou virement bancaire.\n\nLa TVA nette = TVA collectée - TVA déductible. Si déductible > collectée, tu as un crédit de TVA reportable.",
+            "highlight": true
+          },
+          {
+            "heading": "Les échéances à respecter",
+            "body":    "• TVA : avant le 15 du mois suivant (ex : TVA de mars > déclaration avant le 15 avril)\n• Acompte d'impôt (BIC/BTS) : 4 acomptes trimestriels (mars, juin, septembre, décembre)\n• Déclaration annuelle (BIC/BTS) : avant le 31 mars de l'année suivante\n• Patente : avant le 31 janvier\n\nMets des rappels sur ton téléphone. Un retard d'un jour = 10% de majoration."
+          },
+          {
+            "heading": "Que faire en cas d'erreur ou de retard ?",
+            "body":    "Si tu te rends compte d'une erreur après déclaration : dépose une déclaration rectificative dans les 30 jours, spontanément. L'OTR réduira les pénalités.\n\nSi tu es en retard : déclare quand même, même tard. Ne pas déclarer du tout est pire (pénalité 100% + intérêts). Paie via T-Money ou Flooz pour garder une trace.\n\nEn cas de contrôle fiscal : coopère, présente tous tes justificatifs. Un comptable OHADA peut t'aider à te défendre."
+          }
+        ],
+        "key_takeaway": "Déclarer en ligne chaque mois avant le 15 = 20 minutes. Ne pas déclarer = pénalités jusqu'à 100% + intérêts."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q3_0",
+            "text":     "Avant quelle date doit-on déclarer la TVA du mois précédent au Togo ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Le 5 du mois" },
+              { "id": "b", "text": "Le 10 du mois" },
+              { "id": "c", "text": "Le 15 du mois suivant", "correct": true },
+              { "id": "d", "text": "Le dernier jour du mois" }
+            ],
+            "explanation": "La TVA doit être déclarée et payée avant le 15 du mois suivant. Exemple : TVA de janvier se déclare avant le 15 février. Un retard entraîne une majoration de 10% par mois."
+          },
+          {
+            "id":       "q3_1",
+            "text":     "Comment calcule-t-on la TVA nette à payer ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "TVA collectée + TVA déductible" },
+              { "id": "b", "text": "TVA collectée - TVA déductible", "correct": true },
+              { "id": "c", "text": "TVA déductible - TVA collectée" },
+              { "id": "d", "text": "Chiffre d'affaires × 18%" }
+            ],
+            "explanation": "TVA nette = TVA collectée (sur tes ventes) - TVA déductible (sur tes achats). Si le résultat est négatif, tu as un crédit de TVA reportable sur les mois suivants."
+          },
+          {
+            "id":       "q3_2",
+            "text":     "Que se passe-t-il si tu déclares en retard ta TVA ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Rien, il n'y a pas de pénalité au Togo" },
+              { "id": "b", "text": "Majoration de 10% par mois de retard + intérêts", "correct": true },
+              { "id": "c", "text": "Fermeture immédiate de l'entreprise" },
+              { "id": "d", "text": "Tu dois payer le double de la TVA" }
+            ],
+            "explanation": "Un retard de déclaration entraîne une majoration de 10% par mois de retard, plus des intérêts de retard. Mieux vaut déclarer tard que jamais — ne pas déclarer du tout aggrave fortement les pénalités."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    4,
+      "title":    "Clôturer l'exercice et faire le bilan",
+      "subtitle": "Compte de résultat et bilan simplifié",
+      "duration_min": 2,
+      "xp_per_lesson": 40,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "La clôture annuelle, c'est faire le point sur ton année : combien tu as gagné, combien tu as dépensé, ce que tu possèdes, ce que tu dois. C'est obligatoire au Togo (avant le 31 mars) et c'est aussi ton outil de pilotage.\n\nDeux documents clés : le compte de résultat (qui montre si tu es bénéficiaire ou en perte) et le bilan (qui montre ton patrimoine d'entreprise). Tu peux les faire simplifiés si tu es une PME.",
+        "sections": [
+          {
+            "heading": "Le compte de résultat simplifié",
+            "body":    "Produits (Classe 7) - Charges (Classe 6) = Résultat\n\nExemple pour une boutique :\n• Ventes de marchandises : 12 000 000 FCFA\n• Achats de marchandises : 7 000 000 FCFA\n• Loyer, électricité, transport : 1 500 000 FCFA\n• Salaires + charges : 1 800 000 FCFA\n• Résultat (bénéfice) : 12 000 000 - 10 300 000 = 1 700 000 FCFA\n\nSi le résultat est négatif, c'est une perte. Attention : le bénéfice comptable n'est pas le cash en banque (il y a les créances clients et les dettes fournisseurs).",
+            "highlight": true
+          },
+          {
+            "heading": "Le bilan simplifié",
+            "body":    "ACTIF (ce que tu possèdes) = PASSIF (d'où vient l'argent)\n\nActif :\n• Immobilisations (matériel, véhicule) : 3 000 000\n• Stocks : 1 000 000\n• Créances clients : 500 000\n• Banque + Caisse : 2 500 000\nTotal actif : 7 000 000 FCFA\n\nPassif :\n• Capital (ton investissement) : 4 000 000\n• Résultat de l'année : 1 700 000\n• Dettes fournisseurs : 1 300 000\nTotal passif : 7 000 000 FCFA\n\nL'actif doit TOUJOURS être égal au passif. Sinon, erreur de saisie."
+          },
+          {
+            "heading": "Les écritures de clôture",
+            "body":    "À la fin de l'exercice (31 décembre), tu passes des écritures d'inventaire :\n• Régulariser les stocks (compter ce qui reste en boutique)\n• Amortir les immobilisations (le matériel perd de la valeur chaque année)\n• Provisionner les créances douteuses (clients qui risquent de ne pas payer)\n\nCes écritures ajustent tes comptes pour que le bilan reflète la réalité. Un comptable OHADA peut t'aider pour cette étape délicate."
+          }
+        ],
+        "key_takeaway": "Compte de résultat = as-tu gagné de l'argent ? Bilan = que possèdes-tu et que dois-tu ? Les deux sont complémentaires."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q4_0",
+            "text":     "Comment calcule-t-on le résultat comptable ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Produits + Charges" },
+              { "id": "b", "text": "Produits - Charges", "correct": true },
+              { "id": "c", "text": "Charges - Produits" },
+              { "id": "d", "text": "Actif - Passif" }
+            ],
+            "explanation": "Le résultat = Produits (ventes) - Charges (dépenses). Si positif, c'est un bénéfice. Si négatif, c'est une perte. C'est le compte de résultat qui le montre."
+          },
+          {
+            "id":       "q4_1",
+            "text":     "Dans un bilan, quelle égalité doit toujours être respectée ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Produits = Charges" },
+              { "id": "b", "text": "Actif = Passif", "correct": true },
+              { "id": "c", "text": "Débit = Crédit du mois" },
+              { "id": "d", "text": "Banque = Caisse" }
+            ],
+            "explanation": "Le bilan est un tableau à deux colonnes qui doit toujours s'équilibrer : Total Actif = Total Passif. Si ce n'est pas le cas, il y a une erreur de saisie à corriger avant de déposer les comptes."
+          },
+          {
+            "id":       "q4_2",
+            "text":     "Le bénéfice comptable de 1 700 000 FCFA signifie que tu as 1 700 000 FCFA en banque ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Oui, c'est la même chose" },
+              { "id": "b", "text": "Non, le bénéfice comprend des créances et dettes non encaissées/décaissées", "correct": true },
+              { "id": "c", "text": "Non, le bénéfice est toujours supérieur au cash" },
+              { "id": "d", "text": "Oui si tu n'as pas de clients" }
+            ],
+            "explanation": "Le bénéfice comptable (comptabilité d'engagement) inclut les ventes facturées mais non encore encaissées (créances clients). Le cash en banque peut donc être différent. D'où l'importance du tableau de trésorerie."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    5,
+      "title":    "Lire ses comptes pour décider",
+      "subtitle": "Ratios de base, trésorerie, marge",
+      "duration_min": 1,
+      "xp_per_lesson": 30,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Tenir une comptabilité sert à produire des chiffres — mais si tu ne les lis pas, tu rates l'essentiel. Trois indicateurs simples te disent si ton entreprise va bien : ta marge, ta trésorerie, et tes délais de paiement. Pas besoin d'être financier pour les comprendre.\n\nCes ratios, calculés chaque mois, t'alertent avant les problèmes. Un compte de résultat annuel arrive trop tard pour réagir — un ratio mensuel te donne 12 chances de corriger le tir.",
+        "sections": [
+          {
+            "heading": "La marge commerciale",
+            "body":    "Marge = Ventes HT - Achats HT\nTaux de marge = (Marge / Ventes HT) × 100\n\nExemple : ventes 12 000 000, achats 7 000 000 > marge 5 000 000 > taux 42%.\n\nUn commerçant togolais visera 30-50% selon son secteur. En dessous de 20%, ton business n'est pas viable (les charges vont manger la marge). Au-dessus de 60%, tu peux avoir des concurrents qui baissent les prix.",
+            "highlight": true
+          },
+          {
+            "heading": "La trésorerie nette",
+            "body":    "Trésorerie = Banque + Caisse + T-Money/Flooz - Dettes à court terme\n\nC'est l'argent réellement disponible pour payer tes factures ce mois-ci. Si elle est négative, tu es en cessation de paiement — danger.\n\nCalcule-la chaque mois. Si elle baisse 2 mois de suite, agis : relance tes clients, négocie des délais avec tes fournisseurs, réduis les achats non essentiels."
+          },
+          {
+            "heading": "Les délais clients et fournisseurs",
+            "body":    "Délai client moyen = (Créances clients / Ventes TTC) × 30 jours\nDélai fournisseur = (Dettes fournisseurs / Achats TTC) × 30 jours\n\nIdéalement, tu encaisses avant de payer. Si ton délai client est de 45 jours et ton délai fournisseur de 30, tu avances l'argent 15 jours — c'est mauvais pour ta trésorerie.\n\nNégocie : demande 30 jours à tes fournisseurs, accorde 15 jours maximum à tes clients. Le solde de pouvoir est là."
+          }
+        ],
+        "key_takeaway": "Comptabilité = pas une corvée administrative, mais ton tableau de bord. Trois chiffres par mois et tu pilotes ton entreprise."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q5_0",
+            "text":     "Tu vends 12 000 000 FCFA HT et tes achats sont de 7 000 000 FCFA HT. Quel est ton taux de marge ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "25%" },
+              { "id": "b", "text": "42%", "correct": true },
+              { "id": "c", "text": "58%" },
+              { "id": "d", "text": "70%" }
+            ],
+            "explanation": "Marge = 12 000 000 - 7 000 000 = 5 000 000. Taux = (5 000 000 / 12 000 000) × 100 = 41,7% ≈ 42%. C'est un taux sain pour le commerce au Togo."
+          },
+          {
+            "id":       "q5_1",
+            "text":     "Que signifie une trésorerie nette négative ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Ton entreprise est très rentable" },
+              { "id": "b", "text": "Tu es en cessation de paiement — tu ne peux pas payer tes factures", "correct": true },
+              { "id": "c", "text": "Tu as trop de clients" },
+              { "id": "d", "text": "C'est normal en début d'année" }
+            ],
+            "explanation": "Une trésorerie nette négative signifie que tes dettes à court terme dépassent ton argent disponible. Tu es en cessation de paiement. Il faut agir immédiatement : relancer les clients, négocier des délais, réduire les dépenses."
+          },
+          {
+            "id":       "q5_2",
+            "text":     "Idéalement, quel rapport entre délai client et délai fournisseur ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Délai client plus long que délai fournisseur" },
+              { "id": "b", "text": "Délai client plus court que délai fournisseur", "correct": true },
+              { "id": "c", "text": "Les deux doivent être égaux" },
+              { "id": "d", "text": "Aucun délai, tout comptant" }
+            ],
+            "explanation": "Si tu encaisses avant de payer (délai client < délai fournisseur), tu utilises l'argent de tes fournisseurs pour financer ton activité — c'est idéal pour la trésorerie. Négocie 30 jours avec tes fournisseurs et accorde 15 jours maximum à tes clients."
+          }
+        ]
+      }
+    }
+  ],
+
+  "completion_criteria": {
+    "all_lessons_passed": true,
+    "min_total_score":    0.67,
+    "issues_badge":       true,
+    "xp_completion_bonus": 0
+  },
+
+  "i18n": {
+    "ewe": {
+      "meta.title":       "PME ƒe nunya SYSCOHADA",
+      "meta.subtitle":    "Tso nuŋlɔli yi OHADA ƒe mɔnu",
+      "meta.description": "Ðe nunya tso caisse comptabilité yi SYSCOHADA: bank journal, facture, OTR tax kple clôture."
+    }
+  }
+}

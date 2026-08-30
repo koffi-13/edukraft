@@ -24,6 +24,17 @@
 //       et toutes ses progressions sont chargés automatiquement au démarrage)
 //   + RegisterScreen montée en modal dans RootStack : l'invité qui demande
 //     une déconnexion doit créer un compte pour sécuriser ses données avant.
+//
+// v1.1.7 (gating v3 — session-first, exigence utilisateur) :
+//   « Il doit toujours voir son dashboard jusqu'à ce qu'il se déconnecte. »
+//   - Le splash attend ready (DB) ET restored (session lue) → plus de course
+//     entre DbProvider et AuthProvider au démarrage.
+//   - showAuth = (!learner && !sessionActive) || sessionEnded : l'écran
+//     Login n'apparaît QUE si (a) aucune session active et aucun profil
+//     local, ou (b) déconnexion volontaire. Un utilisateur authentifié dont
+//     le learner serait momentanément introuvable reste sur son Dashboard
+//     (DbProvider.ensureSessionLearner recrée le profil de secours depuis
+//     ek_user — la dernière couche de stockage encore lisible).
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
@@ -141,9 +152,19 @@ function AuthStack() {
 
 export default function AppNavigator() {
   const { learner, ready } = useDb();
-  const { sessionEnded } = useAuth();
+  const { sessionEnded, user, restored } = useAuth();
+  // v1.1.7 : session AUTHENTIFIÉE (compte Google/email/téléphone…).
+  // NB : le mode invité (skipAuth) n'est PAS inclus — un invité qui a perdu
+  // son profil local doit repasser par l'Onboarding (aucun prénom connu pour
+  // le recréer) ; un utilisateur authentifié, lui, reste sur son Dashboard
+  // (ensureSessionLearner recrée son profil depuis ek_user).
+  const authedSession = !!user && !sessionEnded;
 
-  if (!ready) {
+  // v1.1.7 : splash jusqu'à CE QUE la DB soit prête ET la session restaurée.
+  // Avant, seul `ready` (DB) était attendu : si AuthContext terminait après
+  // DbProvider (SecureStore lent), le gating décidait avec sessionEnded
+  // encore à false (état initial) → flash d'écran / bascule tardive.
+  if (!ready || !restored) {
     return (
       <View style={styles.splash}>
         <Text style={styles.splashTitle}>EduKraft</Text>
@@ -152,14 +173,17 @@ export default function AppNavigator() {
     );
   }
 
-  // GATING v2 (v1.1.3) :
-  //   - Pas de learner → Auth (premier lancement)
-  //   - Learner + sessionEnded (déconnexion volontaire) → Auth : l'écran
-  //     Login s'affiche, mais les données locales sont conservées — elles
-  //     seront restaurées à la reconnexion (ou via « Continuer sans compte »)
-  //   - Learner + session active → Dashboard direct avec toutes les
-  //     progressions de l'utilisateur (exigence : chargement automatique)
-  const showAuth = !learner || sessionEnded;
+  // GATING v3 (v1.1.7 - session-first) :
+  //   - Pas de learner ET pas de session authentifiée -> Auth (premier
+  //     lancement, ou invité sans données locales -> Onboarding)
+  //   - sessionEnded (déconnexion volontaire) -> Auth (donnees conservees,
+  //     restaurées à la reconnexion)
+  //   - Learner OU session authentifiée -> Dashboard direct.
+  //     ensureSessionLearner (DbProvider) garantit un learner dès qu'une
+  //     session authentifiée existe ; le « || authedSession » est la ceinture
+  //     de sécurité si même cette recreation échouait : un utilisateur
+  //     authentifié ne retourne PAS à l'écran Login (dashboard jusqu'au logout).
+  const showAuth = (!learner && !authedSession) || sessionEnded;
 
   return (
     <NavigationContainer>

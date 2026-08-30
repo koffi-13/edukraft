@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Colors, Typography, Spacing, Radius, Shadow, getLevel } from '../theme';
 import { useDb }              from '../database/DbProvider';
-import { MODULES } from '../content/moduleRegistry';
+import { MODULES, subscribeModules } from '../content/moduleRegistry';
 import XPBar                  from '../components/XPBar';
 import OfflineIndicator       from '../components/OfflineIndicator';
 import StreakWidget           from '../components/StreakWidget';
@@ -38,6 +38,11 @@ export default function DashboardScreen({ navigation }) {
   }, [getAllProgress, getGamificationState]);
 
   useEffect(() => { load(); }, [load]);
+
+  // v1.1.7 : réagir au catalogue distant — un nouveau cours téléchargé par
+  // le SyncEngine (reconnexion / premier plan) apparaît sans recharger l'app.
+  const [, bumpRegistry] = useState(0);
+  useEffect(() => subscribeModules(() => bumpRegistry(n => n + 1)), []);
 
   // Recharger quand le Dashboard revient au premier plan (après un quiz par ex.)
   useFocusEffect(

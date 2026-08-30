@@ -25,6 +25,7 @@ import { createSyncRepository } from './repositories/syncRepository';
 import persistentStorage from '../utils/persistentStorage';
 import ENV from '../config/env';
 import * as authService from '../services/authService';
+import { initRemoteModules } from '../content/moduleRegistry';
 
 const DbContext = createContext(null);
 
@@ -287,6 +288,54 @@ async function restoreSnapshotToSqlite(db, snap) {
   }
 }
 
+// ── v1.1.7 : filet de sécurité session-first (ensureSessionLearner) ────────
+// Si une session est ACTIVE mais qu'AUCUN learner n'a pu être restauré
+// (SQLite vide/corrompue + snapshot illisible), on recrée le profil DEPUIS
+// le compte stocké (ek_user, lu via SecureStore/AsyncStorage — la dernière
+// couche encore lisible). L'utilisateur garde ainsi son dashboard (« jusqu'à
+// ce qu'il se déconnecte ») et ses progressions serveur seront re-téléchargées
+// par l'auto-restauration / la sync pull.
+// Attendu : appelé à la FIN de l'init, avant setReady(true).
+async function ensureSessionLearner(nativeDb, store, setLearnerFn, persistSnapshotFn) {
+  if (store.learner) return; // déjà restauré — rien à faire
+  try {
+    const stored = await authService.getStoredAuth();
+    // Session authentifiée active uniquement (l'invité sans learner doit
+    // repasser par l'Onboarding : on n'a pas son prénom en stock).
+    if (!stored?.user || stored.sessionEnded || !stored.accessToken) return;
+    const u = stored.user;
+    const phoneLike = (v) => typeof v === 'string' && /^\+?\d[\d\s-]{6,}$/.test(v.trim());
+    const dn = u.display_name || u.first_name || u.name || '';
+    const name = (dn && !phoneLike(dn) && dn.trim())
+      || (u.email ? u.email.split('@')[0] : 'Apprenant');
+    const now = new Date().toISOString();
+    const learner = {
+      id: canonicalLearnerId(u) || `lrn_${u.id}`,
+      name: String(name).trim(),
+      phone: u.phone || null,
+      language: u.language || 'fr',
+      total_xp: 0, streak_days: 0, streak_freezes: 2, best_streak: 0,
+      last_active_date: null, total_lessons_done: 0,
+      last_active_at: now, created_at: now,
+      server_id: String(u.id), sync_status: 'pending', updated_at: now,
+    };
+    if (nativeDb) {
+      try {
+        await upsertLearnerRow(nativeDb, learner);
+      } catch (e) {
+        console.warn('[DB] ensureSessionLearner : upsert SQLite ignoré :', e.message);
+      }
+    }
+    store.learner = learner;
+    setLearnerFn(learner);
+    try { await persistentStorage.setItem(KEYS.LEARNER, JSON.stringify(learner)); } catch (_) {}
+    if (persistSnapshotFn) persistSnapshotFn();
+    console.log('[DB] ensureSessionLearner : profil de secours recréé depuis ek_user (', learner.name, ')');
+  } catch (e) {
+    console.warn('[DB] ensureSessionLearner échec :', e.message);
+  }
+}
+
 // ── Provider ─────────────────────────────────────────────────────────────────
 export function DbProvider({ children }) {
   const [db, setDb]           = useState(null);
@@ -347,6 +396,11 @@ export function DbProvider({ children }) {
           const row = await nativeDb.getFirstAsync('SELECT * FROM learner LIMIT 1');
           if (row) {
             setLearner(row);
+            // v1.1.7 : alimenter AUSSI le store mémoire (mode fallback) —
+            // avant, seul l'état React était rempli : si SQLite tombait en
+            // panne plus tard, les mutations basculaient en mémoire sur un
+            // store VIDE (learner null → addXP/updateProgress sans effet).
+            storeRef.current.learner = row;
             // Aussi sauvegarder dans le stockage persistant (fallback)
             try {
               await persistentStorage.setItem(KEYS.LEARNER, JSON.stringify(row));
@@ -422,10 +476,25 @@ export function DbProvider({ children }) {
           }
         }
 
+        // ── v1.1.7 : filet de sécurité session-first ──
+        // Session active + aucun learner restauré (SQLite ET snapshot vides)
+        // → profil recréé depuis ek_user. Garantit l'exigence « dashboard
+        // jusqu'à déconnexion » même si une couche de stockage échoue.
+        await ensureSessionLearner(nativeDb, storeRef.current, setLearner, persistSnapshot);
+
+        // ── v1.1.7 : catalogue de cours distant (cache offline) ──
+        // Applique AVANT ready : le Dashboard affiche d'emblée les cours
+        // distants téléchargés lors d'une session précédente (hors ligne).
+        try { await initRemoteModules(); } catch (_) {}
+
         setReady(true);
       } catch (e) {
         console.error('[DB] Initialisation échouée :', e);
         setError(e.message);
+        // v1.1.7 : même en erreur d'init, tenter le profil de secours
+        try {
+          await ensureSessionLearner(null, storeRef.current, setLearner, persistSnapshot);
+        } catch (_) {}
         setReady(true); // Même en erreur, on débloque l'UI
       }
     })();

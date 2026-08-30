@@ -127,20 +127,24 @@ jobs:
             3. Autorisez "Sources inconnues" si demandé
             4. Ouvrez EduKraft
 
-            ## Nouveautés v1.1.6
-            - **Fin de l'écran « Bienvenue » en boucle** : après une connexion
-              Google (ou email), le profil est créé/restauré directement depuis
-              le compte — l'accueil s'affiche immédiatement avec toutes vos
-              données, comme sur le web.
-            - **Comptes uniques web + mobile** : les données (XP, progressions,
-              badges, succès, séries, objectif) sont restaurées sur tout
-              appareil à la connexion, et fusionnées sans jamais être
-              rétrogradées (sémantique MAX).
-            - **Anneau « Objectif quotidien » réparé** : il se remplit
-              désormais réellement au fil de la progression du jour
-              (vrai anneau SVG, avant seul un quart d'arc tournait).
-            - Séries (streaks) synchronisées : l'objectif du jour est conservé
-              d'un appareil à l'autre.
+            ## Nouveautés v1.1.7
+            - **Persistance blindée (offline-first)** : à la réouverture de
+              l'app, votre tableau de bord s'affiche directement avec toutes
+              vos données — jusqu'à ce que vous vous déconnectiez
+              volontairement. Un filet de sécurité recrée le profil depuis
+              votre compte même si la base locale rencontre un problème.
+            - **Synchronisation au retour du réseau** : dès la reconnexion
+              (ou le retour au premier plan), vos données locales partent
+              immédiatement vers votre compte en ligne — plus d'attente.
+            - **Chargement des mises à jour** : l'app récupère
+              automatiquement les activités effectuées sur vos autres
+              appareils (fusion sans perte) et le catalogue de cours à jour.
+            - **Nouveaux cours sans mise à jour de l'APK** : les formations
+              publiées sur le serveur apparaissent automatiquement dans
+              l'app (et restent consultables hors ligne grâce au cache).
+            - **Diagnostics du stockage** : Profil → Synchronisation →
+              « Diagnostics du stockage » affiche l'état de chaque couche
+              de persistance (utile en cas de souci).
           files: edukraft-${{ steps.version.outputs.VERSION }}.apk
           draft: false
           prerelease: false

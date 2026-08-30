@@ -1,0 +1,474 @@
+{
+  "$schema": "https://schema.edukraft.tg/module/v1.json",
+  "_comment": "Schéma EduKraft Module v1. Ajouter un nouveau module = créer un nouveau fichier JSON dans content/modules/ et l'importer dans moduleRegistry.js. Aucun code à modifier.",
+
+  "id":           "transformation-agroalimentaire-v1",
+  "version":      "1.0.0",
+  "filiere":      "Agriculture & Agrobusiness",
+  "difficulty":   2,
+  "language":     "fr",
+  "available_translations": ["ewe"],
+
+  "meta": {
+    "title":       "Transformation Agroalimentaire",
+    "subtitle":    "Valeur ajoutée sur tes produits",
+    "description": "Apprends à transformer tes produits agricoles (manioc, soja, fruits) en produits finis à forte valeur ajoutée : gari, attiéké, jus, avec hygiène et conditionnement.",
+    "duration_min": 7,
+    "xp_reward":    190,
+    "badge_title":  "Certifié Transformateur Agro",
+    "icon":         "wheat",
+    "color":        "#F0B429",
+    "tags":         ["agriculture", "agroalimentaire", "transformation", "gari", "attiéké", "rural"],
+    "target_audience": "Agriculteurs, groupements féminins, jeunes ruraux souhaitant valoriser leurs productions.",
+    "prerequisites": []
+  },
+
+  "lessons": [
+    {
+      "index":    0,
+      "title":    "Valoriser ses produits : pourquoi transformer ?",
+      "subtitle": "Marges, exemples togolais (manioc, soja)",
+      "duration_min": 1,
+      "xp_per_lesson": 30,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Au Togo, un kilo de manioc frais se vend 100 à 150 FCFA au marché. Le même kilo, transformé en gari, atteint 700 à 900 FCFA. La transformation agroalimentaire, c'est l'art de prendre ta production brute et de la convertir en produit fini que le client achète plus cher.\n\nC'est aussi une stratégie de résilience : un produit transformé se conserve des mois, se transporte loin et se vend hors saison. Le programme FSRP (Projet de Résilience des Systèmes Alimentaires) soutient justement les groupements féminins et les jeunes ruraux qui transforment.\n\nCe module te donne les bases concrètes pour passer du producteur au transformateur : hygiène, recettes, conditionnement, vente, conservation. Six leçons courtes, des exemples togolais, des calculs en FCFA.",
+        "sections": [
+          {
+            "heading": "La marge cachée dans ta production",
+            "body":    "Sur 100 kg de manioc à 100 FCFA/kg, ta production vaut 10 000 FCFA. Transformée en gari avec un rendement de 35 %, tu obtiens 35 kg de gari vendus 800 FCFA/kg = 28 000 FCFA. Marge brute : 18 000 FCFA avant coûts de transformation.\n\nLa transformation multiplie la valeur par 2 à 5 selon le produit. Le soja en lait (×3), l'anacarde décortiqué (×4), la mangue séchée (×5). C'est ça, la valeur ajoutée.",
+            "highlight": true
+          },
+          {
+            "heading": "Exemples togolais qui marchent",
+            "body":    "• Manioc > gari, attiéké, tapioca (groupements féminins des Plateaux)\n• Soja > lait de soja, tofu, farine (coopératives de la Kara)\n• Anacarde > noix décortiquées exportées (Centrale et Nord)\n• Mangue > jus, séchage (Kpalimé)\n• Tomate > purée, séchage (région Centrale)\n\nLe FSRP et l'IFDC accompagnent ces filières avec formation, équipements et débouchés."
+          },
+          {
+            "heading": "Le calcul rapide de rentabilité",
+            "body":    "Avant de te lancer, calcule :\n1. Coût matières premières (manioc + eau + sel)\n2. Coût transformation (énergie, main d'œuvre, emballage)\n3. Prix de vente estimé (marché local)\n\nBénéfice = Prix de vente − Coût total. Si le bénéfice est inférieur à 30 % du prix de vente, la transformation n'est pas encore rentable. Vise 40 à 60 % de marge."
+          }
+        ],
+        "key_takeaway": "Transformer, c'est multiplier la valeur de ta production par 2 à 5, tout en la rendant conservable et transportable."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":   "q0_0",
+            "text": "100 kg de manioc à 100 FCFA/kg valent 10 000 FCFA. Transformés en 35 kg de gari vendus 800 FCFA/kg, quel est le chiffre d'affaires obtenu ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "10 000 FCFA" },
+              { "id": "b", "text": "18 000 FCFA" },
+              { "id": "c", "text": "28 000 FCFA", "correct": true },
+              { "id": "d", "text": "35 000 FCFA" }
+            ],
+            "explanation": "35 kg × 800 FCFA = 28 000 FCFA. La transformation a fait passer la valeur de 10 000 à 28 000 FCFA, soit une multiplication par 2,8."
+          },
+          {
+            "id":   "q0_1",
+            "text": "Parmi ces transformations, laquelle multiplie le plus la valeur brute au Togo ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "Manioc frais > gari (×2,8)" },
+              { "id": "b", "text": "Soja > lait de soja (×3)" },
+              { "id": "c", "text": "Anacarde > noix décortiquée (×4)" },
+              { "id": "d", "text": "Mangue > mangue séchée (×5)", "correct": true }
+            ],
+            "explanation": "La mangue séchée atteint une multiplication par 5 car elle combine produit à forte valeur marchande, longue conservation et débouchés d'export."
+          },
+          {
+            "id":   "q0_2",
+            "text": "Quel est le seuil de marge bénéficiaire en dessous duquel une transformation n'est pas rentable ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "5 % du prix de vente" },
+              { "id": "b", "text": "15 % du prix de vente" },
+              { "id": "c", "text": "30 % du prix de vente", "correct": true },
+              { "id": "d", "text": "80 % du prix de vente" }
+            ],
+            "explanation": "En dessous de 30 % de marge, le moindre imprévu (hausse du manioc, casse, vol) fait basculer la transformation en perte. Vise 40 à 60 % pour sécuriser ton activité."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    1,
+      "title":    "Hygiène et normes alimentaires de base",
+      "subtitle": "Bonnes pratiques, étiquetage",
+      "duration_min": 1,
+      "xp_per_lesson": 35,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Une mauvaise hygiène peut détruire en une semaine la réputation construite pendant des mois. Au Togo, l'ANASE (Agence Nationale de Sécurité Sanitaire des Aliments) encadre les producteurs : les sanctions vont du retrait du produit à la fermeture de l'atelier.\n\nHeureusement, les règles de base sont simples et accessibles : eau propre, mains propres, ustensiles propres, locaux propres. Cette leçon te donne les fondamentaux et l'étiquetage conforme.",
+        "sections": [
+          {
+            "heading": "Les 5 règles d'or de l'hygiène",
+            "body":    "1. Lave-toi les mains au savon avant chaque manipulation, après les toilettes, après avoir touché de l'argent ou le téléphone.\n2. Traite l'eau : filtration + ébullition 5 min, ou eau de Javel (1 cuillère à café pour 20 L, attendre 30 min).\n3. Nettoie les ustensiles à l'eau chaude savonneuse après chaque usage.\n4. Porte un tablier propre, couvre les cheveux, retire bijoux et montres.\n5. Sépare viandes/crutés/légumes pour éviter les contaminations croisées.",
+            "highlight": true
+          },
+          {
+            "heading": "L'étiquetage conforme",
+            "body":    "Toute denrée conditionnée doit afficher :\n• Nom du produit (ex: 'Gari fin')\n• Poids net (ex: 500 g)\n• Date de fabrication et DLC/DLUO\n• Nom et adresse du producteur\n• Prix (sauf vente en gros)\n• Pays d'origine : 'Produit au Togo'\n\nL'INSSA et la Direction de la Protection des Végétaux peuvent exiger des mentions complémentaires. Vérifie avant de vendre hors de ta région."
+          },
+          {
+            "heading": "Le contrôle qualité maison",
+            "body":    "Avant chaque lot, vérifie :\n• Odeur (ne doit pas être aigre, moisie)\n• Couleur (uniforme, sans taches)\n• Texture (ni trop humide, ni poudreuse)\n• Goût (sur un échantillon)\n\nConserve un échantillon de 100 g de chaque lot pendant 2 semaines : en cas de plainte client, tu pourras analyser. Note les lots dans un cahier (date, quantité, destinataire)."
+          }
+        ],
+        "key_takeaway": "Hygiène = eau propre, mains propres, ustensiles propres. L'étiquette conforme protège le consommateur et ton activité."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":   "q1_0",
+            "text": "Quand dois-tu te laver les mains pendant la transformation ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "Une fois au début de la journée" },
+              { "id": "b", "text": "Avant chaque manipulation, après les toilettes, après avoir touché argent ou téléphone", "correct": true },
+              { "id": "c", "text": "Uniquement avant de conditionner" },
+              { "id": "d", "text": "Seulement si tes mains sont visiblement sales" }
+            ],
+            "explanation": "Les mains transportent la majorité des germes. L'argent, le téléphone et les toilettes sont les sources principales de contamination. Le lavage doit être fréquent, pas seulement quand c'est visible."
+          },
+          {
+            "id":   "q1_1",
+            "text": "Quelle mention n'est PAS obligatoire sur l'étiquette d'un gari conditionné ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "Poids net" },
+              { "id": "b", "text": "Date de fabrication et DLC" },
+              { "id": "c", "text": "Numéro de téléphone personnel du producteur", "correct": true },
+              { "id": "d", "text": "Nom et adresse du producteur" }
+            ],
+            "explanation": "Le nom et l'adresse suffisent. Le téléphone est utile commercialement mais pas réglementaire. Les mentions obligatoires sont : nom du produit, poids, dates, nom/adresse, origine."
+          },
+          {
+            "id":   "q1_2",
+            "text": "Comment traiter l'eau de transformation à moindre coût ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "Laisser reposer 1 heure dans un seau ouvert" },
+              { "id": "b", "text": "Filtration + ébullition 5 min, ou eau de Javel dosée (1 c.à.c pour 20 L, attendre 30 min)", "correct": true },
+              { "id": "c", "text": "Ajouter du sel grossier" },
+              { "id": "d", "text": "Utiliser directement l'eau du puits sans traitement" }
+            ],
+            "explanation": "L'ébullition 5 min tue 99,9 % des germes. L'eau de Javel à bonne dose est aussi efficace et moins coûteuse en énergie. L'eau non traitée est la cause n°1 des toxi-infections alimentaires."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    2,
+      "title":    "Recettes à valeur ajoutée (gari, attiéké, jus)",
+      "subtitle": "Process, matériel, calcul des coûts",
+      "duration_min": 2,
+      "xp_per_lesson": 35,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Ces trois recettes sont les plus accessibles au Togo : matières premières locales, équipement minimal, marché garanti. Le gari et l'attiéké partent du manioc ; le jus s'appuie sur les fruits de saison (bissap, gingembre, mangue).\n\nPour chaque recette : liste du matériel, étapes, calcul du coût de revient et prix de vente conseillé. Tu pourras adapter les quantités à ta production.",
+        "sections": [
+          {
+            "heading": "Le gari — process complet",
+            "body":    "Matériel pour 50 kg de manioc : 3 bassines, 1 râpe (manuelle ou motorisée), 1 sac de jute, 1 tamis, 1 poêle large, 1 cuillère en bois.\n\nÉtapes :\n1. Épluche et lave le manioc (rendement 70 %).\n2. Râpe finement (3 h à la main, 30 min motorisé).\n3. Met en sac de jute, presse 48 à 72 h pour éliminer l'acide cyanhydrique.\n4. Tamise pour retirer les fibres.\n5. Grille à feu doux dans la poêle en remuant, 1 à 2 h.\n6. Refroidis, conditionne en sachets de 500 g ou 1 kg.\n\nCoût : 50 kg manioc (5 000 F) + énergie (1 500 F) + emballage (2 000 F) = 8 500 F pour 17 kg de gari. Prix de vente : 800 F/kg × 17 = 13 600 F. Marge : 5 100 F.",
+            "highlight": true
+          },
+          {
+            "heading": "L'attiéké rapide — process",
+            "body":    "Matériel : comme le gari + un couscoussier ou tamis fin.\n\nÉtapes :\n1. Râpe le manioc et fermente 24 à 48 h (plus court que le gari).\n2. Presse pour retirer l'eau.\n3. Émiette et tamise finement.\n4. Cuit à la vapeur 20 à 30 min dans le couscoussier.\n5. Refroidis, conditionne en sachets de 250 g ou 500 g.\n\nVente : attiéké frais se conserve 3 à 5 jours au frais. Prix : 600 à 800 F les 500 g. Plus rapide à produire que le gari, mais plus périssable."
+          },
+          {
+            "heading": "Le jus de bissap — process et coût",
+            "body":    "Recette pour 10 L :\n• 500 g d'oseille de Guinée (bissap) séchée — 1 000 F\n• 300 g de sucre — 600 F\n• 10 L d'eau traitée\n• Jus de 2 citrons\n• Gousses de vanille ou menthe (optionnel)\n\nÉtapes : faire bouillir 5 L, infuser le bissap 1 h, filtrer, ajouter sucre + 5 L d'eau froide + citrons. Conditionner en bouteilles PET propres ou sachets.\n\nCoût total : ~2 000 F pour 10 L. Vente : 100 F les 25 cl × 40 = 4 000 F. Marge : 2 000 F par batch, soit 100 %."
+          }
+        ],
+        "key_takeaway": "Gari, attiéké, jus : 3 recettes accessibles, des marges de 60 à 100 %, un marché togolais solide toute l'année."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":   "q2_0",
+            "text": "Quelle étape du gari élimine l'acide cyanhydrique toxique du manioc ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "Le lavage initial" },
+              { "id": "b", "text": "Le pressage 48 à 72 h en sac de jute", "correct": true },
+              { "id": "c", "text": "Le conditionnement en sachet" },
+              { "id": "d", "text": "L'ajout de sel" }
+            ],
+            "explanation": "Le pressage prolongé permet la fermentation et l'élimination de l'acide cyanhydrique. Sans cette étape, le gari est toxique. C'est l'étape non négociable du process."
+          },
+          {
+            "id":   "q2_1",
+            "text": "Pour un batch de jus de bissap à 2 000 F qui donne 10 L vendus 100 F les 25 cl, quelle est la marge ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "1 000 F" },
+              { "id": "b", "text": "2 000 F", "correct": true },
+              { "id": "c", "text": "4 000 F" },
+              { "id": "d", "text": "6 000 F" }
+            ],
+            "explanation": "10 L = 40 portions de 25 cl × 100 F = 4 000 F de chiffre d'affaires. Coût 2 000 F. Marge = 4 000 − 2 000 = 2 000 F, soit 100 % du coût."
+          },
+          {
+            "id":   "q2_2",
+            "text": "Quelle est la principale différence commerciale entre gari et attiéké ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "Le gari est plus périssable" },
+              { "id": "b", "text": "L'attiéké est plus périssable et se conserve 3 à 5 jours au frais", "correct": true },
+              { "id": "c", "text": "Aucune différence" },
+              { "id": "d", "text": "L'attiéké se vend uniquement en saison sèche" }
+            ],
+            "explanation": "Le gari est sec et se conserve des mois. L'attiéké est humide, plus périssable (3 à 5 jours), donc à vendre rapidement. Stratégie commerciale différente : gari = stock, attiéké = flux tendu."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    3,
+      "title":    "Conditionner et étiqueter pour vendre",
+      "subtitle": "Emballages locaux, étiquette conforme",
+      "duration_min": 1,
+      "xp_per_lesson": 30,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Au marché d'Adawlato comme dans les supermarchés de Lomé, le client achète d'abord avec les yeux. Un bon gari dans un sachet sale et sans étiquette se vendra moins cher qu'un gari moyen en sachet propre, étiqueté, avec un nom de marque.\n\nLe conditionnement, ce n'est pas du luxe : c'est de la protection (hygiène, fraîcheur), de l'information (étiquette conforme) et du marketing (design). Cette leçon t'aide à choisir les bons emballages au Togo et à construire une étiquette qui se conforme et qui vend.",
+        "sections": [
+          {
+            "heading": "Emballages locaux et abordables",
+            "body":    "• Sachets plastiques thermoscellés (50 à 100 F l'unité selon taille) — idéal gari, attiéké, farines.\n• Bouteilles PET récupérées et lavées (gratuit) ou neuves (150 F) — jus, boissons.\n• Pots en verre récupérés (gratuit) — confitures, purées.\n• Feuilles de bananier ou papier kraft — emballage traditionnel pour ventes de proximité.\n• Bidons alimentaires 5 L — vente en gros.\n\nRègle : l'emballage doit représenter moins de 10 % du prix de vente. Au-delà, il grève ta marge.",
+            "highlight": true
+          },
+          {
+            "heading": "L'étiquette conforme et vendeuse",
+            "body":    "Structure d'une bonne étiquette :\n• Nom du produit en grand (ex: 'Gari de Kpalimé')\n• Logo ou marque (même dessiné à la main)\n• Poids net et composition\n• Date de fabrication + DLC/DLUO\n• Nom, téléphone et adresse du producteur\n• Mention 'Produit au Togo'\n\nAstuce marketing : ajoute une phrase courte qui différencie ('Sans additifs', 'Fait main', '100 % naturel'). Évite les mentions mensongères (loi togolaise)."
+          },
+          {
+            "heading": "Le calcul du coût d'emballage",
+            "body":    "Exemple pour 500 g de gari en sachet imprimé :\n• Sachet vierge : 60 F\n• Impression étiquette (1000 unités) : 15 F/étiquette\n• Thermoscelleur amorti : 5 F/unité\nTotal emballage : 80 F pour un sachet vendu 500 F > 16 % (trop élevé !)\n\nPour descendre sous 10 % :\n• Achète les sachets par 1000 (prix divisé par 2)\n• Imprime toi-même avec un tampon encreur (5 F/étiquette)\n• Vise un sachet à 50 F max pour un gari à 500 F = 10 %"
+          }
+        ],
+        "key_takeaway": "Emballage propre + étiquette conforme = +30 % de prix de vente. Vise un coût d'emballage sous 10 % du prix de vente."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":   "q3_0",
+            "text": "Quel emballage est le plus adapté pour vendre du jus de bissap au Togo ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "Sac de jute" },
+              { "id": "b", "text": "Bouteille PET propre ou neuve", "correct": true },
+              { "id": "c", "text": "Feuille de bananier" },
+              { "id": "d", "text": "Bidon métallique ouvert" }
+            ],
+            "explanation": "Le jus nécessite un emballage étanche, alimentaire et transparent pour montrer la couleur. La bouteille PET (récupérée propre ou neuve) est l'option la plus accessible au Togo."
+          },
+          {
+            "id":   "q3_1",
+            "text": "Quelle mention est OBLIGATOIRE sur une étiquette de gari ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "Numéro de SIRET de l'entreprise" },
+              { "id": "b", "text": "Logo de la coopérative" },
+              { "id": "c", "text": "Date de fabrication et DLC/DLUO", "correct": true },
+              { "id": "d", "text": "Photo du producteur" }
+            ],
+            "explanation": "La date de fabrication et la date limite de consommation (DLC) ou d'utilisation optimale (DLUO) sont obligatoires : elles informent le consommateur sur la sécurité sanitaire du produit."
+          },
+          {
+            "id":   "q3_2",
+            "text": "Un sachet coûte 80 F pour un gari vendu 500 F. Que faut-il faire ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "Rien, c'est un bon ratio" },
+              { "id": "b", "text": "Réduire le coût d'emballage pour passer sous 10 % du prix de vente", "correct": true },
+              { "id": "c", "text": "Augmenter le prix de vente à 1 500 F" },
+              { "id": "d", "text": "Arrêter de conditionner" }
+            ],
+            "explanation": "80 F pour 500 F = 16 % du prix de vente. L'emballage ne doit pas dépasser 10 % pour préserver la marge. Solutions : achat en gros, tampon encreur au lieu d'impression, ou sachet plus simple."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    4,
+      "title":    "Vendre en circuit court (marchés, coopératives)",
+      "subtitle": "Prix, négociation, fidélisation",
+      "duration_min": 1,
+      "xp_per_lesson": 30,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Produire est une chose, vendre en est une autre. Au Togo, les marchés d'Adawlato (Lomé), Kpalimé, Sokodé, Kara et Dapaong concentrent l'essentiel des achats alimentaires. Les supermarchés (Prix Import, Leader Price) ouvrent leurs rayons aux produits locaux bien conditionnés.\n\nLe circuit court, c'est vendre directement au consommateur final ou avec un seul intermédiaire. Ta marge est plus élevée, mais tu dois gérer toi-même la relation client. Cette leçon te donne les canaux, les prix et les techniques de fidélisation.",
+        "sections": [
+          {
+            "heading": "Les canaux de vente au Togo",
+            "body":    "• Marchés locaux (Adawlato, Kpalimé, Sokodé, Kara, Dapaong) : volume élevé, prix moyen, négociation dure.\n• Groupements féminins et coopératives : acheteurs réguliers, prix stables, contrat tacite. Ex : coopératives FSRP, GIE féminins.\n• Supermarchés de Lomé : prix +30 à +50 %, mais exigent étiquetage strict et régularité.\n• Hôtels et restaurants : marché de niche, prix élevé, demande qualité constante.\n• Vente directe WhatsApp et livraison : marge maximale, clientèle à fidéliser.\n• Foires et salons (Foire de Lomé, SIAO) : visibilité et contacts.",
+            "highlight": true
+          },
+          {
+            "heading": "Fixer son prix et négocier",
+            "body":    "Calcul du prix de vente :\nCoût de revient (matières + transformation + emballage) × 1,5 à 2 = prix de vente minimum.\n\nPour un gari à 500 F de coût de revient : prix de vente 750 à 1 000 F. En supermarché, vise 1 200 F.\n\nNégociation :\n• Connais ton prix plancher (coût + 30 %).\n• Ne cède jamais sous le plancher : mieux vaut ne pas vendre que vendre à perte.\n• Propose des remises sur volume (10 % dès 5 kg, 15 % dès 20 kg).\n• Accepte le troc avec d'autres producteurs (manioc ↔ soja)."
+          },
+          {
+            "heading": "Fidéliser ses clients",
+            "body":    "Un client fidèle coûte 5 fois moins cher à conserver qu'un nouveau à acquérir. Concrètement :\n• Note les numéros de tes clients réguliers (carnet ou téléphone).\n• Envoie un WhatsApp quand une nouvelle production est prête.\n• Offre un échantillon gratuit de temps en temps.\n• Demande des retours : 'Est-ce que le dernier lot vous a convenu ?'\n• Tiens tes promesses de délai et de qualité. Un retard non prévenu = client perdu.\n\nLes groupements féminins qui fidélisent 20 clients réguliers vendent toute leur production avant la fin du mois."
+          }
+        ],
+        "key_takeaway": "Connais ton prix plancher, vends en circuit court pour doubler ta marge, fidélise 20 clients réguliers pour sécuriser tes ventes."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":   "q4_0",
+            "text": "Quel canal de vente offre généralement la marge la plus élevée pour un transformateur ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "Grossiste qui achète tout en une fois à prix cassé" },
+              { "id": "b", "text": "Vente directe WhatsApp + livraison au consommateur final", "correct": true },
+              { "id": "c", "text": "Marché de quartier avec négociation dure" },
+              { "id": "d", "text": "Vente au détail à perte pour faire du volume" }
+            ],
+            "explanation": "Le circuit direct (producteur > consommateur) supprime les intermédiaires et leurs marges. La vente WhatsApp + livraison maximise le prix de vente final, mais demande de gérer la relation client."
+          },
+          {
+            "id":   "q4_1",
+            "text": "Ton gari coûte 500 F à produire. Quel est ton prix de vente minimum en circuit court ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "500 F (à prix coûtant)" },
+              { "id": "b", "text": "650 F (+30 %, prix plancher)" },
+              { "id": "c", "text": "750 à 1 000 F (×1,5 à 2)", "correct": true },
+              { "id": "d", "text": "2 000 F (×4)" }
+            ],
+            "explanation": "Le prix de vente minimum en circuit court est le coût de revient multiplié par 1,5 à 2. Cela couvre les coûts, laisse une marge et permet des remises sur volume sans vendre à perte. Le prix plancher (coût + 30 %) est la limite basse absolue."
+          },
+          {
+            "id":   "q4_2",
+            "text": "Quelle est la pratique la plus efficace pour fidéliser un client régulier ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "Ne jamais donner de nouvelles, attendre qu'il revienne" },
+              { "id": "b", "text": "Envoyer un WhatsApp quand une nouvelle production est prête + demander des retours", "correct": true },
+              { "id": "c", "text": "Augmenter les prix à chaque visite" },
+              { "id": "d", "text": "Vendre uniquement en grosse quantité" }
+            ],
+            "explanation": "La fidélisation repose sur la communication proactive et l'écoute. Prévenir le client d'une nouvelle production et demander son avis renforce la relation et augmente la fréquence d'achat."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    5,
+      "title":    "Conserver et réduire les pertes",
+      "subtitle": "Séchage, fermentation, stockage",
+      "duration_min": 1,
+      "xp_per_lesson": 30,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Au Togo, près de 30 % des productions agricoles sont perdues entre la récolte et la vente. Pour le manioc, la mangue, la tomate, ces pertes peuvent ruiner une saison entière de travail. La transformation et la bonne conservation sont la réponse.\n\nTrois techniques simples et accessibles peuvent réduire tes pertes de 80 % : le séchage solaire, la fermentation contrôlée et le stockage étanche. Cette leçon te montre comment les mettre en œuvre avec du matériel local.",
+        "sections": [
+          {
+            "heading": "Le séchage solaire",
+            "body":    "Le séchage retire l'eau des aliments : sans eau, les microbes ne se développent pas. Conservation : 6 à 12 mois.\n\nMatériel : séchoir solaire (grille + bâche transparente, ~15 000 F à fabriquer) ou simple claie surélevée couverte d'une moustiquaire.\n\nProduits adaptés :\n• Mangue en tranches : séchage 2 à 3 jours, vente 3 000 F/kg (vs 500 F frais)\n• Tomate : séchage 3 à 4 jours, remplace la tomate fraîche en saison des pluies\n• Piment, gombo, oignon : séchage 1 à 2 jours\n• Manioc : feuilles de manioc séchées = 'Ademe', très demandé\n\nRègle : couper en tranches fines (5 mm), retourner 2× par jour, protéger de la rosée la nuit.",
+            "highlight": true
+          },
+          {
+            "heading": "Fermentation et salage",
+            "body":    "La fermentation crée un milieu acide qui empêche les microbes pathogènes.\n\n• Manioc fermenté : attiéké, gari, foufou, placali (conservation 1 à 2 semaines pour le frais, plusieurs mois pour le sec).\n• Lait de soja > yaourt par fermentation lactique (conservation 3 à 5 jours au frais).\n• Piment fermenté en saumure (sel + eau) : conservation 3 mois.\n\nLe salage : 200 g de sel par kg de produit. Convient à la viande séchée, au poisson, à certains légumes."
+          },
+          {
+            "heading": "Stockage et lutte contre les insectes",
+            "body":    "Le stockage est la dernière ligne de défense. Règles :\n• Locaux secs, aérés, à l'abri du soleil direct.\n• Sacs sur palettes (pas directement sur le sol).\n• Température ambiante stable (éviter les variations).\n\nContre les insectes (charançons, mites) :\n• Sacs étanches type PICS (Purdue Improved Crop Storage) — 2 500 F le sac, conserve 1 an sans insecticide.\n• Feuilles de neem (margousier) mélangées aux grains : répulsif naturel.\n• Bac à huile autour des pieds de palette : barrière aux rongeurs.\n• Inventaire hebdomadaire : premier signe d'insecte = traitement immédiat (soleil, tamisage, ou tri)."
+          }
+        ],
+        "key_takeaway": "Séchage, fermentation, stockage étanche : réduis tes pertes de 80 % et sécurise tes revenus sur l'année."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":   "q5_0",
+            "text": "Quel produit togolais est traditionnellement obtenu par séchage des feuilles de manioc ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "Le gari" },
+              { "id": "b", "text": "L'attiéké" },
+              { "id": "c", "text": "L'ademe", "correct": true },
+              { "id": "d", "text": "Le placali" }
+            ],
+            "explanation": "L'ademe est obtenu par séchage et broyage des feuilles de manioc. Très demandé sur les marchés togolais, il se conserve des mois et constitue une excellente valorisation des feuilles (souvent jetées)."
+          },
+          {
+            "id":   "q5_1",
+            "text": "Quel sac est recommandé pour stocker les grains sans insecticide pendant 1 an ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "Sac de jute ordinaire" },
+              { "id": "b", "text": "Sac étanche type PICS (Purdue Improved Crop Storage)", "correct": true },
+              { "id": "c", "text": "Sac en papier kraft" },
+              { "id": "d", "text": "Sac plastique troué" }
+            ],
+            "explanation": "Le sac PICS crée une barrière étanche à l'oxygène et à l'humidité. Les insectes éventuellement présents meurent par asphyxie, sans ajout de produit chimique. Coût ~2 500 F, rentabilisé en quelques sacs sauvés."
+          },
+          {
+            "id":   "q5_2",
+            "text": "Une mangue fraîche se vend 500 F/kg. Séchée, elle atteint 3 000 F/kg. Quel est le multiplicateur de valeur ?",
+            "type": "single_choice",
+            "options": [
+              { "id": "a", "text": "×2" },
+              { "id": "b", "text": "×4" },
+              { "id": "c", "text": "×6", "correct": true },
+              { "id": "d", "text": "×10" }
+            ],
+            "explanation": "3 000 / 500 = 6. La mangue séchée vaut 6 fois la mangue fraîche. C'est l'une des plus fortes valeurs ajoutées au Togo, et le séchage permet de conserver la mangue 6 à 12 mois contre 1 semaine en frais."
+          }
+        ]
+      }
+    }
+  ],
+
+  "completion_criteria": {
+    "all_lessons_passed": true,
+    "min_total_score":    0.67,
+    "issues_badge":       true,
+    "xp_completion_bonus": 0
+  },
+
+  "i18n": {
+    "ewe": {
+      "meta.title":       "Agroalimentaire ƒe Tɔtrɔ",
+      "meta.subtitle":    "Ðe asi yeye wò agble ƒe nuwo ŋu",
+      "meta.description": "Ðe nunya bena wòatrɔ wò agble ƒe nuwo (agbeli, soya, ataa) na nuɖuɖu yeye siwo asi le: gari, attiéké, dɔ, kple dɔdɔ ɖɔɖɔ ɖeɖe."
+    }
+  }
+}
