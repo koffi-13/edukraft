@@ -127,24 +127,21 @@ jobs:
             3. Autorisez "Sources inconnues" si demandé
             4. Ouvrez EduKraft
 
-            ## Nouveautés v1.1.7
-            - **Persistance blindée (offline-first)** : à la réouverture de
-              l'app, votre tableau de bord s'affiche directement avec toutes
-              vos données — jusqu'à ce que vous vous déconnectiez
-              volontairement. Un filet de sécurité recrée le profil depuis
-              votre compte même si la base locale rencontre un problème.
-            - **Synchronisation au retour du réseau** : dès la reconnexion
-              (ou le retour au premier plan), vos données locales partent
-              immédiatement vers votre compte en ligne — plus d'attente.
-            - **Chargement des mises à jour** : l'app récupère
-              automatiquement les activités effectuées sur vos autres
-              appareils (fusion sans perte) et le catalogue de cours à jour.
-            - **Nouveaux cours sans mise à jour de l'APK** : les formations
-              publiées sur le serveur apparaissent automatiquement dans
-              l'app (et restent consultables hors ligne grâce au cache).
-            - **Diagnostics du stockage** : Profil → Synchronisation →
-              « Diagnostics du stockage » affiche l'état de chaque couche
-              de persistance (utile en cas de souci).
+            ## Nouveautés v1.1.8
+            - **Comptes isolés sur un même appareil** (correctif majeur) :
+              après une déconnexion puis une connexion à un AUTRE compte,
+              seules les données du compte connecté s'affichent — plus
+              jamais celles de l'ancien utilisateur. Chaque donnée locale
+              est liée à un compte par son identifiant, et les données de
+              chaque compte sont conservées pour son retour.
+            - **Profil synchronisé** : vos informations personnelles
+              (prénom, nom, email, photo, profession, ville, bio…)
+              remontent vers votre compte et retombent sur tous vos
+              appareils. L'email du compte est connu dès la connexion
+              Google.
+            - **Email affiché** : « Modifier mon profil » pré-remplit
+              l'email du compte (Google : adresse vérifiée) si le champ
+              local est vide.
           files: edukraft-${{ steps.version.outputs.VERSION }}.apk
           draft: false
           prerelease: false

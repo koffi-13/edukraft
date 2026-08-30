@@ -19,6 +19,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../theme';
 import { useDb } from '../database/DbProvider';
+import { useAuth } from '../contexts/AuthContext';
 import { t } from '../i18n';
 
 // Imports dynamiques (peuvent ne pas être dispo en web/test)
@@ -116,6 +117,7 @@ const MAX_PHOTO_BYTES = 250000; // 250 Ko base64 (~190 Ko binaire)
 export default function EditProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { learner, updateProfile } = useDb();
+  const { user } = useAuth();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({});
   const [dateDisplay, setDateDisplay] = useState('');
@@ -139,7 +141,9 @@ export default function EditProfileScreen({ navigation }) {
       state: learner.state || '',
       city: learner.city || '',
       address: learner.address || '',
-      email: learner.email || '',
+      // v1.1.8 : l'email du compte (Google : email vérifié) pré-remplit le
+      // champ si le learner local n'en portait pas (créé avant v1.1.8)
+      email: learner.email || user?.email || '',
       phone: learner.phone || '',
       profession: learner.profession || '',
       bio: learner.bio || '',

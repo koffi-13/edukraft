@@ -182,28 +182,59 @@ function fail(res, message, statusCode = 400) {
   return res.status(statusCode).json({ success: false, error: message });
 }
 
-/** Trouve ou crée un learner par client_id */
+/** Trouve ou crée un learner par client_id.
+ *  v1.1.8 : les champs du PROFIL ÉTENDU (prénom, nom, email, photo, bio,
+ *  profession, localisation…) sont désormais PERSISTÉS — avant, seuls
+ *  name/phone/language/XP/streak étaient mis à jour et les « informations de
+ *  l'utilisateur » saisies sur un appareil n'étaient jamais synchronisées.
+ *  Sémantique : COALESCE (une valeur null/absente n'écrase jamais) + les
+ *  compteurs restent en MAX (anti-rétrograde). */
+const LEARNER_PROFILE_FIELDS = [
+  'first_name', 'last_name', 'gender', 'birth_date', 'education_level',
+  'country', 'state', 'city', 'address', 'email', 'photo_url', 'bio', 'profession',
+];
+
 function findOrCreateLearner(clientId, payload) {
   let learner = db.prepare('SELECT * FROM learner WHERE client_id = ?').get(clientId);
   const now = new Date().toISOString();
 
   if (!learner) {
     const id = uuidv4();
-    db.prepare(`
-      INSERT INTO learner (id, server_id, client_id, name, phone, language, total_xp, streak_days, last_active_at, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, `srv_${uuidv4().slice(0, 8)}`, clientId, payload.name, payload.phone || null, payload.language || 'fr',
-      payload.total_xp || 0, payload.streak_days || 0, now, now, now);
+    const cols = ['id', 'server_id', 'client_id', 'name', 'phone', 'language', 'total_xp', 'streak_days', 'last_active_at', 'created_at', 'updated_at'];
+    const vals = [id, `srv_${uuidv4().slice(0, 8)}`, clientId, payload.name, payload.phone || null, payload.language || 'fr',
+      payload.total_xp || 0, payload.streak_days || 0, now, now, now];
+    // v1.1.8 : insérer aussi les champs de profil connus du client
+    for (const f of LEARNER_PROFILE_FIELDS) {
+      if (payload[f] !== undefined && payload[f] !== null && String(payload[f]).trim() !== '') {
+        cols.push(f);
+        vals.push(payload[f]);
+      }
+    }
+    db.prepare(`INSERT INTO learner (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`).run(...vals);
     learner = db.prepare('SELECT * FROM learner WHERE id = ?').get(id);
   } else {
     // Mettre à jour les champs modifiés (COALESCE pour ne pas écraser les champs
     // absents du payload — important pour les updates partiels gamification)
-    db.prepare(`
-      UPDATE learner SET name = COALESCE(?, name), phone = COALESCE(?, phone), language = COALESCE(?, language),
-        total_xp = MAX(total_xp, ?), streak_days = MAX(streak_days, ?),
-        last_active_at = ?, updated_at = ?
-      WHERE id = ?
-    `).run(payload.name, payload.phone, payload.language, payload.total_xp || 0, payload.streak_days || 0, now, now, learner.id);
+    // v1.1.8 : + tous les champs du profil étendu (sync « informations de profil »)
+    const setClauses = [
+      'name = COALESCE(?, name)',
+      'phone = COALESCE(?, phone)',
+      'language = COALESCE(?, language)',
+      'total_xp = MAX(total_xp, ?)',
+      'streak_days = MAX(streak_days, ?)',
+      'last_active_at = ?',
+      'updated_at = ?',
+    ];
+    const params = [payload.name, payload.phone, payload.language,
+      payload.total_xp || 0, payload.streak_days || 0, now, now];
+    for (const f of LEARNER_PROFILE_FIELDS) {
+      if (payload[f] !== undefined && payload[f] !== null && String(payload[f]).trim() !== '') {
+        setClauses.push(`${f} = COALESCE(?, ${f})`);
+        params.push(payload[f]);
+      }
+    }
+    params.push(learner.id);
+    db.prepare(`UPDATE learner SET ${setClauses.join(', ')} WHERE id = ?`).run(...params);
     learner = db.prepare('SELECT * FROM learner WHERE id = ?').get(learner.id);
   }
   return learner;
@@ -829,6 +860,109 @@ app.get('/api/stats', (req, res) => {
     total_quiz_attempts: totalAttempts,
     average_score: Math.round((avgScore || 0) * 100),
   });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ADMIN — visualisation des données (v1.1.8)
+// ═══════════════════════════════════════════════════════════════════════════════
+// « J'ai la sensation que le serveur ne conserve pas les données. Comment
+//  afficher les données utilisateurs sur Render ? »
+// Render n'offre pas d'accès shell/SSH sur le free tier : ces endpoints
+// permettent d'INSPECTER la base (users, learners, progressions, badges)
+// depuis un navigateur ou curl. Protégés par ADMIN_KEY (défaut : API_KEY).
+//
+//   GET /api/admin/dump?admin_key=XXX                → vue d'ensemble
+//   GET /api/admin/user/<userId>?admin_key=XXX       → détail complet d'un compte
+//   GET /api/admin/user?email=a@b.tg&admin_key=XXX   → détail par email
+//
+// ⚠️ PERSISTANCE : sur le free tier de Render, le disque est ÉPHÉMÈRE —
+// chaque redéploiement/restart RÉINITIALISE le fichier SQLite. Les données
+// survivent tant que le service tourne, mais disparaissent au déploiement
+// suivant. Voir docs/DEPLOYMENT-V1.md §12 (disque persistant Render / DB
+// externe) pour conserver les données de production.
+
+const ADMIN_KEY = process.env.ADMIN_KEY || API_KEY;
+
+function requireAdminKey(req, res, next) {
+  const key = req.headers['x-admin-key'] || req.query.admin_key;
+  if (!key || key !== ADMIN_KEY) {
+    return res.status(401).json({ success: false, error: 'Clé admin invalide' });
+  }
+  next();
+}
+
+function sanitizeUserRow(u) {
+  if (!u) return null;
+  const { password_hash, ...safe } = u;
+  return safe;
+}
+
+// Vue d'ensemble : comptes, learners, progressions, badges + info stockage
+app.get('/api/admin/dump', requireAdminKey, rateLimit(30, 60_000), (req, res) => {
+  try {
+    const users    = db.prepare('SELECT id, email, phone, display_name, provider, language, created_at, last_login_at FROM user ORDER BY created_at DESC LIMIT 100').all();
+    const learners = db.prepare('SELECT client_id, name, email, phone, profession, city, country, total_xp, streak_days, best_streak, total_lessons_done, created_at, updated_at FROM learner ORDER BY total_xp DESC LIMIT 100').all();
+    const counts = {
+      users:            db.prepare('SELECT COUNT(*) as cnt FROM user').get().cnt,
+      learners:         db.prepare('SELECT COUNT(*) as cnt FROM learner').get().cnt,
+      module_progress:  db.prepare('SELECT COUNT(*) as cnt FROM module_progress').get().cnt,
+      quiz_attempts:    db.prepare('SELECT COUNT(*) as cnt FROM quiz_attempt').get().cnt,
+      badges:           db.prepare('SELECT COUNT(*) as cnt FROM badge').get().cnt,
+      refresh_tokens:   db.prepare('SELECT COUNT(*) as cnt FROM refresh_token').get().cnt,
+    };
+    success(res, {
+      generated_at: new Date().toISOString(),
+      db_path: DB_PATH,
+      storage_warning: 'Render free tier : disque éphémère — les données sont réinitialisées à chaque redéploiement. Voir docs/DEPLOYMENT-V1.md §12.',
+      counts,
+      users,
+      learners,
+    });
+  } catch (err) {
+    console.error('[ADMIN/dump]', err.message);
+    fail(res, 'Erreur lecture base : ' + err.message, 500);
+  }
+});
+
+// Détail complet d'un compte (user + learner + progressions + badges + quiz)
+app.get('/api/admin/user', requireAdminKey, rateLimit(30, 60_000), (req, res) => {
+  try {
+    const email = String(req.query.email || '').toLowerCase().trim();
+    if (!email) return fail(res, 'Paramètre email requis');
+    const user = db.prepare('SELECT * FROM user WHERE email = ?').get(email);
+    if (!user) return fail(res, 'Aucun compte avec cet email', 404);
+    const clientId = `lrn_${user.id}`;
+    const learner = db.prepare('SELECT * FROM learner WHERE client_id = ?').get(clientId);
+    const payload = { user: sanitizeUserRow(user), learner: learner || null };
+    if (learner) {
+      payload.progress       = db.prepare('SELECT module_id, status, current_lesson, lessons_done, total_xp_earned, best_score, updated_at FROM module_progress WHERE learner_id = ?').all(learner.id);
+      payload.badges         = db.prepare('SELECT module_id, module_title, score, xp_total, blockchain_tx, issued_at FROM badge WHERE learner_id = ?').all(learner.id);
+      payload.quiz_attempts  = db.prepare('SELECT COUNT(*) as cnt FROM quiz_attempt WHERE learner_id = ?').get(learner.id).cnt;
+    }
+    success(res, payload);
+  } catch (err) {
+    console.error('[ADMIN/user]', err.message);
+    fail(res, 'Erreur lecture base : ' + err.message, 500);
+  }
+});
+
+app.get('/api/admin/user/:userId', requireAdminKey, rateLimit(30, 60_000), (req, res) => {
+  try {
+    const user = db.prepare('SELECT * FROM user WHERE id = ?').get(req.params.userId);
+    if (!user) return fail(res, 'Compte introuvable', 404);
+    const clientId = `lrn_${user.id}`;
+    const learner = db.prepare('SELECT * FROM learner WHERE client_id = ?').get(clientId);
+    const payload = { user: sanitizeUserRow(user), learner: learner || null };
+    if (learner) {
+      payload.progress       = db.prepare('SELECT module_id, status, current_lesson, lessons_done, total_xp_earned, best_score, updated_at FROM module_progress WHERE learner_id = ?').all(learner.id);
+      payload.badges         = db.prepare('SELECT module_id, module_title, score, xp_total, blockchain_tx, issued_at FROM badge WHERE learner_id = ?').all(learner.id);
+      payload.quiz_attempts  = db.prepare('SELECT COUNT(*) as cnt FROM quiz_attempt WHERE learner_id = ?').get(learner.id).cnt;
+    }
+    success(res, payload);
+  } catch (err) {
+    console.error('[ADMIN/user/:id]', err.message);
+    fail(res, 'Erreur lecture base : ' + err.message, 500);
+  }
 });
 
 // ── Gestion des erreurs globales ─────────────────────────────────────────────

@@ -63,10 +63,37 @@ const memoryStore = new MemoryStore();
 // web > mémoire). Avant, le `require('@react-native-async-storage/async-storage')`
 // levait une exception silencieuse sur web → RIEN n'était persisté → au
 // rechargement, le profil invité était perdu (écran Login à chaque fois).
+//
+// v1.1.8 (multi-comptes — « chaque donnée doit être liée à un utilisateur via
+// son ID même en local ») :
+//   - ACTIVE_LEARNER : pointeur vers le learner lié à la session courante
+//     (lrn_<user.id> pour un compte, lrn_<timestamp> pour un invité).
+//   - Le snapshot complet est désormais SCOPÉ PAR COMPTE : clé
+//     ek_snap_<learnerId>. Le learner du compte A ET celui du compte B
+//     coexistent sur l'appareil — changer de compte ne montre QUE les
+//     données du compte connecté (les autres lignes restent en SQLite,
+//     intactes, prêtes à être rechargées à la reconnexion du compte).
+//   - ek_learner / ek_memory_snapshot restent écrits (compat ascendante :
+//     profil « actif » pour les versions précédentes).
 const KEYS = {
   LEARNER:  'ek_learner',
   SNAPSHOT: 'ek_memory_snapshot', // snapshot complet du store mémoire
+  ACTIVE_LEARNER: 'ek_active_learner_id', // v1.1.8 : learner de la session
 };
+
+const snapKey = (learnerId) => `ek_snap_${learnerId}`;
+
+/** v1.1.8 : id du learner attendu pour la session stockée.
+ *  - Compte authentifié (pas de déconnexion) → lrn_<user.id> (clé canonique
+ *    partagée web + mobile, et embarquant l'ID utilisateur dans chaque table)
+ *  - Invité / déconnecté → null (résolution via pointeur actif ou ligne
+ *    invité server_id IS NULL) */
+export function resolveSessionLearnerId(stored) {
+  if (stored?.user && stored.user.id && !stored.sessionEnded) {
+    return `lrn_${stored.user.id}`;
+  }
+  return null;
+}
 
 // ── Helper : persister un objet learner complet dans SQLite ──────────────────
 // v1.1 (correctif critique) : quand SQLite est vide mais qu'un learner existe
@@ -114,6 +141,7 @@ async function upsertLearnerRow(db, learner) {
 // n'étaient jamais re-sauvegardées, et sur web rien n'était persisté du tout.
 async function saveMemorySnapshot(store) {
   try {
+    if (!store.learner?.id) return;
     const snapshot = {
       learner: store.learner,
       progress: store.progress,
@@ -124,12 +152,35 @@ async function saveMemorySnapshot(store) {
       dailyGoal: store.dailyGoal,
       savedAt: new Date().toISOString(),
     };
-    await persistentStorage.setItem(KEYS.SNAPSHOT, JSON.stringify(snapshot));
+    const json = JSON.stringify(snapshot);
+    // v1.1.8 : snapshot SCOPÉ PAR COMPTE + clés legacy (« actif »)
+    await persistentStorage.setItem(snapKey(store.learner.id), json);
+    await persistentStorage.setItem(KEYS.SNAPSHOT, json);
+    await persistentStorage.setItem(KEYS.ACTIVE_LEARNER, store.learner.id);
   } catch (_) {}
 }
 
-async function loadMemorySnapshot(store) {
+async function loadMemorySnapshot(store, learnerId = null) {
   try {
+    // v1.1.8 : priorité au snapshot DU COMPTE demandé (isolation des données)
+    if (learnerId) {
+      const scoped = await persistentStorage.getItem(snapKey(learnerId));
+      if (scoped) {
+        const snap = JSON.parse(scoped);
+        if (snap?.learner?.id === learnerId) {
+          store.learner = snap.learner;
+          if (snap.progress) store.progress = snap.progress;
+          if (snap.quizAttempts) store.quizAttempts = snap.quizAttempts;
+          if (snap.badges) store.badges = snap.badges;
+          if (snap.streakLogs) store.streakLogs = snap.streakLogs;
+          if (snap.achievements) store.achievements = snap.achievements;
+          if (snap.dailyGoal) store.dailyGoal = snap.dailyGoal;
+          return true;
+        }
+      }
+      // Pas de snapshot pour CE compte → ne PAS retomber sur celui d'un autre
+      return false;
+    }
     const raw = await persistentStorage.getItem(KEYS.SNAPSHOT);
     if (!raw) return false;
     const snap = JSON.parse(raw);
@@ -288,6 +339,63 @@ async function restoreSnapshotToSqlite(db, snap) {
   }
 }
 
+// ── v1.1.8 : renommage canonique SQLite (module-level) ────────────────────
+// Repointe TOUTES les lignes d'un learner (progressions, quiz, badges,
+// streaks, succès, objectif) + la file de sync vers un nouvel id. Utilisé :
+//   - à l'init (legacy server_id → id canonique du compte)
+//   - par adoptCanonicalLearnerId (invité → compte)
+async function renameLearnerRowsSqlite(db, oldId, newId) {
+  if (!db || !oldId || !newId || oldId === newId) return;
+  const old = await db.getFirstAsync('SELECT * FROM learner WHERE id = ?', [oldId]);
+  if (!old) return;
+  await upsertLearnerRow(db, { ...old, id: newId });
+  await db.runAsync(
+    `UPDATE module_progress SET learner_id = ?, id = ? || '_' || module_id WHERE learner_id = ?`,
+    [newId, newId, oldId]
+  );
+  await db.runAsync('UPDATE quiz_attempt SET learner_id = ? WHERE learner_id = ?', [newId, oldId]);
+  await db.runAsync('UPDATE badge SET learner_id = ? WHERE learner_id = ?', [newId, oldId]);
+  await db.runAsync(
+    `UPDATE streak_log SET learner_id = ?, id = ? || '_' || activity_date WHERE learner_id = ?`,
+    [newId, newId, oldId]
+  );
+  await db.runAsync(
+    `UPDATE achievement SET learner_id = ?, id = ? || '_' || achievement_key WHERE learner_id = ?`,
+    [newId, newId, oldId]
+  );
+  await db.runAsync('UPDATE daily_goal SET learner_id = ?, id = ? WHERE learner_id = ?', [newId, `goal_${newId}`, oldId]);
+  await db.runAsync('DELETE FROM learner WHERE id = ?', [oldId]);
+
+  // File de sync : réécrire record_id + payload des opérations en attente
+  const rows = await db.getAllAsync('SELECT id, table_name, record_id, payload FROM sync_queue');
+  for (const row of rows) {
+    let obj = null;
+    try { obj = JSON.parse(row.payload); } catch (_) {}
+    let recordId = row.record_id;
+    let changed = false;
+    if (obj && typeof obj === 'object') {
+      if (obj.learner_id === oldId) { obj.learner_id = newId; changed = true; }
+      if (obj.id === oldId) { obj.id = newId; changed = true; }
+    }
+    if (recordId === oldId) { recordId = newId; changed = true; }
+    if (typeof recordId === 'string' && recordId.startsWith(oldId + '_')) {
+      recordId = newId + recordId.slice(oldId.length);
+      if (obj && typeof obj === 'object') obj.id = recordId;
+      changed = true;
+    }
+    if (recordId === `goal_${oldId}`) {
+      recordId = `goal_${newId}`;
+      if (obj && typeof obj === 'object') obj.id = recordId;
+      changed = true;
+    }
+    if (changed) {
+      const payload = obj ? JSON.stringify(obj) : row.payload;
+      await db.runAsync('UPDATE sync_queue SET record_id = ?, payload = ? WHERE id = ?', [recordId, payload, row.id]);
+    }
+  }
+  console.log(`[DB] Learner renommé (SQLite) : ${oldId} → ${newId}`);
+}
+
 // ── v1.1.7 : filet de sécurité session-first (ensureSessionLearner) ────────
 // Si une session est ACTIVE mais qu'AUCUN learner n'a pu être restauré
 // (SQLite vide/corrompue + snapshot illisible), on recrée le profil DEPUIS
@@ -314,6 +422,11 @@ async function ensureSessionLearner(nativeDb, store, setLearnerFn, persistSnapsh
       name: String(name).trim(),
       phone: u.phone || null,
       language: u.language || 'fr',
+      // v1.1.8 : l'email du compte (Google : email vérifié) et l'avatar sont
+      // connus dès la création — « l'email doit être connu pour un utilisateur
+      // ayant connecté son compte Google ».
+      email: u.email || null,
+      photo_url: u.avatar_url || u.picture || null,
       total_xp: 0, streak_days: 0, streak_freezes: 2, best_streak: 0,
       last_active_date: null, total_lessons_done: 0,
       last_active_at: now, created_at: now,
@@ -336,6 +449,28 @@ async function ensureSessionLearner(nativeDb, store, setLearnerFn, persistSnapsh
   }
 }
 
+// ── v1.1.8 : champs du profil étendu fusionnés depuis le serveur ──────────
+// « Certaines données ne sont toujours pas maintenues ni synchronisées, il
+//  s'agit par exemples des informations de l'utilisateur (profil) » :
+// auparavant la fusion pull ne copiait QUE XP/streaks/phone/language — les
+// champs de profil (prénom, nom, email, ville, bio…) remplis sur un autre
+// appareil n'étaient JAMAIS ramenés. Règle : la valeur locale gagne si elle
+// est remplie, sinon on prend celle du serveur (jamais d'écrasement).
+const PROFILE_FIELDS = [
+  'first_name', 'last_name', 'gender', 'birth_date', 'education_level',
+  'country', 'state', 'city', 'address', 'email', 'photo_url', 'bio', 'profession',
+];
+
+function mergeProfileFields(localLearner, serverLearner) {
+  const merged = {};
+  for (const f of PROFILE_FIELDS) {
+    const lv = localLearner?.[f];
+    const sv = serverLearner?.[f];
+    merged[f] = (lv !== undefined && lv !== null && String(lv).trim() !== '') ? lv : (sv ?? null);
+  }
+  return merged;
+}
+
 // ── Provider ─────────────────────────────────────────────────────────────────
 export function DbProvider({ children }) {
   const [db, setDb]           = useState(null);
@@ -344,11 +479,15 @@ export function DbProvider({ children }) {
   const [error, setError]     = useState(null);
   const storeRef              = useRef(memoryStore);
 
-  // ── Synchroniser le learner dans le stockage persistant à chaque changement ──
-  // Garantit que le learner survit au redémarrage même sans SQLite
+  // ── Synchroniser le learner actif dans le stockage persistant à chaque changement ──
+  // Garantit que le learner survit au redémarrage même sans SQLite.
+  // v1.1.8 : maintient AUSSI le pointeur de session ek_active_learner_id —
+  // c'est lui qui, au démarrage, désigne le learner du COMPTE CONNECTÉ
+  // (isolation multi-comptes : jamais un LIMIT 1 arbitraire).
   useEffect(() => {
     if (learner) {
       persistentStorage.setItem(KEYS.LEARNER, JSON.stringify(learner)).catch(() => {});
+      persistentStorage.setItem(KEYS.ACTIVE_LEARNER, learner.id).catch(() => {});
     }
   }, [learner]);
 
@@ -392,8 +531,50 @@ export function DbProvider({ children }) {
             try { await nativeDb.execAsync(stmt); } catch (_) { /* colonne déjà là */ }
           }
 
-          // Charger le learner existant depuis SQLite
-          const row = await nativeDb.getFirstAsync('SELECT * FROM learner LIMIT 1');
+          // ── v1.1.8 : SÉLECTION DU LEARNER PAR SESSION (isolation multi-comptes) ──
+          // Avant : « SELECT * FROM learner LIMIT 1 » chargeait le PREMIER
+          // learner de la table, quel que soit le compte connecté → après une
+          // déconnexion du compte A puis connexion au compte B, les données
+          // de A s'affichaient. Désormais chaque ligne de chaque table est
+          // liée à un utilisateur via son ID (lrn_<user.id>) et on ne charge
+          // QUE le learner de la session courante.
+          const storedAuth = await authService.getStoredAuth();
+          const expectedId = resolveSessionLearnerId(storedAuth);
+          let row = null;
+
+          if (expectedId) {
+            // 1. Ligne canonique du compte (lrn_<user.id>)
+            row = await nativeDb.getFirstAsync('SELECT * FROM learner WHERE id = ?', [expectedId]);
+            // 2. Legacy : ligne liée par server_id (appareil v1.1.6-1.1.7)
+            if (!row && storedAuth.user) {
+              const legacy = await nativeDb.getFirstAsync('SELECT * FROM learner WHERE server_id = ? LIMIT 1', [String(storedAuth.user.id)]);
+              if (legacy && legacy.id !== expectedId) {
+                try {
+                  // v1.1.8 : renameLearnerRowsSqlite module-level (nativeDb
+                  // direct — le `db` du contexte est encore null à l'init)
+                  await renameLearnerRowsSqlite(nativeDb, legacy.id, expectedId);
+                  row = await nativeDb.getFirstAsync('SELECT * FROM learner WHERE id = ?', [expectedId]);
+                } catch (_) { row = legacy; }
+              } else if (legacy) {
+                row = legacy;
+              }
+            }
+          } else {
+            // Invité / déconnecté : pointeur de session, sinon la ligne invité
+            // (server_id IS NULL), sinon l'unique ligne (appareil mono-compte)
+            let pointerId = null;
+            try { pointerId = await persistentStorage.getItem(KEYS.ACTIVE_LEARNER); } catch (_) {}
+            if (pointerId) {
+              row = await nativeDb.getFirstAsync('SELECT * FROM learner WHERE id = ?', [pointerId]);
+            }
+            if (!row) {
+              row = await nativeDb.getFirstAsync('SELECT * FROM learner WHERE server_id IS NULL ORDER BY created_at DESC LIMIT 1');
+            }
+            if (!row) {
+              row = await nativeDb.getFirstAsync('SELECT * FROM learner ORDER BY created_at DESC LIMIT 1');
+            }
+          }
+
           if (row) {
             setLearner(row);
             // v1.1.7 : alimenter AUSSI le store mémoire (mode fallback) —
@@ -404,9 +585,11 @@ export function DbProvider({ children }) {
             // Aussi sauvegarder dans le stockage persistant (fallback)
             try {
               await persistentStorage.setItem(KEYS.LEARNER, JSON.stringify(row));
+              await persistentStorage.setItem(KEYS.ACTIVE_LEARNER, row.id);
             } catch (_) {}
           } else {
-            // Pas de learner en SQLite — vérifier le stockage persistant
+            // Pas de learner en SQLite pour CETTE session — vérifier le
+            // stockage persistant (v1.1.8 : snapshot SCOPÉ au compte attendu)
             try {
               // v1.1.5 : essayer d'abord le SNAPSHOT COMPLET (learner +
               // progressions + badges + succès + streaks + objectif) —
@@ -414,31 +597,46 @@ export function DbProvider({ children }) {
               // était réinséré : le profil revenait mais toutes les
               // progressions étaient perdues.
               let snapRaw = null;
-              try { snapRaw = await persistentStorage.getItem(KEYS.SNAPSHOT); } catch (_) {}
+              try { snapRaw = await persistentStorage.getItem(expectedId ? snapKey(expectedId) : KEYS.SNAPSHOT); } catch (_) {}
+              // Compat : ancienne clé globale — acceptée UNIQUEMENT si elle
+              // correspond au compte attendu (ou mode invité mono-compte)
+              if (!snapRaw && !expectedId) {
+                try { snapRaw = await persistentStorage.getItem(KEYS.SNAPSHOT); } catch (_) {}
+              }
               if (snapRaw) {
                 const snap = JSON.parse(snapRaw);
-                await restoreSnapshotToSqlite(nativeDb, snap);
-                if (snap.learner) {
-                  storeRef.current.learner = snap.learner;
-                  // Le store mémoire sert de fallback — on le remplit aussi
-                  await loadMemorySnapshot(storeRef.current);
-                  setLearner(snap.learner);
+                const snapBelongsToSession = !expectedId || snap?.learner?.id === expectedId
+                  || String(snap?.learner?.server_id || '') === String(storedAuth?.user?.id || '');
+                if (snapBelongsToSession) {
+                  await restoreSnapshotToSqlite(nativeDb, snap);
+                  if (snap.learner) {
+                    storeRef.current.learner = snap.learner;
+                    // Le store mémoire sert de fallback — on le remplit aussi
+                    await loadMemorySnapshot(storeRef.current, snap.learner.id);
+                    setLearner(snap.learner);
+                  }
+                } else {
+                  console.log('[DB] Snapshot ignoré : appartient à un autre compte (isolation v1.1.8)');
                 }
               } else {
                 const storedLearner = await persistentStorage.getItem(KEYS.LEARNER);
                 if (storedLearner) {
                   const parsed = JSON.parse(storedLearner);
-                  // v1.1 : RÉINSÉRER le learner dans SQLite (avant il restait
-                  // uniquement en state → get()/addXP() retournaient null)
-                  try {
-                    await upsertLearnerRow(nativeDb, parsed);
-                    console.log('[DB] Learner réinséré en SQLite depuis le stockage persistant');
-                  } catch (reinsertErr) {
-                    console.warn('[DB] Échec réinsertion SQLite :', reinsertErr.message);
+                  const belongs = !expectedId || parsed?.id === expectedId
+                    || String(parsed?.server_id || '') === String(storedAuth?.user?.id || '');
+                  if (belongs) {
+                    // v1.1 : RÉINSÉRER le learner dans SQLite (avant il restait
+                    // uniquement en state → get()/addXP() retournaient null)
+                    try {
+                      await upsertLearnerRow(nativeDb, parsed);
+                      console.log('[DB] Learner réinséré en SQLite depuis le stockage persistant');
+                    } catch (reinsertErr) {
+                      console.warn('[DB] Échec réinsertion SQLite :', reinsertErr.message);
+                    }
+                    storeRef.current.learner = parsed;
+                    setLearner(parsed);
+                    console.log('[DB] Learner restauré (SQLite vide → stockage persistant)');
                   }
-                  storeRef.current.learner = parsed;
-                  setLearner(parsed);
-                  console.log('[DB] Learner restauré (SQLite vide → stockage persistant)');
                 }
               }
             } catch (_) {}
@@ -454,19 +652,30 @@ export function DbProvider({ children }) {
           // persistant (learner + progressions + badges + streaks + succès).
           // Avant : sur web le require AsyncStorage échouait silencieusement
           // → rien n'était restauré → écran Login à chaque rechargement.
-          const restoredFromSnapshot = await loadMemorySnapshot(storeRef.current);
+          // v1.1.8 : snapshot SCOPÉ AU COMPTE de la session (un autre compte
+          // ayant utilisé ce navigateur ne doit JAMAIS être restauré ici).
+          const storedAuthMem = await authService.getStoredAuth();
+          const expectedIdMem = resolveSessionLearnerId(storedAuthMem);
+          const restoredFromSnapshot = await loadMemorySnapshot(storeRef.current, expectedIdMem);
           if (restoredFromSnapshot) {
             console.log('[DB] Snapshot complet restauré (learner + progressions)');
             setLearner(storeRef.current.learner);
           } else {
-            // Compat : ancienne clé individuelle (ek_learner seul)
+            // Compat : ancienne clé individuelle (ek_learner seul) — acceptée
+            // uniquement si elle correspond au compte attendu (isolation v1.1.8)
             try {
               const storedLearner = await persistentStorage.getItem(KEYS.LEARNER);
               if (storedLearner) {
                 const parsed = JSON.parse(storedLearner);
-                storeRef.current.learner = parsed;
-                setLearner(parsed);
-                console.log('[DB] Learner restauré depuis le stockage persistant');
+                const belongs = !expectedIdMem || parsed?.id === expectedIdMem
+                  || String(parsed?.server_id || '') === String(storedAuthMem?.user?.id || '');
+                if (belongs) {
+                  storeRef.current.learner = parsed;
+                  setLearner(parsed);
+                  console.log('[DB] Learner restauré depuis le stockage persistant');
+                } else {
+                  console.log('[DB] ek_learner ignoré : appartient à un autre compte (isolation v1.1.8)');
+                }
               }
             } catch (_) {}
           }
@@ -524,13 +733,14 @@ export function DbProvider({ children }) {
   const gamificationRepo = useCallback(() => createGamificationRepository(db, storeRef.current, enqueue), [db, enqueue]);
 
   // ── Learner ───────────────────────────────────────────────────────────
-  const createLearner = useCallback(async ({ id, name, phone, language = 'fr' }) => {
-    const result = await learnerRepo().create({ id, name, phone, language });
+  const createLearner = useCallback(async ({ id, name, phone, language = 'fr', server_id = null, email = null, photo_url = null }) => {
+    const result = await learnerRepo().create({ id, name, phone, language, server_id, email, photo_url });
     setLearner(result);
     storeRef.current.learner = result;
     // Persister dans le stockage multi-plateforme + snapshot complet
     try {
       await persistentStorage.setItem(KEYS.LEARNER, JSON.stringify(result));
+      await persistentStorage.setItem(KEYS.ACTIVE_LEARNER, result.id);
     } catch (_) {}
     persistSnapshot();
     return result;
@@ -571,9 +781,21 @@ export function DbProvider({ children }) {
    * un server_id pour la synchronisation. Utilisé notamment quand un invité
    * crée son compte au moment de demander une déconnexion : ses données
    * locales deviennent rattachées au compte et seront synchronisées.
+   *
+   * v1.1.8 : GARDE D'ISOLATION — on ne lie JAMAIS au compte B un learner qui
+   * appartient déjà au compte A (bug « après déconnexion puis connexion à un
+   * autre compte, ce sont les informations de l'ancien utilisateur qui
+   * apparaissent »). Seuls un invité (server_id NULL) ou le learner du compte
+   * lui-même peuvent être liés. Le changement de compte réel est opéré par
+   * restoreFromServer → switchActiveLearner.
    */
   const linkLearnerToAccount = useCallback(async (serverUser) => {
     if (!learner || !serverUser?.id) return learner;
+    // v1.1.8 : refus si le learner actif appartient à un AUTRE compte
+    if (learner.server_id && String(learner.server_id) !== String(serverUser.id)) {
+      console.warn('[DB] linkLearnerToAccount REFUSÉ : le learner actif appartient à un autre compte (isolation v1.1.8)');
+      return learner; // restoreFromServer effectuera le switch de profil
+    }
     const now = new Date().toISOString();
     try {
       if (db) {
@@ -581,8 +803,8 @@ export function DbProvider({ children }) {
           'UPDATE learner SET server_id = ?, sync_status = ?, updated_at = ? WHERE id = ?',
           [String(serverUser.id), 'pending', now, learner.id]
         );
-        const { QUERIES } = require('./schema');
-        const refreshed = await db.getFirstAsync(QUERIES.GET_LEARNER);
+        // v1.1.8 : relecture SCOPÉE par id (jamais GET_LEARNER LIMIT 1)
+        const refreshed = await db.getFirstAsync('SELECT * FROM learner WHERE id = ?', [learner.id]);
         if (refreshed) {
           setLearner(refreshed);
           storeRef.current.learner = refreshed;
@@ -633,6 +855,11 @@ export function DbProvider({ children }) {
   // badges, streaks, succès, objectif) sont repointées, et les opérations
   // encore en file d'attente sont réécrites. Web et mobile partagent ainsi
   // la MÊME clé de synchronisation serveur pour un même compte.
+  //
+  // ⚠️ v1.1.8 : ce renommage n'est autorisé QUE pour un invité NON LIÉ
+  // (server_id NULL) ou une ligne appartenant DÉJÀ au compte cible — jamais
+  // pour transférer les données d'un compte vers un autre (voir
+  // restoreFromServer / switchActiveLearner).
   const adoptCanonicalLearnerId = useCallback(async (oldId, newId) => {
     if (!oldId || !newId || oldId === newId) return;
 
@@ -674,54 +901,7 @@ export function DbProvider({ children }) {
     }
 
     // ── SQLite natif ──
-    const old = await db.getFirstAsync('SELECT * FROM learner WHERE id = ?', [oldId]);
-    if (!old) return;
-    await upsertLearnerRow(db, { ...old, id: newId });
-    await db.runAsync(
-      `UPDATE module_progress SET learner_id = ?, id = ? || '_' || module_id WHERE learner_id = ?`,
-      [newId, newId, oldId]
-    );
-    await db.runAsync('UPDATE quiz_attempt SET learner_id = ? WHERE learner_id = ?', [newId, oldId]);
-    await db.runAsync('UPDATE badge SET learner_id = ? WHERE learner_id = ?', [newId, oldId]);
-    await db.runAsync(
-      `UPDATE streak_log SET learner_id = ?, id = ? || '_' || activity_date WHERE learner_id = ?`,
-      [newId, newId, oldId]
-    );
-    await db.runAsync(
-      `UPDATE achievement SET learner_id = ?, id = ? || '_' || achievement_key WHERE learner_id = ?`,
-      [newId, newId, oldId]
-    );
-    await db.runAsync('UPDATE daily_goal SET learner_id = ?, id = ? WHERE learner_id = ?', [newId, `goal_${newId}`, oldId]);
-    await db.runAsync('DELETE FROM learner WHERE id = ?', [oldId]);
-
-    // File de sync : réécrire record_id + payload des opérations en attente
-    const rows = await db.getAllAsync('SELECT id, table_name, record_id, payload FROM sync_queue');
-    for (const row of rows) {
-      let obj = null;
-      try { obj = JSON.parse(row.payload); } catch (_) {}
-      let recordId = row.record_id;
-      let changed = false;
-      if (obj && typeof obj === 'object') {
-        if (obj.learner_id === oldId) { obj.learner_id = newId; changed = true; }
-        if (obj.id === oldId) { obj.id = newId; changed = true; }
-      }
-      if (recordId === oldId) { recordId = newId; changed = true; }
-      if (typeof recordId === 'string' && recordId.startsWith(oldId + '_')) {
-        recordId = newId + recordId.slice(oldId.length);
-        if (obj && typeof obj === 'object') obj.id = recordId;
-        changed = true;
-      }
-      if (recordId === `goal_${oldId}`) {
-        recordId = `goal_${newId}`;
-        if (obj && typeof obj === 'object') obj.id = recordId;
-        changed = true;
-      }
-      if (changed) {
-        const payload = obj ? JSON.stringify(obj) : row.payload;
-        await db.runAsync('UPDATE sync_queue SET record_id = ?, payload = ? WHERE id = ?', [recordId, payload, row.id]);
-      }
-    }
-    console.log(`[DB] Learner renommé (SQLite) : ${oldId} → ${newId}`);
+    await renameLearnerRowsSqlite(db, oldId, newId);
   }, [db]);
 
   // ── v1.1.6 : FUSION de l'état serveur dans l'état local (MAX par champ) ──
@@ -740,7 +920,7 @@ export function DbProvider({ children }) {
       const s = storeRef.current;
       const svLearner = sv.learner;
 
-      // Learner : MAX des champs numériques
+      // Learner : MAX des champs numériques + champs de profil (v1.1.8)
       if (s.learner && svLearner) {
         const merged = { ...s.learner };
         merged.total_xp           = Math.max(s.learner.total_xp || 0, svLearner.total_xp || 0);
@@ -750,6 +930,8 @@ export function DbProvider({ children }) {
         merged.total_lessons_done = Math.max(s.learner.total_lessons_done || 0, svLearner.total_lessons_done || 0);
         merged.phone   = s.learner.phone || svLearner.phone || null;
         merged.language = s.learner.language || svLearner.language || 'fr';
+        // v1.1.8 : profil étendu — le serveur complète les champs locaux vides
+        Object.assign(merged, mergeProfileFields(s.learner, svLearner));
         merged.updated_at = now;
         s.learner = merged;
       }
@@ -869,7 +1051,7 @@ export function DbProvider({ children }) {
       const localLearner = await db.getFirstAsync('SELECT * FROM learner WHERE id = ?', [canonicalId]);
       const svLearner = sv.learner;
 
-      // Learner : MAX des champs numériques
+      // Learner : MAX des champs numériques + champs de profil (v1.1.8)
       if (localLearner && svLearner) {
         const merged = { ...localLearner };
         merged.total_xp           = Math.max(localLearner.total_xp || 0, svLearner.total_xp || 0);
@@ -879,6 +1061,8 @@ export function DbProvider({ children }) {
         merged.total_lessons_done = Math.max(localLearner.total_lessons_done || 0, svLearner.total_lessons_done || 0);
         merged.phone   = localLearner.phone || svLearner.phone || null;
         merged.language = localLearner.language || svLearner.language || 'fr';
+        // v1.1.8 : profil étendu — le serveur complète les champs locaux vides
+        Object.assign(merged, mergeProfileFields(localLearner, svLearner));
         merged.updated_at = now;
         await upsertLearnerRow(db, merged);
       }
@@ -1040,6 +1224,75 @@ export function DbProvider({ children }) {
   //     fusionnées localement (MAX), et le learner local adopte l'id canonique
   //     lrn_<user.id> — la même clé de sync sur toutes les plateformes.
   // Hors-ligne : best-effort (le learner local est conservé tel quel).
+  //
+  // v1.1.8 : ISOLATION DES COMPTES (bug grave « après déconnexion puis
+  // connexion à un autre compte, ce sont les informations de l'ancien
+  // utilisateur qui apparaissent »). Le learner actif qui appartient à un
+  // AUTRE compte (server_id ≠ user.id) n'est PLUS renommé vers le nouveau
+  // compte — ses données restent sur l'appareil, intouchées. On bascule
+  // vers le learner du compte connecté (switchActiveLearner) : ligne SQLite
+  // existante si le compte s'était déjà connecté ici, sinon snapshot web,
+  // sinon création depuis le compte, sinon Onboarding (learner = null).
+  const switchActiveLearner = useCallback(async (canonicalId, serverUser, sv) => {
+    // 1. Snapshotter le learner sortant SOUS SA PROPRE clé (mode mémoire) :
+    //    ses données resteront restaurables quand ce compte se reconnectera.
+    if (storeRef.current.learner && storeRef.current.learner.id !== canonicalId) {
+      await saveMemorySnapshot(storeRef.current); // clé ek_snap_<ancien id>
+    }
+    // 2. Vider le store mémoire (les collections appartiennent à l'ancien
+    //    compte — en SQLite les lignes restent en base, scopées par learner_id)
+    // v1.1.8 : la file de sync est PRÉSERVÉE — chaque op y est attribuée à
+    // son compte par record_id (lrn_<user.id>_…) : les ops du compte sortant
+    // partiront vers SON compte serveur, jamais vers celui qui se connecte.
+    const outgoingQueue = (storeRef.current.syncQueue || []).slice();
+    storeRef.current.reset();
+    storeRef.current.syncQueue = outgoingQueue;
+
+    // 3. Charger les données DU compte connecté
+    if (db) {
+      const row = await db.getFirstAsync('SELECT * FROM learner WHERE id = ?', [canonicalId]);
+      if (row) {
+        storeRef.current.learner = row;
+        setLearner(row);
+        try {
+          await persistentStorage.setItem(KEYS.LEARNER, JSON.stringify(row));
+          await persistentStorage.setItem(KEYS.ACTIVE_LEARNER, row.id);
+        } catch (_) {}
+        persistSnapshot();
+        console.log('[DB] Switch de compte → données locales du compte restaurées :', row.name);
+        return row;
+      }
+    } else {
+      const restored = await loadMemorySnapshot(storeRef.current, canonicalId);
+      if (restored && storeRef.current.learner) {
+        setLearner(storeRef.current.learner);
+        try { await persistentStorage.setItem(KEYS.ACTIVE_LEARNER, canonicalId); } catch (_) {}
+        console.log('[DB] Switch de compte → snapshot web du compte restauré :', storeRef.current.learner.name);
+        return storeRef.current.learner;
+      }
+    }
+
+    // 4. Aucune donnée locale pour ce compte → création depuis le compte
+    const name = pickAccountDisplayName(serverUser, sv?.learner);
+    if (!name) {
+      // Compte sans prénom connu (ex : téléphone neuf) → Onboarding.
+      // IMPORTANT : learner = null, sinon l'UI montrerait le Dashboard de
+      // l'ancien compte (le gating bascule sur l'écran Bienvenue).
+      setLearner(null);
+      console.log('[DB] Switch de compte : aucun prénom connu → Onboarding');
+      return null;
+    }
+    return await createLearner({
+      id: canonicalId,
+      name,
+      phone: serverUser.phone || '',
+      language: serverUser.language || 'fr',
+      server_id: String(serverUser.id),
+      email: serverUser.email || sv?.learner?.email || null,
+      photo_url: serverUser.avatar_url || serverUser.picture || sv?.learner?.photo_url || null,
+    });
+  }, [db, createLearner, persistSnapshot]);
+
   const restoreFromServer = useCallback(async (serverUser) => {
     const canonicalId = canonicalLearnerId(serverUser);
     if (!canonicalId) return null;
@@ -1063,8 +1316,23 @@ export function DbProvider({ children }) {
       }
     } catch (_) { /* hors-ligne / serveur endormi : restauration best-effort */ }
 
-    // ── 2. Learner local absent → création DIRECTE depuis le compte ──
+    // ── 2. v1.1.8 : le learner actif appartient-il à un AUTRE compte ? ──
     let local = storeRef.current.learner || learner;
+    if (local && local.id !== canonicalId) {
+      const belongsToOtherAccount = !!local.server_id
+        && String(local.server_id) !== String(serverUser.id);
+      if (belongsToOtherAccount) {
+        // CHANGEMENT DE COMPTE : jamais de renommage croisé — on bascule
+        // vers les données du compte qui se connecte (ou l'Onboarding).
+        console.log('[DB] Changement de compte détecté — isolation des données de l\'ancien compte');
+        const switched = await switchActiveLearner(canonicalId, serverUser, sv);
+        if (!switched) return null; // → Onboarding (prénom inconnu)
+        local = switched;
+      }
+      // Sinon : invité non lié (server_id NULL) → adoption ci-dessous
+    }
+
+    // ── 3. Learner local absent → création DIRECTE depuis le compte ──
     if (!local) {
       const name = pickAccountDisplayName(serverUser, sv?.learner);
       if (!name) {
@@ -1077,14 +1345,26 @@ export function DbProvider({ children }) {
         name,
         phone: serverUser.phone || '',
         language: serverUser.language || 'fr',
+        server_id: String(serverUser.id),
+        email: serverUser.email || sv?.learner?.email || null,
+        photo_url: serverUser.avatar_url || serverUser.picture || sv?.learner?.photo_url || null,
       });
       local = storeRef.current.learner;
     }
 
-    // ── 3. Adoption de l'id canonique du compte (invité → compte) ──
+    // ── 4. Adoption de l'id canonique du compte (invité → compte) ──
+    // v1.1.8 : réservé aux invités NON LIÉS (la garde du §2 a déjà traité
+    // le cas d'un learner appartenant à un autre compte).
     if (local && local.id !== canonicalId) {
       try {
         await adoptCanonicalLearnerId(local.id, canonicalId);
+        // Lier au compte (server_id) si ce n'était pas déjà fait
+        if (db) {
+          await db.runAsync('UPDATE learner SET server_id = ?, updated_at = ? WHERE id = ? AND (server_id IS NULL OR server_id = ?)',
+            [String(serverUser.id), new Date().toISOString(), canonicalId, String(serverUser.id)]);
+        } else if (!storeRef.current.learner.server_id) {
+          storeRef.current.learner = { ...storeRef.current.learner, server_id: String(serverUser.id) };
+        }
         const refreshed = db
           ? await db.getFirstAsync('SELECT * FROM learner WHERE id = ?', [canonicalId])
           : storeRef.current.learner;
@@ -1094,7 +1374,7 @@ export function DbProvider({ children }) {
       }
     }
 
-    // ── 4. Fusion serveur → local (MAX par champ) ──
+    // ── 5. Fusion serveur → local (MAX par champ + champs de profil v1.1.8) ──
     if (sv) {
       try {
         await mergeServerStateIntoLocal(sv, canonicalId);
@@ -1103,19 +1383,22 @@ export function DbProvider({ children }) {
       }
     }
 
-    // ── 5. Rafraîchir l'UI + persister ──
+    // ── 6. Rafraîchir l'UI + persister ──
     const finalLearner = db
       ? await db.getFirstAsync('SELECT * FROM learner WHERE id = ?', [canonicalId])
       : storeRef.current.learner;
     if (finalLearner) {
       storeRef.current.learner = finalLearner;
       setLearner(finalLearner);
-      try { await persistentStorage.setItem(KEYS.LEARNER, JSON.stringify(finalLearner)); } catch (_) {}
+      try {
+        await persistentStorage.setItem(KEYS.LEARNER, JSON.stringify(finalLearner));
+        await persistentStorage.setItem(KEYS.ACTIVE_LEARNER, finalLearner.id);
+      } catch (_) {}
     }
     persistSnapshot();
     console.log('[DB] Restauration compte terminée', sv ? '(données serveur fusionnées)' : '(aucune donnée serveur)');
     return finalLearner || storeRef.current.learner;
-  }, [learner, db, createLearner, adoptCanonicalLearnerId, mergeServerStateIntoLocal, persistSnapshot]);
+  }, [learner, db, createLearner, adoptCanonicalLearnerId, mergeServerStateIntoLocal, persistSnapshot, switchActiveLearner]);
 
   // ── v1.1.6 : auto-restauration au DÉMARRAGE ────────────────────────────
   // Si une session authentifiée existe (l'utilisateur ne s'est pas

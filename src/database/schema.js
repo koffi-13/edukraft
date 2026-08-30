@@ -191,10 +191,17 @@ export const QUERIES = {
   UPSERT_LEARNER:           `INSERT INTO learner (id, name, phone, language, total_xp, streak_days, last_active_at, created_at, updated_at, sync_status)
                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
                               ON CONFLICT(id) DO UPDATE SET
-                                name=excluded.name, language=excluded.language,
-                                total_xp=excluded.total_xp, streak_days=excluded.streak_days,
+                                name=COALESCE(NULLIF(excluded.name, ''), learner.name),
+                                phone=COALESCE(excluded.phone, learner.phone),
+                                language=COALESCE(NULLIF(excluded.language, ''), learner.language),
+                                total_xp=MAX(learner.total_xp, excluded.total_xp),
+                                streak_days=MAX(learner.streak_days, excluded.streak_days),
                                 last_active_at=excluded.last_active_at,
                                 updated_at=excluded.updated_at, sync_status='pending'`,
+  // v1.1.8 : UPSERT NON-DESTRUCTIF — recréer un learner existant (ex :
+  // restauration d'un compte déjà connu de l'appareil) ne remet JAMAIS
+  // l'XP/streak à zéro (sémantique MAX, alignée sur le serveur) et ne
+  // vide pas les champs déjà renseignés (COALESCE).
   ADD_XP:                   `UPDATE learner SET total_xp = total_xp + ?, updated_at = ?, sync_status = 'pending' WHERE id = ?`,
 
   // ── Gamification : streak ─────────────────────────────────────────────
