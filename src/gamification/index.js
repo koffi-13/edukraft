@@ -124,6 +124,27 @@ export async function recordLessonCompleted(ctx, payload) {
     console.warn('[gamification] UPSERT_STREAK_LOG error:', e.message);
   }
 
+  // v1.1.6 : pousser le log du JOUR (valeurs absolues) dans la file de sync.
+  // Avant, les streak_logs n'étaient JAMAIS envoyés au serveur → l'objectif
+  // quotidien (anneau) repartait de zéro sur un autre appareil après
+  // restauration du compte. Le serveur applique un MAX idempotent.
+  try {
+    if (enqueue && getFirst) {
+      const todayLog = await getFirst('GET_TODAY_LOG', [learner.id, today]);
+      if (todayLog) {
+        await enqueue('streak_log', 'UPDATE', `${learner.id}_${today}`, {
+          learner_id: learner.id,
+          activity_date: today,
+          lessons_done: todayLog.lessons_done ?? 0,
+          xp_earned: todayLog.xp_earned ?? 0,
+          streak_freeze_used: todayLog.streak_freeze_used ?? 0,
+          goal_met: todayLog.goal_met ?? 0,
+          updated_at: nowIso,
+        });
+      }
+    }
+  } catch (_) {}
+
   // ── 3. Mettre à jour le cache learner (streak, freezes, lessons) ─────
   try {
     if (runAsync) {

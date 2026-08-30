@@ -322,17 +322,25 @@ app.post('/api/sync', rateLimit(30, 60000), async (req, res) => {
 
             const existing = db.prepare('SELECT * FROM module_progress WHERE client_id = ?').get(clientId);
             if (existing) {
+              // v1.1.6 : sémantique MAX sur tous les compteurs — quel que soit
+              // l'ordre des pushes (web/mobile), le serveur ne peut jamais être
+              // rétrogradé par un appareil en retard. 'completed' est collant.
               db.prepare(`
                 UPDATE module_progress SET
-                  status = ?, current_lesson = ?, lessons_done = ?, total_xp_earned = ?,
-                  best_score = MAX(best_score, ?), started_at = COALESCE(?, started_at),
-                  completed_at = ?, updated_at = ?
+                  status = CASE WHEN ? = 'completed' OR status = 'completed' THEN 'completed' ELSE COALESCE(?, status) END,
+                  current_lesson = MAX(current_lesson, COALESCE(?, current_lesson)),
+                  lessons_done = MAX(lessons_done, COALESCE(?, lessons_done)),
+                  total_xp_earned = MAX(total_xp_earned, COALESCE(?, total_xp_earned)),
+                  best_score = MAX(best_score, ?),
+                  started_at = COALESCE(?, started_at),
+                  completed_at = COALESCE(completed_at, ?),
+                  updated_at = ?
                 WHERE id = ?
               `).run(
-                payload.status || existing.status,
-                payload.current_lesson ?? existing.current_lesson,
-                payload.lessons_done ?? existing.lessons_done,
-                payload.total_xp_earned ?? existing.total_xp_earned,
+                payload.status || null, payload.status || null,
+                payload.current_lesson ?? null,
+                payload.lessons_done ?? null,
+                payload.total_xp_earned ?? null,
                 payload.best_score || 0,
                 payload.started_at || null,
                 payload.completed_at || null,
@@ -538,16 +546,32 @@ app.post('/api/learners/:clientId/photo', (req, res) => {
 
 // ── Progress endpoints ───────────────────────────────────────────────────────
 
-/** Récupérer toute la progression d'un learner */
+/** Récupérer toute la progression d'un learner
+ *  v1.1.6 (comptes uniques web + mobile) : la réponse inclut désormais AUSSI
+ *  le learner complet, les succès, les logs de streak et l'objectif quotidien.
+ *  C'est CETTE route que l'app appelle après une connexion réussie pour
+ *  RESTAURER l'intégralité des données du compte sur un nouvel appareil
+ *  (inscription sur le web → connexion dans l'app APK, et vice versa). */
 app.get('/api/progress/:clientId', (req, res) => {
-  const learner = db.prepare('SELECT id FROM learner WHERE client_id = ?').get(req.params.clientId);
+  const learner = db.prepare('SELECT * FROM learner WHERE client_id = ?').get(req.params.clientId);
   if (!learner) return fail(res, 'Learner non trouvé', 404);
 
   const progress = db.prepare('SELECT * FROM module_progress WHERE learner_id = ? ORDER BY updated_at DESC').all(learner.id);
   const badges = db.prepare('SELECT * FROM badge WHERE learner_id = ? ORDER BY issued_at DESC').all(learner.id);
   const attempts = db.prepare('SELECT * FROM quiz_attempt WHERE learner_id = ? ORDER BY completed_at DESC LIMIT 50').all(learner.id);
+  const achievements = db.prepare('SELECT achievement_key, unlocked_at FROM achievement WHERE learner_id = ? ORDER BY unlocked_at ASC').all(learner.id);
+  const streakLogs = db.prepare('SELECT * FROM streak_log WHERE learner_id = ? ORDER BY activity_date ASC').all(learner.id);
+  const dailyGoal = db.prepare('SELECT * FROM daily_goal WHERE learner_id = ?').get(learner.id) || null;
 
-  success(res, { progress, badges, recent_attempts: attempts });
+  success(res, {
+    learner,
+    progress,
+    badges,
+    recent_attempts: attempts,
+    achievements,
+    streak_logs: streakLogs,
+    daily_goal: dailyGoal,
+  });
 });
 
 /** Mettre à jour la progression d'un module */

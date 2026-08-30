@@ -127,13 +127,20 @@ jobs:
             3. Autorisez "Sources inconnues" si demandé
             4. Ouvrez EduKraft
 
-            ## Nouveautés v1.1
-            - Persistance réparée : le profil/apprenti survit aux redémarrages
-            - Parcours Onboarding monté + bouton Retour fonctionnel
-            - OAuth Google fonctionnel sur APK (redirect proxy + scheme natif)
-            - Purge Unicode (glyphes -> ASCII pur, plus de caractères parasites)
-            - Timeouts 30 s + retry sur tous les appels réseau (Render)
-            - Apple Sign-In : iOS uniquement · Facebook : différé (bouton masqué)
+            ## Nouveautés v1.1.6
+            - **Fin de l'écran « Bienvenue » en boucle** : après une connexion
+              Google (ou email), le profil est créé/restauré directement depuis
+              le compte — l'accueil s'affiche immédiatement avec toutes vos
+              données, comme sur le web.
+            - **Comptes uniques web + mobile** : les données (XP, progressions,
+              badges, succès, séries, objectif) sont restaurées sur tout
+              appareil à la connexion, et fusionnées sans jamais être
+              rétrogradées (sémantique MAX).
+            - **Anneau « Objectif quotidien » réparé** : il se remplit
+              désormais réellement au fil de la progression du jour
+              (vrai anneau SVG, avant seul un quart d'arc tournait).
+            - Séries (streaks) synchronisées : l'objectif du jour est conservé
+              d'un appareil à l'autre.
           files: edukraft-${{ steps.version.outputs.VERSION }}.apk
           draft: false
           prerelease: false

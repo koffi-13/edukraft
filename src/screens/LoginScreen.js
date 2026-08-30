@@ -88,7 +88,7 @@ const PHONE_OTP_ENABLED = process.env.EXPO_PUBLIC_PHONE_OTP_ENABLED !== 'false';
 export default function LoginScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { login, loginGoogle, loginApple, loginFacebook, loginPhone, skip, error, clearError } = useAuth();
-  const { learner, linkLearnerToAccount } = useDb();
+  const { learner, linkLearnerToAccount, restoreFromServer } = useDb();
 
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
@@ -96,16 +96,37 @@ export default function LoginScreen({ navigation }) {
   const [oauthLoading, setOauthLoading] = useState(null);
 
   // ── Après une authentification réussie ─────────────────────────────
-  // v1.1.3 : si un learner local existe (invité ou utilisateur déconnecté),
-  // on LIE le compte au learner existant — ses données sont restaurées
-  // directement (le gating bascule vers le Dashboard automatiquement,
-  // sessionEnded étant retiré par handleAuthSuccess). Sinon → Onboarding.
+  // v1.1.6 (correctif « l'écran Bienvenue s'affiche toujours sur mobile,
+  // même après la n-ième Google auth ») :
+  //   1. Learner local existant → liaison au compte, puis restauration.
+  //   2. restoreFromServer crée le learner DIRECTEMENT depuis le compte
+  //      (nom Google / nom d'inscription) et PULL toutes ses données
+  //      serveur (XP, progressions, badges, succès, streaks, objectif) —
+  //      l'utilisateur va Droit au Dashboard. L'Onboarding (Bienvenue +
+  //      prénom) n'existe plus que pour le mode invité et les comptes sans
+  //      aucun nom connu (ex : compte téléphone neuf).
   const afterAuthSuccess = async (authData) => {
-    if (learner) {
-      try { await linkLearnerToAccount(authData?.user || authData); } catch (_) {}
-      return; // gating → Dashboard direct (données locales restaurées)
+    const serverUser = authData?.user || (authData?.id ? authData : null);
+
+    // 1. Liaison du learner local existant au compte (server_id + push)
+    if (learner && serverUser) {
+      try { await linkLearnerToAccount(serverUser); } catch (_) {}
     }
-    navigation?.navigate('Onboarding');
+
+    // 2. Restauration : création depuis le compte + pull/fusion serveur
+    try {
+      const restored = await restoreFromServer(serverUser);
+      if (restored) return; // gating → Dashboard direct avec toutes ses données
+    } catch (e) {
+      console.warn('[Login] restoreFromServer :', e.message);
+    }
+
+    // 3. Fallback : aucun learner et aucun nom de compte exploitable →
+    //    Onboarding (seul endroit où collecter le prénom)
+    if (!learner) {
+      navigation?.navigate('Onboarding');
+    }
+    // (learner existant → le gating affiche déjà le Dashboard)
   };
 
   // ── Détecter le hash fragment #id_token=... au chargement (retour Google OAuth web) ──
@@ -235,8 +256,11 @@ export default function LoginScreen({ navigation }) {
       if (!params.id_token) {
         throw new Error('id_token absent de la reponse Google');
       }
-      await loginGoogle(params.id_token);
-      await afterAuthSuccess(null);
+      // v1.1.6 : on TRANSMET la réponse (user, tokens) — avant, le résultat
+      // de loginGoogle était jeté et afterAuthSuccess(null) ne voyait jamais
+      // le profil du compte (d'où l'écran Bienvenue en boucle sur mobile).
+      const data = await loginGoogle(params.id_token);
+      await afterAuthSuccess(data);
     } catch (e) {
       Alert.alert(t('auth.oauth_error'), e.message);
     } finally {
@@ -275,8 +299,9 @@ export default function LoginScreen({ navigation }) {
         setOauthLoading(null);
         return;
       }
-      await loginFacebook(params.access_token);
-      await afterAuthSuccess(null);
+      // v1.1.6 : transmettre la réponse (user, tokens) à afterAuthSuccess
+      const data = await loginFacebook(params.access_token);
+      await afterAuthSuccess(data);
     } catch (e) {
       Alert.alert(t('auth.oauth_error'), e.message);
     } finally {
@@ -302,11 +327,12 @@ export default function LoginScreen({ navigation }) {
       if (!credential.identityToken) {
         throw new Error('identityToken manquant');
       }
-      await loginApple({
+      // v1.1.6 : transmettre la réponse (user, tokens) à afterAuthSuccess
+      const data = await loginApple({
         identityToken: credential.identityToken,
         authorizationCode: credential.authorizationCode,
       });
-      await afterAuthSuccess(null);
+      await afterAuthSuccess(data);
     } catch (e) {
       if (e.code !== 'ERR_CANCELED') {
         Alert.alert(t('auth.oauth_error'), e.message);
