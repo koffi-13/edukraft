@@ -282,13 +282,21 @@ npx expo export --platform web --output-dir web-dist --clear
 node scripts/vercel-deploy.mjs web-dist edukraft <TOKEN_VERCEL>
 ```
 
-### ⚠️ CORS : action requise cote Render (fait dans le code, a deployer)
+> **Scope du token (testé 2026-08-30)** : le script exige un token avec le scope
+> **Deployment** (Settings → Tokens). Un token en lecture seule renvoie
+> `403 forbidden` sur `POST /v9/projects` et sur `POST /v2/files`.
+> Le script envoie désormais `x-vercel-digest` (SHA-1 hex — formats sha256
+> refusés par l'API) et inclut `vercel.json` dans l'upload pour que les
+> rewrites SPA s'appliquent. Build validé localement : bundle 2,02 Mo,
+> écran Login rendu sans erreur console.
 
-Le correctif CORS v1.1.3 (`server/index.js`) doit etre DEPLOYE sur Render pour
-que le site Vercel puisse appeler l'API (sinon « Failed to fetch » sur
-login/register ; le mode sans compte fonctionne des maintenant car 100 % local).
-Si la variable `CORS_ORIGINS` est definie sur Render, y ajouter le domaine
-Vercel : `CORS_ORIGINS=https://edukraft.vercel.app` (ou `*` en dev).
+### ✅ CORS Render : DEPLOYÉ et vérifié en production (2026-08-30)
+
+Le correctif CORS v1.1.3 (`server/index.js`) est EN LIGNE sur Render
+(merge v1.1.3 dans `main` → auto-redeploy) et VÉRIFIÉ :
+`Access-Control-Allow-Origin` présent sur preflight OPTIONS, GET /api/health
+et POST /api/auth/login cross-origin. Le site Vercel peut donc appeler
+l'API sans aucune configuration supplémentaire (`CORS_ORIGINS` par défaut `*`).
 
 ### Google OAuth sur le web
 
