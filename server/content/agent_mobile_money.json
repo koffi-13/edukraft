@@ -1,0 +1,474 @@
+{
+  "$schema": "https://schema.edukraft.tg/module/v1.json",
+  "_comment": "Schéma EduKraft Module v1. Ajouter un nouveau module = créer un nouveau fichier JSON dans content/modules/ et l'importer dans moduleRegistry.js. Aucun code à modifier.",
+
+  "id":           "agent-mobile-money-v1",
+  "version":      "1.0.0",
+  "filiere":      "Finance & Services",
+  "difficulty":   2,
+  "language":     "fr",
+  "available_translations": ["ewe"],
+
+  "meta": {
+    "title":       "Agent Mobile Money",
+    "subtitle":    "Deviens agent T-Money / Flooz",
+    "description": "Deviens agent mobile money : opérations quotidiennes T-Money et Flooz, gestion de caisse, sécurité, lutte contre la fraude et rentabilité de ton point.",
+    "duration_min": 7,
+    "xp_reward":    160,
+    "badge_title":  "Certifié Agent Mobile Money",
+    "icon":         "wallet",
+    "color":        "#1D9E75",
+    "tags":         ["mobile money", "T-Money", "Flooz", "finance inclusive", "agent", "PME"],
+    "target_audience": "Agents mobile money existants ou en devenir, commerçants souhaitant devenir point de service, jeunes entrepreneurs.",
+    "prerequisites": []
+  },
+
+  "lessons": [
+    {
+      "index":    0,
+      "title":    "Devenir agent T-Money / Flooz",
+      "subtitle": "Conditions, agrément, matériel requis",
+      "duration_min": 1,
+      "xp_per_lesson": 25,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Au Togo, le mobile money est devenu le premier moyen de transfert d'argent devant les espèces. T-Money (Togocom) et Flooz (Moov Africa) sont les deux opérateurs agréés par la BCEAO et l'ARCEP Togo. Ensemble, ils couvrent plus de 4 millions de comptes actifs dans le pays.\n\nDevenir agent, c'est proposer ces services depuis ta boutique : dépôt, retrait, transfert, paiement de factures. Tu touches une commission sur chaque opération tout en attirant du trafic vers ton commerce. C'est un vrai partenariat commercial, encadré par la réglementation BCEAO.",
+        "sections": [
+          {
+            "heading": "Les conditions pour devenir agent",
+            "body":    "• Être une personne morale ou physique immatriculée (récépissé de commerce, RCCM ou carte de commerçant).\n• Disposer d'un local commercial fixe et sécurisé (boutique fermée à clé).\n• Présenter un casier judiciaire vierge du propriétaire ou gérant.\n• Avoir un fonds de roulement minimum : 500 000 à 1 000 000 FCFA (espèces + e-money).\n• Posséder un smartphone compatible et une connexion internet stable.\n• Suivre la formation obligatoire de l'opérateur (1 à 3 jours).",
+            "highlight": true
+          },
+          {
+            "heading": "Le processus d'agrément",
+            "body":    "1. Dépôt du dossier auprès de l'opérateur (agence commerciale T-Money ou Moov Africa).\n2. Visite d'inspection du local par un responsable de l'opérateur.\n3. Signature du contrat d'agent (durée déterminée, reconductible).\n4. Remise du kit agent : smartphone, plaque, affiches, application ou PDA.\n5. Activation du compte agent après formation et test de fonctionnement."
+          },
+          {
+            "heading": "Matériel et setup du point de service",
+            "body":    "• Plaque et affiches bien visibles depuis la rue (T-Money vert / Flooz orange).\n• Coffre-fort ou caisse sécurisée pour les espèces.\n• Carnet de reçus en double exemplaire + stylos + calculatrice.\n• Téléphone de secours en cas de panne réseau.\n• Local éclairé, ventilé, avec comptoir clair pour compter les billets devant le client."
+          }
+        ],
+        "key_takeaway": "L'agrément d'agent mobile money est un partenariat commercial encadré par l'opérateur et la BCEAO — prépare ton dossier et ton local avant de postuler."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q0_0",
+            "text":     "Quels sont les deux opérateurs mobile money agréés au Togo ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Orange Money et MTN Mobile Money" },
+              { "id": "b", "text": "T-Money (Togocom) et Flooz (Moov Africa)", "correct": true },
+              { "id": "c", "text": "Wave et Free Money" },
+              { "id": "d", "text": "Airtel Money et Moov Money" }
+            ],
+            "explanation": "Au Togo, seuls T-Money (filiale de Togocom) et Flooz (filiale de Moov Africa) sont agréés par l'ARCEP Togo et la BCEAO pour offrir des services mobile money."
+          },
+          {
+            "id":       "q0_1",
+            "text":     "Quelle institution réglementaire encadre le mobile money en Afrique de l'Ouest (UEMOA) ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "La BOAD" },
+              { "id": "b", "text": "L'UEMOA directement" },
+              { "id": "c", "text": "La BCEAO", "correct": true },
+              { "id": "d", "text": "La CEDEAO" }
+            ],
+            "explanation": "La BCEAO (Banque Centrale des États de l'Afrique de l'Ouest) fixe les règles prudentielles, les plafonds KYC et les obligations anti-blanchiment applicables aux agents mobile money dans toute la zone UEMOA."
+          },
+          {
+            "id":       "q0_2",
+            "text":     "Quel fonds de roulement minimum est généralement requis pour démarrer comme agent mobile money au Togo ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "50 000 à 100 000 FCFA" },
+              { "id": "b", "text": "500 000 à 1 000 000 FCFA", "correct": true },
+              { "id": "c", "text": "5 000 000 à 10 000 000 FCFA" },
+              { "id": "d", "text": "Aucun fonds n'est requis" }
+            ],
+            "explanation": "Les opérateurs exigent un fonds de roulement minimum (espèces + e-money) de 500 000 à 1 000 000 FCFA pour absorber les premières opérations sans rupture de stock."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    1,
+      "title":    "Opérations quotidiennes (dépôt, retrait, transfert)",
+      "subtitle": "Process, plafonds, sécurité",
+      "duration_min": 2,
+      "xp_per_lesson": 30,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Chaque jour, des dizaines de clients viendront chez toi pour déposer, retirer ou transférer de l'argent. Maîtriser ces trois opérations, c'est l'essentiel du métier d'agent. Une erreur de saisie ou un manque de vigilance peut te coûter cher — voire ton agrément.\n\nAu Togo, les plafonds sont encadrés par la BCEAO : 200 000 FCFA/jour pour un compte non-KYC, et jusqu'à 2 000 000 FCFA par transaction (10 000 000 FCFA/mois) pour un client full-KYC. Connaître ces règles protège ton activité.",
+        "sections": [
+          {
+            "heading": "Le dépôt (cash-in)",
+            "body":    "1. Vérifie l'identité du client (pièce d'identité pour montants ≥ 50 000 FCFA).\n2. Saisis le numéro destinataire DEUX FOIS pour éviter l'erreur.\n3. Compte les espèces devant le client, deux fois.\n4. Valide l'opération sur ton terminal agent.\n5. Le client reçoit un SMS de confirmation — attends qu'il le voie avant de le laisser partir.\n6. Conserve le reçu signé dans ton carnet.",
+            "highlight": true
+          },
+          {
+            "heading": "Le retrait (cash-out)",
+            "body":    "1. Demande le code de retrait (4 chiffres envoyé par SMS au client).\n2. Exige la pièce d'identité du client (obligatoire, quel que soit le montant).\n3. Saisis montant + code sur ton terminal agent.\n4. Verse les espèces : montant demandé − commission.\n5. Compte les billets devant le client, de préférence en petites coupures.\n6. Fais signer le reçu, conserve la copie."
+          },
+          {
+            "heading": "Le transfert (P2P) et les plafonds BCEAO",
+            "body":    "Le transfert envoie de l'argent d'un compte mobile money vers un autre numéro.\n\n• Compte non-KYC : plafond 200 000 FCFA/jour, 1 000 000 FCFA/mois (cumulé).\n• Compte full-KYC : plafond 2 000 000 FCFA/transaction, 10 000 000 FCFA/mois.\n• Au-delà de 1 000 000 FCFA : exige la pièce d'identité et note la référence.\n• Ne JAMAIS effectuer de transfert pour ton propre compte (interdit — risque de blanchiment)."
+          }
+        ],
+        "key_takeaway": "Trois opérations, trois rituels : identifie, compte devant le client, attends l'SMS de confirmation avant de laisser partir."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q1_0",
+            "text":     "Lors d'un dépôt de 80 000 FCFA, que dois-tu faire obligatoirement ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Rien, l'identification n'est nécessaire qu'au-dessus de 200 000 FCFA" },
+              { "id": "b", "text": "Demander la pièce d'identité du client et noter son numéro", "correct": true },
+              { "id": "c", "text": "Refuser la transaction" },
+              { "id": "d", "text": "Appeler le superviseur de zone" }
+            ],
+            "explanation": "À partir de 50 000 FCFA, l'identification du client devient obligatoire. Tu dois demander sa pièce d'identité et noter la référence dans ton carnet de reçu."
+          },
+          {
+            "id":       "q1_1",
+            "text":     "Quel est le plafond BCEAO par transaction pour un client full-KYC ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "200 000 FCFA" },
+              { "id": "b", "text": "500 000 FCFA" },
+              { "id": "c", "text": "2 000 000 FCFA", "correct": true },
+              { "id": "d", "text": "10 000 000 FCFA" }
+            ],
+            "explanation": "Un client full-KYC (pièce d'identité enregistrée chez l'opérateur) peut effectuer jusqu'à 2 000 000 FCFA par transaction, dans la limite de 10 000 000 FCFA cumulés par mois."
+          },
+          {
+            "id":       "q1_2",
+            "text":     "Lors d'un retrait, à quel moment peux-tu laisser partir le client en toute sécurité ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Dès qu'il a donné le code de retrait" },
+              { "id": "b", "text": "Dès que tu as compté les espèces" },
+              { "id": "c", "text": "Quand l'opération est validée sur ton terminal" },
+              { "id": "d", "text": "Quand le client a reçu l'SMS de confirmation et signé le reçu", "correct": true }
+            ],
+            "explanation": "L'SMS de confirmation et la signature du reçu ferment la transaction juridiquement. Sans SMS, le client peut contester avoir reçu l'argent — d'où l'importance d'attendre la confirmation."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    2,
+      "title":    "Gérer sa caisse et ses liquidités",
+      "subtitle": "Solde, approvisionnement, écarts",
+      "duration_min": 1,
+      "xp_per_lesson": 30,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Le nerf de la guerre pour un agent mobile money, c'est l'équilibre entre tes espèces et ton solde e-money (le float). Trop d'espèces, pas assez d'e-money : tu refuses les dépôts. Trop d'e-money, plus d'espèces : tu refuses les retraits. Les deux cas te font perdre des commissions et des clients.\n\nUn bon agent vérifie sa caisse au moins 3 fois par jour et approvisionne son point avant la panne. La rigueur dans la caisse, c'est ce qui sépare un agent rentable d'un agent en faillite.",
+        "sections": [
+          {
+            "heading": "Le double solde à surveiller en permanence",
+            "body":    "• Solde e-money (float) : argent disponible sur ton compte agent (visible sur ton téléphone).\n• Solde espèces : billets physiques dans ta caisse.\n• Tu dois toujours avoir assez des deux pour servir les deux types d'opérations.\n• Règle empirique au Togo : démarrer la journée avec environ 1 000 000 FCFA en espèces et 1 500 000 FCFA en float, ajuster selon la zone (marché d'Adidogomé vs. quartier résidentiel d'Agbalépédogan).",
+            "highlight": true
+          },
+          {
+            "heading": "L'approvisionnement (recharge du float)",
+            "body":    "Quand ton float baisse, tu dois le recharger :\n• Déposer des espèces au compte agent bancaire de l'opérateur, OU\n• Passer par un agent master / distributeur officiel (présents à Lomé, Kpalimé, Sokodé, Kara, Dapaong).\n• Planifie tes approvisionnements en début et milieu de semaine pour éviter les ruptures le week-end.\n• Note chaque recharge dans ton carnet de caisse avec la référence transaction et le montant."
+          },
+          {
+            "heading": "Comptage et rapprochement quotidien",
+            "body":    "• Comptage physique de la caisse : 3 fois par jour (ouverture, midi, fermeture).\n• Compare le solde e-money du téléphone avec le carnet des opérations.\n• Note TOUT écart (positif ou négatif) immédiatement — même 500 FCFA.\n• Un écart récurrent signale un problème de procédure ou un risque de malhonnêteté.\n• En cas d'écart important (> 5 000 FCFA), alerte immédiatement le responsable opérateur."
+          }
+        ],
+        "key_takeaway": "Float + espèces = double équilibre. Trois comptages par jour, zéro écart inexpliqué."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q2_0",
+            "text":     "Quels sont les deux soldes qu'un agent mobile money doit surveiller en permanence ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Le solde de son compte bancaire et le solde de son téléphone personnel" },
+              { "id": "b", "text": "Le solde e-money (float) et le solde espèces", "correct": true },
+              { "id": "c", "text": "Le solde du matin et le solde du soir" },
+              { "id": "d", "text": "Le solde T-Money et le solde Flooz uniquement" }
+            ],
+            "explanation": "Le float (e-money) sert aux dépôts, les espèces servent aux retraits. Sans équilibre entre les deux, tu refuses des opérations et perds des commissions."
+          },
+          {
+            "id":       "q2_1",
+            "text":     "Combien de fois par jour un bon agent compte-t-il sa caisse physique ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "1 fois (à la fermeture)" },
+              { "id": "b", "text": "2 fois (ouverture et fermeture)" },
+              { "id": "c", "text": "3 fois (ouverture, midi, fermeture)", "correct": true },
+              { "id": "d", "text": "5 fois (à chaque opération)" }
+            ],
+            "explanation": "Trois comptages par jour permettent de localiser rapidement un écart (matin, midi ou soir) et de réagir avant la fermeture. C'est la pratique standard des agents rentables."
+          },
+          {
+            "id":       "q2_2",
+            "text":     "Que fais-tu en cas d'écart important (> 5 000 FCFA) entre caisse physique et solde théorique ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Je compense de ma poche sans rien dire" },
+              { "id": "b", "text": "J'ignore, ça s'équilibrera le lendemain" },
+              { "id": "c", "text": "Je l'inscris dans le carnet sans alerter" },
+              { "id": "d", "text": "J'alerte immédiatement le responsable opérateur", "correct": true }
+            ],
+            "explanation": "Un écart important peut signaler un vol, une procédure défaillante ou une fraude. Alerte ton responsable opérateur immédiatement pour protéger ton agrément et lancer une investigation."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    3,
+      "title":    "Lutte contre le blanchiment et la fraude",
+      "subtitle": "KYC, signalement, réflexes sécurité",
+      "duration_min": 1,
+      "xp_per_lesson": 25,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "En tant qu'agent mobile money, tu es le maillon clé de la chaîne financière. La BCEAO et le CENTIF (Cellule Nationale de Traitement des Informations Financières) imposent à tous les agents des obligations strictes : connaître le client (KYC), détecter les transactions suspectes, et signaler toute opération douteuse.\n\nUn agent qui ferme les yeux peut perdre son agrément, être poursuivi pénalement, et mettre en danger tout le système de finance inclusive. La vigilance n'est pas une option — c'est la loi.",
+        "sections": [
+          {
+            "heading": "KYC : connaître son client",
+            "body":    "KYC = Know Your Customer. Tu dois identifier formellement le client avant toute opération importante :\n• Moins de 50 000 FCFA : identification visuelle suffit.\n• 50 000 à 1 000 000 FCFA : demande la pièce d'identité, note le numéro.\n• Plus de 1 000 000 FCFA : copie de la pièce d'identité obligatoire + motif de la transaction.\n• Compte full-KYC : le client doit déjà être enregistré chez l'opérateur avec sa pièce.",
+            "highlight": true
+          },
+          {
+            "heading": "Signaler une transaction suspecte",
+            "body":    "Une transaction est suspecte si :\n• Le montant est inhabituel pour ce client.\n• Le client est nerveux, pressé, évite ton regard.\n• Fractionnement évident (smurfing) : plusieurs petits transferts pour éviter le plafond.\n• Le client ne connaît pas le destinataire ou le motif.\n\nCanal de signalement :\n• Hotline de l'opérateur (T-Money / Flooz).\n• CBC (Cellule de Base de Consultation) BCEAO.\n• CENTIF Togo.\n\nTu es protégé par le secret du signalement — le client ne doit JAMAIS savoir que tu as signalé."
+          },
+          {
+            "heading": "Les 5 réflexes sécurité",
+            "body":    "1. Toujours vérifier la pièce d'identité au-delà des seuils.\n2. Ne JAMAIS accepter d'effectuer une opération 'pour le compte d'un tiers absent'.\n3. Refuser tout fractionnement (smurfing) demandé par le client.\n4. Garder les reçus signés 5 ans (obligation réglementaire BCEAO).\n5. Signaler immédiatement toute tentative de fraude, de corruption ou de menace."
+          }
+        ],
+        "key_takeaway": "Mieux vaut refuser une transaction douteuse que de risquer ton agrément, des poursuites pénales et la réputation de tout le réseau."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q3_0",
+            "text":     "Qu'est-ce que le KYC ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Un type de transfert international d'argent" },
+              { "id": "b", "text": "L'obligation d'identifier formellement le client avant une opération importante", "correct": true },
+              { "id": "c", "text": "Une commission perçue sur les dépôts" },
+              { "id": "d", "text": "Le code de retrait à 4 chiffres du client" }
+            ],
+            "explanation": "KYC (Know Your Customer) est l'obligation réglementaire d'identifier le client. Au Togo, elle s'applique par paliers selon le montant de la transaction, conformément aux règles BCEAO."
+          },
+          {
+            "id":       "q3_1",
+            "text":     "Un client te demande d'effectuer 5 transferts de 200 000 FCFA chacun au même destinataire dans la même heure. Que fais-tu ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "J'effectue les 5 transferts sans poser de questions" },
+              { "id": "b", "text": "Je signale cette opération suspecte (fractionnement / smurfing) à l'opérateur ou au CBC", "correct": true },
+              { "id": "c", "text": "Je refuse seulement le 5e transfert" },
+              { "id": "d", "text": "J'effectue un seul transfert de 1 000 000 FCFA à la place" }
+            ],
+            "explanation": "Ce schéma est typique du smurfing (fractionnement pour contourner les plafonds KYC). C'est un signal d'alerte de blanchiment : tu dois refuser et signaler immédiatement, sans informer le client."
+          },
+          {
+            "id":       "q3_2",
+            "text":     "Quelle institution reçoit les signalements de transactions suspectes au Togo ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "L'UNICEF" },
+              { "id": "b", "text": "La BCEAO via le CENTIF Togo (et la CBC locale)", "correct": true },
+              { "id": "c", "text": "Le ministère du Commerce" },
+              { "id": "d", "text": "La mairie de Lomé" }
+            ],
+            "explanation": "Le CENTIF (Cellule Nationale de Traitement des Informations Financières) est l'organe togolais habilité par la BCEAO à recevoir et traiter les déclarations de soupçon. La CBC (Cellule de Base de Consultation) est le canal local de remontée."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    4,
+      "title":    "Service client et résolution de litiges",
+      "subtitle": "Patience, procédures, escalade",
+      "duration_min": 1,
+      "xp_per_lesson": 25,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Un agent mobile money vit sur la confiance de ses clients. Une transaction échouée, un SMS qui n'arrive pas, un litige sur un montant — ces situations arrivent quotidiennement. Ta capacité à les gérer calmement et professionnellement distingue un bon agent d'un mauvais.\n\nAu Togo, la patience et le respect sont des valeurs culturelles fortes : un client bien traité reviendra et recommandera ton point à 10 personnes. Un client mal traité partira chez le concurrent et en parlera à 50.",
+        "sections": [
+          {
+            "heading": "Les 4 étapes de résolution d'un litige",
+            "body":    "1. ÉCOUTER sans interrompre : laisse le client exposer tout le problème.\n2. VÉRIFIER les faits : demande le SMS, le reçu, la date et l'heure.\n3. IDENTIFIER le type de problème : erreur de saisie, échec réseau, fraude, ou méconnaissance du client.\n4. PROPOSER une solution ou ESCALADER : ne jamais promettre ce que tu ne peux pas tenir.",
+            "highlight": true
+          },
+          {
+            "heading": "Les cas fréquents et leurs solutions",
+            "body":    "• SMS de confirmation non reçu > patienter 5 min, vérifier le solde du client sur son téléphone, appeler le service client opérateur.\n• Retrait effectué mais destinataire n'a rien reçu > vérifier le numéro destinataire, contacter le service client (911 ou numéro court opérateur).\n• Le client conteste le montant > sortir le reçu signé, recompter ensemble.\n• Réseau down > afficher un mot d'excuse, prendre le contact du client, le rappeler dès le retour du réseau."
+          },
+          {
+            "heading": "Quand et comment escalader",
+            "body":    "Escalader = transmettre à un niveau supérieur de résolution.\n\n• Niveau 1 : TOI (agent) — la majorité des litiges s'arrêtent ici.\n• Niveau 2 : le superviseur de zone de l'opérateur (T-Money / Flooz).\n• Niveau 3 : le service client national (numéro court opérateur).\n• Niveau 4 : l'ARCEP Togo en dernier recours (médiation réglementaire).\n\nNote tout litige escaladé avec : date, heure, noms, numéros, montant, référence transaction."
+          }
+        ],
+        "key_takeaway": "Écoute, vérifie, identifie, résous ou escalade — un litige bien géré fidélise plus qu'une transaction sans accroc."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q4_0",
+            "text":     "Quelle est la première étape de la résolution d'un litige client ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Promettre un remboursement immédiat" },
+              { "id": "b", "text": "Écouter le client sans l'interrompre", "correct": true },
+              { "id": "c", "text": "Appeler immédiatement le superviseur" },
+              { "id": "d", "text": "Demander au client de revenir plus tard" }
+            ],
+            "explanation": "Écouter jusqu'au bout désamorce l'émotion et te donne tous les éléments factuels. Un client écouté est déjà à moitié calmé, même si la solution tarde."
+          },
+          {
+            "id":       "q4_1",
+            "text":     "Un client dit ne pas avoir reçu l'SMS de confirmation d'un dépôt. Que fais-tu en premier ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Refaire immédiatement l'opération" },
+              { "id": "b", "text": "Refuser de discuter avec le client" },
+              { "id": "c", "text": "Rendre immédiatement les espèces au client" },
+              { "id": "d", "text": "Patienter 5 min, vérifier le solde du client sur son téléphone, appeler le service client opérateur", "correct": true }
+            ],
+            "explanation": "L'SMS peut arriver avec un retard de quelques minutes. Vérifier le solde du client (preuve de l'opération) et contacter le service client opérateur te donnent la preuve et la trace avant toute action irréversible."
+          },
+          {
+            "id":       "q4_2",
+            "text":     "À quel moment escalades-tu un litige vers le superviseur de zone de l'opérateur ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Jamais, l'agent règle tout seul" },
+              { "id": "b", "text": "Dès que le client devient agressif" },
+              { "id": "c", "text": "Quand tu ne peux pas résoudre le litige au niveau 1 (agent)", "correct": true },
+              { "id": "d", "text": "Uniquement pour les montants inférieurs à 5 000 FCFA" }
+            ],
+            "explanation": "L'escalade se fait sur le critère de capacité de résolution, pas sur le montant. Si après écoute, vérification et identification tu ne peux pas résoudre, tu transmets au niveau supérieur (superviseur de zone)."
+          }
+        ]
+      }
+    },
+
+    {
+      "index":    5,
+      "title":    "Commissions et rentabilité de ton point",
+      "subtitle": "Calcul marge, croissance, stratégies",
+      "duration_min": 1,
+      "xp_per_lesson": 25,
+      "min_quiz_score": 0.67,
+
+      "content": {
+        "intro": "Devenir agent mobile money ne suffit pas : il faut rendre ton point rentable. Les commissions varient selon l'opérateur, le type d'opération et le volume mensuel. Connaître ta structure de revenus te permet de piloter ton activité et de te développer.\n\nUn bon agent au Togo peut générer entre 50 000 et 300 000 FCFA de commission nette par mois, selon la zone (marché vs. quartier résidentiel), le volume traité et la diversité des services proposés.",
+        "sections": [
+          {
+            "heading": "Calcul de ta marge par opération",
+            "body":    "• Dépôt (cash-in) : commission agent entre 0,3 % et 0,5 % du montant.\n• Retrait (cash-out) : commission agent entre 0,8 % et 1,5 % du montant.\n• Transfert P2P : commission fixe 25 à 100 FCFA par transaction.\n• Paiement de factures (CEET, SONEDE, TVT) : 0,5 % à 1 % du montant.\n\nExemple concret :\n20 retraits × 10 000 FCFA/jour × 1 % = 2 000 FCFA/jour = 60 000 FCFA/mois (retraits seuls).",
+            "highlight": true
+          },
+          {
+            "heading": "Les leviers de croissance",
+            "body":    "• Augmenter le volume quotidien : affichage visible, horaires d'ouverture larges (7h–21h), service rapide.\n• Diversifier les services : paiement de factures, recharge crédit, paiement marchand, transfert international (Wave, MoneyGram, Western Union).\n• Construire une clientèle fidèle : service préférentiel pour les commerçants réguliers, livraison de cash à domicile pour les gros clients.\n• Étendre les horaires de pointe : midi (12h–14h) et soir (18h–21h) sont les plus rentables — être ouvert quand les autres ferment."
+          },
+          {
+            "heading": "Suivi et pilotage mensuel",
+            "body":    "• Note chaque jour le nombre d'opérations et le montant total par type (dépôt, retrait, transfert, facture).\n• Calcule ta commission mensuelle réelle vs. théorique.\n• Identifie les opérations les plus rentables et pousse-les (affichage, communication).\n• Mesure le coût de l'approvisionnement (transport, temps) et déduis-le de ta marge.\n• Réinvestis 20 % des commissions dans le fonds de roulement pour absorber la croissance."
+          }
+        ],
+        "key_takeaway": "Pilote ta rentabilité comme une entreprise : mesure, identifie les opérations à forte marge, et réinvestis pour grandir."
+      },
+
+      "quiz": {
+        "passing_score": 0.67,
+        "xp_bonus_perfect": 10,
+        "questions": [
+          {
+            "id":       "q5_0",
+            "text":     "Sur quelle opération l'agent mobile money touche-t-il généralement la commission la plus élevée (en pourcentage) ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Le dépôt (cash-in)" },
+              { "id": "b", "text": "Le retrait (cash-out)", "correct": true },
+              { "id": "c", "text": "La recharge de crédit téléphonique" },
+              { "id": "d", "text": "Le transfert P2P" }
+            ],
+            "explanation": "Le retrait (cash-out) rapporte typiquement 0,8 % à 1,5 % du montant, contre 0,3 % à 0,5 % pour le dépôt. C'est l'opération la plus rentable par FCFA traité."
+          },
+          {
+            "id":       "q5_1",
+            "text":     "Avec 20 retraits de 10 000 FCFA/jour à 1 % de commission, combien gagnes-tu par jour ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "1 000 FCFA" },
+              { "id": "b", "text": "2 000 FCFA", "correct": true },
+              { "id": "c", "text": "5 000 FCFA" },
+              { "id": "d", "text": "10 000 FCFA" }
+            ],
+            "explanation": "10 000 FCFA × 1 % = 100 FCFA par retrait. Multiplié par 20 retraits = 2 000 FCFA/jour, soit environ 60 000 FCFA/mois pour les retraits seuls."
+          },
+          {
+            "id":       "q5_2",
+            "text":     "Quelle est une bonne stratégie de croissance pour un agent mobile money ?",
+            "type":     "single_choice",
+            "options":  [
+              { "id": "a", "text": "Fermer pendant les heures de pointe pour éviter le stress" },
+              { "id": "b", "text": "Diversifier les services (factures, recharge, paiement marchand, transfert international)", "correct": true },
+              { "id": "c", "text": "Refuser les clients réguliers pour privilégier les nouveaux" },
+              { "id": "d", "text": "Garder les horaires d'ouverture très courts" }
+            ],
+            "explanation": "La diversification multiplie les sources de commission et fidélise la clientèle (un client qui paie sa facture CEET chez toi reviendra pour ses retraits). C'est le levier de croissance n°1."
+          }
+        ]
+      }
+    }
+  ],
+
+  "completion_criteria": {
+    "all_lessons_passed": true,
+    "min_total_score":    0.67,
+    "issues_badge":       true,
+    "xp_completion_bonus": 0
+  },
+
+  "i18n": {
+    "ewe": {
+      "meta.title":       "Mobile Money ƒe Agẽ",
+      "meta.subtitle":    "Va xɔ T-Money / Flooz agẽ",
+      "meta.description": "Ðe nunya le mobile money ƒe dɔwɔwɔ me: T-Money kple Flooz ƒe azãzã, ga ƒe dzesidede, takpekpeɖeɖe, fraud ƒe tɔtrɔ kple wò dɔƒe ƒe nyɔnuwɔna."
+    }
+  }
+}

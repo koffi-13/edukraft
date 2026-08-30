@@ -19,6 +19,7 @@
 //   logout()                   > révoque les tokens serveur + clear local
 //   skip()                     > mode hors-ligne sans compte
 //   getStoredAuth()            > {user, accessToken, skipAuth} depuis le storage
+//   hasActiveSession()          > true si session active (auth ou invité, pas de logout)
 //   authHeader()               > {Authorization: 'Bearer xxx'} ou {}
 //   authenticatedFetch(url, opts)
 //   clearAll()                 > efface tokens + user + skip (sans toucher ek_learner)
@@ -185,6 +186,28 @@ export async function getStoredAuth() {
   } catch (e) {
     console.warn('[authService] getStoredAuth error:', e.message);
     return { accessToken: null, refreshToken: null, user: null, skipAuth: false, sessionEnded: false };
+  }
+}
+
+/** v1.1.7 : une session est-elle ACTIVE ?
+ *  (utilisateur authentifié avec token, ou mode invité assumé) — et PAS de
+ *  déconnexion volontaire. C'est la clé du « dashboard jusqu'à déconnexion » :
+ *  tant que cette fonction renvoie true, l'utilisateur ne doit JAMAIS voir
+ *  l'écran Login. Utilisée par DbProvider pour recréer le learner de secours
+ *  si toutes les autres couches de persistance ont échoué. */
+export async function hasActiveSession() {
+  try {
+    const [userStr, token, skip, ended] = await Promise.all([
+      store.getItem(KEYS.USER),
+      store.getItem(KEYS.ACCESS_TOKEN),
+      store.getItem(KEYS.SKIP_AUTH),
+      store.getItem(KEYS.SESSION_ENDED),
+    ]);
+    if (ended === '1') return false;      // déconnexion volontaire → Login
+    if (skip === '1') return true;        // invité « Continuer sans compte »
+    return !!(userStr && token);          // authentifié avec token valide
+  } catch (_) {
+    return false;
   }
 }
 

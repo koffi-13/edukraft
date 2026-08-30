@@ -342,3 +342,45 @@ que LoginScreen capte au chargement pour terminer la connexion.
    (URI a autoriser dans Google Cloud Console).
 8. **Mode avion** : lecon complete + quiz > XP/streak s'incrementent en local >
    reconnexion > la sync se vide toute seule.
+
+## 11. Publier un nouveau cours (v1.1.7 - catalogue distant)
+
+Le catalogue de cours est désormais servi par l'API : **un nouveau module publié
+sur le serveur apparaît dans les apps (web + mobile) sans mise à jour de l'APK**.
+
+### Procédure
+
+1. Déposer le fichier JSON du module dans `server/content/`
+   (même format que `src/content/modules/*.json` — champs requis : `id`,
+   `meta.title`, `lessons`, `version`). L'`id` doit être unique et stable
+   (ex : `photographie-produit-v1`).
+2. Commit + push sur `main` → Render redeploie l'API automatiquement.
+3. Les apps interrogent `GET /api/content/modules` :
+   - au démarrage de l'app (+3 s),
+   - à chaque retour au premier plan,
+   - à chaque reconnexion réseau,
+   - puis toutes les 5 minutes tant que l'app est ouverte.
+4. Le module est ajouté au registre local (`MODULES`) et **mis en cache dans
+   AsyncStorage** → il reste consultable hors ligne après le premier
+   téléchargement.
+
+### Règles de mise à jour d'un cours existant
+
+- Si l'`id` existe déjà côté client (module bundlé dans l'APK ou cours distant
+  déjà téléchargé), le contenu distant **remplace** le local uniquement si le
+  champ `version` diffère → incrémenter `version` (ex : `"1.0"` → `"1.1"`)
+  pour pousser une mise à jour de contenu.
+- La réponse transporte une empreinte `version` du catalogue (SHA-1 du
+  contenu) : si rien n'a changé, le client ne re-télécharge rien.
+
+### Endpoint
+
+```
+GET /api/content/modules
+→ { "success": true,
+    "data": { "version": "ddee9aba9af35199", "count": 8,
+              "modules": [ ... ] } }
+```
+
+Contenu public (pas d'API key), rate-limit 60 req/min/IP, CORS ouvert.
+Payload actuel : ~210 Ko pour 8 modules.

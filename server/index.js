@@ -227,6 +227,55 @@ app.get('/api/health', async (req, res) => {
   });
 });
 
+// ── Catalogue de cours (v1.1.7 — offline-first « nouveaux cours ») ───────────
+// Sert les modules de formation depuis server/content/*.json. Un nouveau
+// cours publié ici apparaît dans les apps (web + mobile) à la prochaine
+// synchronisation, SANS mise à jour de l'APK. La réponse transporte une
+// « version » (empreinte du contenu) : le client ne re-télécharge/cache pas
+// si rien n'a changé. Contenu public → pas d'API key, rate-limit léger.
+const CONTENT_DIR = path.join(__dirname, 'content');
+let contentCache = null; // { version, modules } — rechargé si le disque change
+
+function loadContentCatalog() {
+  try {
+    const files = fs.readdirSync(CONTENT_DIR)
+      .filter(f => f.endsWith('.json'))
+      .sort();
+    const modules = [];
+    const hash = crypto.createHash('sha1');
+    for (const f of files) {
+      try {
+        const raw = fs.readFileSync(path.join(CONTENT_DIR, f), 'utf8');
+        const json = JSON.parse(raw);
+        if (json?.id && json?.meta?.title) {
+          modules.push(json);
+          hash.update(f).update(':').update(raw).update('\n');
+        }
+      } catch (e) {
+        console.warn(`[Content] ${f} ignoré :`, e.message);
+      }
+    }
+    contentCache = { version: hash.digest('hex').slice(0, 16), modules };
+    console.log(`[Content] Catalogue chargé : ${modules.length} module(s), version ${contentCache.version}`);
+  } catch (e) {
+    console.warn('[Content] Répertoire content/ indisponible :', e.message);
+    contentCache = { version: 'empty', modules: [] };
+  }
+  return contentCache;
+}
+
+app.get('/api/content/modules', rateLimit(60, 60000), (req, res) => {
+  // Recharger si le contenu du répertoire a changé (utile en dev ; sur Render
+  // le disque est immuable entre déploiements → coût d'un readdir minime).
+  if (!contentCache) loadContentCatalog();
+  const catalog = contentCache || { version: 'empty', modules: [] };
+  success(res, {
+    version: catalog.version,
+    count:   catalog.modules.length,
+    modules: catalog.modules,
+  });
+});
+
 // ── Sync endpoint principal ──────────────────────────────────────────────────
 // Le client envoie un batch d'opérations, le serveur les traite et renvoie
 // le serveur_id de chaque enregistrement pour que le client puisse les lier.

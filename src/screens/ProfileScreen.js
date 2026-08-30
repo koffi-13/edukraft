@@ -7,13 +7,20 @@ import { Colors, Typography, Spacing, Radius, Shadow, getLevel } from '../theme'
 import { useDb } from '../database/DbProvider';
 import { useAuth } from '../contexts/AuthContext';
 import { t } from '../i18n';
+import persistentStorage from '../utils/persistentStorage';
+import * as authService from '../services/authService';
+import { getRemoteVersion } from '../content/moduleRegistry';
 
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { learner, getAllBadges, resetAll, getPendingQueue, getSyncMeta } = useDb();
+  const { db, learner, getAllBadges, resetAll, getPendingQueue, getSyncMeta } = useDb();
   const { user, skipAuth, logout } = useAuth();
   const [badges, setBadges] = useState([]);
   const [syncInfo, setSyncInfo] = useState({ pending: 0, lastSync: null });
+  // v1.1.7 : diagnostics de persistance (aide au support « écran Login en
+  // boucle ») — état de chaque couche de stockage + clés présentes.
+  const [diagOpen, setDiagOpen] = useState(false);
+  const [diag, setDiag] = useState(null);
   const loadBadges = useCallback(async () => {
     try {
       const userBadges = await getAllBadges();
@@ -33,6 +40,37 @@ export default function ProfileScreen({ navigation }) {
       });
     } catch (_) {}
   }, [getPendingQueue, getSyncMeta]);
+
+  // v1.1.7 : sonde l'état réel des couches de stockage (SQLite, AsyncStorage,
+  // SecureStore/tokens, clés de session) + le catalogue distant.
+  const runDiagnostics = useCallback(async () => {
+    const out = {
+      sqlite: null, storage: false, keys: {}, session: 'inconnue',
+      learnerId: learner?.id || null, serverId: learner?.server_id || null,
+      snapshot: false, remoteCatalog: getRemoteVersion() || '—',
+    };
+    try {
+      out.sqlite = !!db; // instance expo-sqlite vivante (mode mémoire sinon)
+    } catch (_) {}
+    try {
+      const [l, snap] = await Promise.all([
+        persistentStorage.getItem('ek_learner'),
+        persistentStorage.getItem('ek_memory_snapshot'),
+      ]);
+      out.storage = true;
+      out.keys.ek_learner = !!l;
+      out.snapshot = !!snap;
+    } catch (_) { out.storage = false; }
+    try {
+      const st = await authService.getStoredAuth();
+      out.keys.ek_user = !!st?.user;
+      out.keys.ek_logged_out = st?.sessionEnded === true;
+      out.session = st?.user
+        ? (st.sessionEnded ? 'terminée (déconnecté)' : 'active')
+        : (st?.skipAuth ? 'invité (hors-ligne)' : 'aucune');
+    } catch (_) {}
+    setDiag(out);
+  }, [db, learner]);
 
   useEffect(() => {
     if (learner) {
@@ -193,6 +231,35 @@ export default function ProfileScreen({ navigation }) {
         <Text style={styles.syncSubtext}>
           Dernière sync : {formatSyncTime(syncInfo.lastSync)}
         </Text>
+        {/* v1.1.7 : diagnostics de persistance — visible par l'utilisateur en
+            cas de problème (« je rouvre l'app et je retombe sur Login ») :
+            indique précisément quelle couche de stockage est HS. */}
+        <TouchableOpacity
+          style={styles.diagToggle}
+          onPress={() => {
+            const next = !diagOpen;
+            setDiagOpen(next);
+            if (next) runDiagnostics();
+          }}
+        >
+          <Text style={styles.diagToggleText}>
+            {diagOpen ? '▾' : '▸'} Diagnostics du stockage
+          </Text>
+        </TouchableOpacity>
+        {diagOpen && diag && (
+          <View style={styles.diagBox}>
+            <Text style={styles.diagRow}>SQLite : {diag.sqlite ? '✓ actif' : '✗ indisponible (mode mémoire)'}</Text>
+            <Text style={styles.diagRow}>Stockage persistant : {diag.storage ? '✓ opérationnel' : '✗ HS'}</Text>
+            <Text style={styles.diagRow}>Session : {diag.session}</Text>
+            <Text style={styles.diagRow}>Clé profil (ek_learner) : {diag.keys.ek_learner ? '✓ présente' : '✗ absente'}</Text>
+            <Text style={styles.diagRow}>Snapshot complet : {diag.snapshot ? '✓ présent' : '✗ absent'}</Text>
+            <Text style={styles.diagRow}>Compte (ek_user) : {diag.keys.ek_user ? '✓ présent' : '✗ absent'}</Text>
+            <Text style={styles.diagRow}>Flag déconnexion : {diag.keys.ek_logged_out ? '⚠ posé (déconnecté)' : '✓ non posé'}</Text>
+            {diag.learnerId && <Text style={styles.diagRow}>Learner : {diag.learnerId}</Text>}
+            {diag.serverId && <Text style={styles.diagRow}>Compte lié : {diag.serverId}</Text>}
+            <Text style={styles.diagRow}>Catalogue cours distant : v{diag.remoteCatalog}</Text>
+          </View>
+        )}
       </View>
 
       {/* Premium section */}
@@ -451,6 +518,29 @@ const styles = StyleSheet.create({
     color: Colors.ink30,
     marginTop: Spacing.sm,
     textAlign: 'right',
+  },
+  // v1.1.7 : diagnostics du stockage
+  diagToggle: {
+    marginTop: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    alignSelf: 'flex-start',
+  },
+  diagToggleText: {
+    fontSize: Typography.caption,
+    fontWeight: Typography.semibold,
+    color: Colors.primary,
+  },
+  diagBox: {
+    marginTop: Spacing.sm,
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.surfaceAlt,
+    gap: 3,
+  },
+  diagRow: {
+    fontSize: Typography.tiny,
+    color: Colors.ink60,
+    lineHeight: 17,
   },
   section: {
     padding: Spacing.lg,
