@@ -136,9 +136,12 @@ function RootStack() {
   );
 }
 
-function AuthStack() {
+function AuthStack({ initialRoute = 'Login' }) {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false, cardStyle: { flex: 1, minHeight: 0 } }}>
+    <Stack.Navigator
+      initialRouteName={initialRoute}
+      screenOptions={{ headerShown: false, cardStyle: { flex: 1, minHeight: 0 } }}
+    >
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
       {/* Correctif : Onboarding doit être ATTEIGNABLE — c'est le seul écran
@@ -173,17 +176,22 @@ export default function AppNavigator() {
     );
   }
 
-  // GATING v3 (v1.1.7 - session-first) :
+  // GATING v4 (v1.1.8 — comptes sans prénom connu + isolation) :
   //   - Pas de learner ET pas de session authentifiée -> Auth (premier
   //     lancement, ou invité sans données locales -> Onboarding)
   //   - sessionEnded (déconnexion volontaire) -> Auth (donnees conservees,
   //     restaurées à la reconnexion)
+  //   - Compte authentifié SANS learner (compte téléphone neuf, ou changement
+  //     de compte v1.1.8 sans données locales ni prénom connu) -> Auth avec
+  //     Onboarding en écran initial (collecte du prénom) — JAMAIS un Dashboard
+  //     vide, et surtout JAMAIS les données de l'ancien compte.
   //   - Learner OU session authentifiée -> Dashboard direct.
   //     ensureSessionLearner (DbProvider) garantit un learner dès qu'une
   //     session authentifiée existe ; le « || authedSession » est la ceinture
   //     de sécurité si même cette recreation échouait : un utilisateur
   //     authentifié ne retourne PAS à l'écran Login (dashboard jusqu'au logout).
-  const showAuth = (!learner && !authedSession) || sessionEnded;
+  const needsOnboarding = authedSession && !learner;
+  const showAuth = needsOnboarding || (!learner && !authedSession) || sessionEnded;
 
   return (
     <NavigationContainer>
@@ -196,7 +204,9 @@ export default function AppNavigator() {
           le ScrollView interne déborde alors et le défilement fonctionne. */}
       <Stack.Navigator screenOptions={{ headerShown: false, cardStyle: { flex: 1, minHeight: 0 } }}>
         {showAuth ? (
-          <Stack.Screen name="Auth" component={AuthStack} />
+          <Stack.Screen name="Auth">
+            {() => <AuthStack initialRoute={needsOnboarding ? 'Onboarding' : 'Login'} />}
+          </Stack.Screen>
         ) : (
           <Stack.Screen name="Root" component={RootStack} />
         )}

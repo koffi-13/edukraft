@@ -49,6 +49,10 @@ export default function OnboardingScreen({ navigation }) {
         name: name.trim(),
         phone: phone.trim(),
         language: lang,
+        // v1.1.8 : lié au compte dès la création (email connu, ex : Google)
+        server_id: user?.id ? String(user.id) : null,
+        email: user?.email || null,
+        photo_url: user?.avatar_url || null,
       });
       // Le learner est créé → le gating d'AppNavigator bascule automatiquement
       // vers le Dashboard (le learner local est la seule source de vérité).

@@ -384,3 +384,65 @@ GET /api/content/modules
 
 Contenu public (pas d'API key), rate-limit 60 req/min/IP, CORS ouvert.
 Payload actuel : ~210 Ko pour 8 modules.
+
+---
+
+## §12 — Voir les données utilisateurs sur Render (v1.1.8)
+
+### Le problème : « le serveur ne conserve pas les données »
+
+Sur le **free tier de Render, le disque est ÉPHÉMÈRE** : à chaque
+redéploiement (push Git → auto-deploy) ou redémarrage du service, le
+système de fichiers est **réinitialisé** — le fichier
+`server/data/edukraft.db` (SQLite/better-sqlite3) repart à zéro.
+
+- Les données **survivent** tant que le service tourne (même en veille).
+- Elles **disparaissent** au déploiement suivant. Ce n'est pas un bug de
+  l'app, c'est la limite du plan gratuit.
+
+### Inspecter les données (sans SSH — Render n'en offre pas en gratuit)
+
+Trois endpoints **admin** (protégés par `ADMIN_KEY`, qui vaut par défaut
+`API_KEY` si la variable n'est pas définie) :
+
+```
+# Vue d'ensemble : compteurs + 100 derniers comptes + 100 derniers learners
+curl "https://api.edukraft.tg/api/admin/dump?admin_key=VOTRE_ADMIN_KEY"
+
+# Détail complet d'un compte (profil, progressions, badges) par email
+curl "https://api.edukraft.tg/api/admin/user?email=kofi.anan@gmail.com&admin_key=VOTRE_ADMIN_KEY"
+
+# Détail complet d'un compte par son id
+curl "https://api.edukraft.tg/api/admin/user/<userId>?admin_key=VOTRE_ADMIN_KEY"
+```
+
+Les URLs fonctionnent aussi directement dans un navigateur. Sur Render :
+*Environment → Add Environment Variable → `ADMIN_KEY`* (utilisez une valeur
+différente de `API_KEY` de préférence). Sans le bon `admin_key` : HTTP 401.
+
+### Conserver les données en production (3 options)
+
+| Option | Coût | Mise en œuvre |
+|---|---|---|
+| **A. Disque persistant Render** | ~1 $/mois (1 Go) | Render → Service → *Disks* → Add Disk (mount `/var/data`, 1 Go) → env `DB_PATH=/var/data/edukraft.db` → Redeploy |
+| **B. Plan payant Render** | ≥ 7 $/mois | Le disque persiste sur les instances payantes |
+| **C. Base externe** (Turso, Neon…) | Variable | Migrer `better-sqlite3` vers un client managé (plus de travaux) |
+
+**Recommandation MVP** : option A (disque persistant) — 5 minutes de
+configuration, aucune migration de code (`DB_PATH` est déjà paramétrable).
+
+> ⚠️ Même avec un disque persistant, gardez des sauvegardes : Render ne
+> sauvegarde pas les disques pour vous (`/api/admin/dump` avant chaque
+> grosse manipulation).
+
+### Isolation des comptes (rappel v1.1.8)
+
+Chaque ligne locale (learner, progressions, badges, streaks, succès,
+objectif) porte le `learner_id` du compte (`lrn_<user.id>` — le même sur
+web et mobile). Sur un appareil partagé :
+- la déconnexion conserve les données locales du compte **sans les
+  exposer** (écran Login) ;
+- la connexion à un autre compte bascule vers **ses** données
+  (locales si déjà vues ici, sinon serveur, sinon Onboarding) ;
+- les données du compte précédent restent intactes et seront restaurées
+  à sa reconnexion.
