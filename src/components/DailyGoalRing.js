@@ -7,11 +7,24 @@
 //     discret "✓" apparaît — pas de fanfare, juste une satisfaction calme.
 //   - Si l'objectif n'est pas activé, on propose de le définir (lien vers
 //     AchievementsScreen où se trouve le sélecteur).
+//
+// v1.1.6 (correctif « l'anneau ne réagit pas à la progression ») :
+//   L'ancien rendu utilisait un hack View + borderTop/RightColor tourné de
+//   progress×360° : seul un QUART d'arc était coloré, quelle que soit la
+//   progression — l'anneau tournait sans jamais se remplir (et
+//   animatedDashOffset était calculé mais jamais utilisé). Remplacé par un
+//   vrai anneau SVG (react-native-svg — déjà utilisé pour les QR badges)
+//   avec strokeDasharray/strokeDashoffset animés : l'arc se remplit de 0 %
+//   à 100 % proportionnellement à la progression réelle du jour, sur web
+//   comme sur mobile.
 
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import Svg, { Circle as SvgCircle } from 'react-native-svg';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../theme';
 import { t } from '../i18n';
+
+const AnimatedCircle = Animated.createAnimatedComponent(SvgCircle);
 
 export default function DailyGoalRing({ goal, todayValue, onPress }) {
   const progressAnim = useRef(new Animated.Value(0)).current;
@@ -23,6 +36,8 @@ export default function DailyGoalRing({ goal, todayValue, onPress }) {
     Animated.timing(progressAnim, {
       toValue: progress,
       duration: 600,
+      // Pas de useNativeDriver : les attributs SVG (strokeDashoffset) ne
+      // sont pas supportés par le driver natif.
       useNativeDriver: false,
     }).start();
   }, [progress]);
@@ -32,12 +47,7 @@ export default function DailyGoalRing({ goal, todayValue, onPress }) {
   const strokeWidth = 7;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-
-  // L'anneau se remplit dans le sens horaire
-  const animatedDashOffset = progressAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [circumference, 0],
-  });
+  const center = size / 2;
 
   // Pas d'objectif défini
   if (!goal || !goal.enabled) {
@@ -72,29 +82,35 @@ export default function DailyGoalRing({ goal, todayValue, onPress }) {
       disabled={!onPress}
     >
       <View style={styles.row}>
-        {/* Anneau SVG-free (deux cercles superposés via View) */}
+        {/* Anneau SVG — l'arc se remplit proportionnellement à la progression */}
         <View style={[styles.ringWrap, { width: size, height: size }]}>
-          <View style={[styles.ringBg, {
-            width: size, height: size, borderRadius: radius + strokeWidth / 2,
-            borderWidth: strokeWidth,
-          }]} />
-          <Animated.View
-            style={[styles.ringFill, {
-              width: size, height: size,
-              borderRadius: radius + strokeWidth / 2,
-              borderWidth: strokeWidth,
-              borderTopColor: goalMet ? Colors.teal : Colors.primary,
-              borderRightColor: goalMet ? Colors.teal : Colors.primary,
-              borderBottomColor: 'transparent',
-              borderLeftColor: 'transparent',
-              transform: [{
-                rotate: progressAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ['0deg', `${progress * 360}deg`],
-                }),
-              }],
-            }]}
-          />
+          <Svg width={size} height={size} style={styles.ringSvg}>
+            {/* Piste de fond */}
+            <SvgCircle
+              cx={center}
+              cy={center}
+              r={radius}
+              stroke={Colors.border}
+              strokeWidth={strokeWidth}
+              fill="none"
+            />
+            {/* Arc de progression (départ à 12 h, sens horaire) */}
+            <AnimatedCircle
+              cx={center}
+              cy={center}
+              r={radius}
+              stroke={goalMet ? Colors.teal : Colors.primary}
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              fill="none"
+              strokeDasharray={`${circumference} ${circumference}`}
+              strokeDashoffset={progressAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [circumference, 0],
+              })}
+              transform={`rotate(-90 ${center} ${center})`}
+            />
+          </Svg>
           <View style={styles.ringCenter}>
             <Text style={styles.ringValue}>{todayValue || 0}</Text>
             <Text style={styles.ringUnit}>/ {goal.target}</Text>
@@ -131,19 +147,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    overflow: "hidden",
   },
   ringWrap: {
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  ringBg: {
+  ringSvg: {
     position: 'absolute',
-    borderColor: Colors.border,
-  },
-  ringFill: {
-    position: 'absolute',
+    top: 0,
+    left: 0,
   },
   ringCenter: {
     alignItems: 'center',
@@ -180,7 +193,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    overflow: "hidden",
   },
   emptyIcon: { fontSize: 28 },
   emptyText: { flex: 1 },

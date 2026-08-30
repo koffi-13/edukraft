@@ -138,14 +138,18 @@ function applySyncOperation(db, tableName, payload) {
   try {
     switch (tableName) {
       case 'streak_log': {
-        // Upsert par (learner_id, activity_date) — incrément lessons/xp
+        // Upsert par (learner_id, activity_date) — MAX (idempotent).
+        // v1.1.6 : le client pousse les VALEURS ABSOLUES du jour (pas des
+        // deltas). L'ancien sémantique d'incrément double-comptait lorsqu'une
+        // même journée était poussée deux fois (fusion multi-appareils, retry,
+        // reconnexion). MAX converge sans jamais doublonner.
         const id = uuidv4();
         db.prepare(`
           INSERT INTO streak_log (id, learner_id, activity_date, lessons_done, xp_earned, streak_freeze_used, goal_met, created_at, updated_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(learner_id, activity_date) DO UPDATE SET
-            lessons_done = streak_log.lessons_done + excluded.lessons_done,
-            xp_earned = streak_log.xp_earned + excluded.xp_earned,
+            lessons_done = MAX(streak_log.lessons_done, excluded.lessons_done),
+            xp_earned = MAX(streak_log.xp_earned, excluded.xp_earned),
             goal_met = MAX(streak_log.goal_met, excluded.goal_met),
             streak_freeze_used = MAX(streak_log.streak_freeze_used, excluded.streak_freeze_used),
             updated_at = excluded.updated_at
@@ -184,15 +188,18 @@ function applySyncOperation(db, tableName, payload) {
       case 'learner': {
         // Les champs gamification du learner (streak_days, streak_freezes, best_streak,
         // last_active_date, total_lessons_done) sont mis à jour ici si présents.
+        // v1.1.6 : sémantique MAX sur les compteurs (cohérente avec
+        // findOrCreateLearner) — un appareil en retard ne peut plus rétrograder
+        // les valeurs du compte (COALESCE seul écrasait streak_days=4 par 1).
         if (payload.learner_id || payload.id) {
           const lid = payload.learner_id || payload.id;
           db.prepare(`
             UPDATE learner SET
-              streak_days = COALESCE(?, streak_days),
-              streak_freezes = COALESCE(?, streak_freezes),
-              best_streak = COALESCE(?, best_streak),
+              streak_days = MAX(streak_days, COALESCE(?, streak_days)),
+              streak_freezes = MAX(streak_freezes, COALESCE(?, streak_freezes)),
+              best_streak = MAX(best_streak, COALESCE(?, best_streak)),
               last_active_date = COALESCE(?, last_active_date),
-              total_lessons_done = COALESCE(?, total_lessons_done),
+              total_lessons_done = MAX(total_lessons_done, COALESCE(?, total_lessons_done)),
               last_active_at = COALESCE(?, last_active_at),
               updated_at = ?
             WHERE id = ?

@@ -23,6 +23,8 @@ import { createBadgeRepository } from './repositories/badgeRepository';
 import { createGamificationRepository } from './repositories/gamificationRepository';
 import { createSyncRepository } from './repositories/syncRepository';
 import persistentStorage from '../utils/persistentStorage';
+import ENV from '../config/env';
+import * as authService from '../services/authService';
 
 const DbContext = createContext(null);
 
@@ -141,6 +143,52 @@ async function loadMemorySnapshot(store) {
   } catch (_) {
     return false;
   }
+}
+
+// ── v1.1.6 : comptes uniques web + mobile (restauration multi-appareils) ────
+// Clé canonique : le learner local d'un utilisateur AUTHENTIFIÉ porte
+// TOUJOURS l'id `lrn_<user.id>` — le même sur le web et dans l'app — pour que
+// le serveur agrège toutes ses données sous une seule entrée. Un invité qui
+// se connecte voit son learner local RENOMMÉ vers cet id canonique.
+export function canonicalLearnerId(serverUser) {
+  return serverUser?.id ? `lrn_${serverUser.id}` : null;
+}
+
+/** Meilleur nom d'affichage connu pour le compte (Google : display_name).
+ *  Retourne '' si aucun nom exploitable (ex : comptes téléphone dont le
+ *  display_name est juste le numéro) → l'app orientera vers l'Onboarding. */
+function pickAccountDisplayName(serverUser, serverLearner) {
+  const dn = serverUser?.display_name || serverUser?.first_name || serverUser?.name || '';
+  const phoneLike = (v) => typeof v === 'string' && /^\+?\d[\d\s-]{6,}$/.test(v.trim());
+  if (dn && !phoneLike(dn)) return String(dn).trim();
+  // Compte téléphone (display_name = "+228…") : le learner serveur peut
+  // connaître le vrai prénom choisi lors d'un précédent Onboarding.
+  if (serverLearner?.name && !phoneLike(serverLearner.name)) return String(serverLearner.name).trim();
+  return '';
+}
+
+/** Réduit les lignes module_progress renvoyées par le serveur à UNE ligne par
+ *  module (le serveur peut conserver plusieurs client_id pour un même module
+ *  après un changement d'appareil) — sémantique MAX par champ. */
+function reduceServerProgressRows(rows) {
+  const byModule = {};
+  const rank = { not_started: 0, in_progress: 1, completed: 2 };
+  for (const r of rows || []) {
+    if (!r?.module_id) continue;
+    const cur = byModule[r.module_id];
+    if (!cur) { byModule[r.module_id] = { ...r }; continue; }
+    byModule[r.module_id] = {
+      ...cur,
+      status: (rank[r.status] ?? 0) >= (rank[cur.status] ?? 0) ? (r.status ?? cur.status) : cur.status,
+      current_lesson:  Math.max(cur.current_lesson || 0, r.current_lesson || 0),
+      lessons_done:    Math.max(cur.lessons_done || 0, r.lessons_done || 0),
+      total_xp_earned: Math.max(cur.total_xp_earned || 0, r.total_xp_earned || 0),
+      best_score:      Math.max(cur.best_score || 0, r.best_score || 0),
+      started_at:      cur.started_at || r.started_at || null,
+      completed_at:    cur.completed_at || r.completed_at || null,
+    };
+  }
+  return byModule;
 }
 
 // ── v1.1.5 : restaure un snapshot COMPLET dans SQLite (natif) ─────────────
@@ -510,6 +558,521 @@ export function DbProvider({ children }) {
     return Math.round((filled / fields.length) * 100);
   }, [learner]);
 
+  // ── v1.1.6 : RENOMMAGE canonique du learner local ──────────────────────
+  // Un invité (id lrn_<timestamp>) qui se connecte adopte l'id canonique de
+  // son compte (lrn_<user.id>) : ses lignes locales (progressions, quiz,
+  // badges, streaks, succès, objectif) sont repointées, et les opérations
+  // encore en file d'attente sont réécrites. Web et mobile partagent ainsi
+  // la MÊME clé de synchronisation serveur pour un même compte.
+  const adoptCanonicalLearnerId = useCallback(async (oldId, newId) => {
+    if (!oldId || !newId || oldId === newId) return;
+
+    if (!db) {
+      // ── Mode mémoire (web) ──
+      const s = storeRef.current;
+      if (s.learner?.id === oldId) s.learner = { ...s.learner, id: newId, updated_at: new Date().toISOString() };
+      for (const [moduleId, p] of Object.entries(s.progress || {})) {
+        if (p.learner_id === oldId) s.progress[moduleId] = { ...p, learner_id: newId, id: `${newId}_${moduleId}` };
+      }
+      s.quizAttempts = (s.quizAttempts || []).map(a => (a.learner_id === oldId ? { ...a, learner_id: newId } : a));
+      s.badges = (s.badges || []).map(b => (b.learner_id === oldId ? { ...b, learner_id: newId } : b));
+      // achievements / streakLogs / dailyGoal du store mémoire ne portent pas
+      // de learner_id (portée implicite) — rien à réécrire.
+      // File de sync : réécrire record_id + payload
+      for (const item of s.syncQueue || []) {
+        let obj = null;
+        try { obj = typeof item.payload === 'string' ? JSON.parse(item.payload) : item.payload; } catch (_) {}
+        let changed = false;
+        if (obj && typeof obj === 'object') {
+          if (obj.learner_id === oldId) { obj.learner_id = newId; changed = true; }
+          if (obj.id === oldId) { obj.id = newId; changed = true; }
+        }
+        if (item.record_id === oldId) { item.record_id = newId; changed = true; }
+        if (typeof item.record_id === 'string' && item.record_id.startsWith(oldId + '_')) {
+          item.record_id = newId + item.record_id.slice(oldId.length);
+          if (obj && typeof obj === 'object') obj.id = item.record_id;
+          changed = true;
+        }
+        if (item.record_id === `goal_${oldId}`) {
+          item.record_id = `goal_${newId}`;
+          if (obj && typeof obj === 'object') obj.id = item.record_id;
+          changed = true;
+        }
+        if (changed && obj) item.payload = JSON.stringify(obj);
+      }
+      console.log(`[DB] Learner renommé (mémoire) : ${oldId} → ${newId}`);
+      return;
+    }
+
+    // ── SQLite natif ──
+    const old = await db.getFirstAsync('SELECT * FROM learner WHERE id = ?', [oldId]);
+    if (!old) return;
+    await upsertLearnerRow(db, { ...old, id: newId });
+    await db.runAsync(
+      `UPDATE module_progress SET learner_id = ?, id = ? || '_' || module_id WHERE learner_id = ?`,
+      [newId, newId, oldId]
+    );
+    await db.runAsync('UPDATE quiz_attempt SET learner_id = ? WHERE learner_id = ?', [newId, oldId]);
+    await db.runAsync('UPDATE badge SET learner_id = ? WHERE learner_id = ?', [newId, oldId]);
+    await db.runAsync(
+      `UPDATE streak_log SET learner_id = ?, id = ? || '_' || activity_date WHERE learner_id = ?`,
+      [newId, newId, oldId]
+    );
+    await db.runAsync(
+      `UPDATE achievement SET learner_id = ?, id = ? || '_' || achievement_key WHERE learner_id = ?`,
+      [newId, newId, oldId]
+    );
+    await db.runAsync('UPDATE daily_goal SET learner_id = ?, id = ? WHERE learner_id = ?', [newId, `goal_${newId}`, oldId]);
+    await db.runAsync('DELETE FROM learner WHERE id = ?', [oldId]);
+
+    // File de sync : réécrire record_id + payload des opérations en attente
+    const rows = await db.getAllAsync('SELECT id, table_name, record_id, payload FROM sync_queue');
+    for (const row of rows) {
+      let obj = null;
+      try { obj = JSON.parse(row.payload); } catch (_) {}
+      let recordId = row.record_id;
+      let changed = false;
+      if (obj && typeof obj === 'object') {
+        if (obj.learner_id === oldId) { obj.learner_id = newId; changed = true; }
+        if (obj.id === oldId) { obj.id = newId; changed = true; }
+      }
+      if (recordId === oldId) { recordId = newId; changed = true; }
+      if (typeof recordId === 'string' && recordId.startsWith(oldId + '_')) {
+        recordId = newId + recordId.slice(oldId.length);
+        if (obj && typeof obj === 'object') obj.id = recordId;
+        changed = true;
+      }
+      if (recordId === `goal_${oldId}`) {
+        recordId = `goal_${newId}`;
+        if (obj && typeof obj === 'object') obj.id = recordId;
+        changed = true;
+      }
+      if (changed) {
+        const payload = obj ? JSON.stringify(obj) : row.payload;
+        await db.runAsync('UPDATE sync_queue SET record_id = ?, payload = ? WHERE id = ?', [recordId, payload, row.id]);
+      }
+    }
+    console.log(`[DB] Learner renommé (SQLite) : ${oldId} → ${newId}`);
+  }, [db]);
+
+  // ── v1.1.6 : FUSION de l'état serveur dans l'état local (MAX par champ) ──
+  // Après le pull : XP/streaks/progressions prennent le MAX des deux mondes,
+  // les badges et succès absents localement sont importés, et les valeurs
+  // locales supérieures sont renfilées dans la file de sync pour que le
+  // serveur converge vers l'union (web ↔ mobile).
+  const mergeServerStateIntoLocal = useCallback(async (sv, canonicalId) => {
+    if (!sv) return;
+    const now = new Date().toISOString();
+    const { QUERIES } = require('./schema');
+    const pushOps = []; // ops à enfiler APRÈS l'op learner (ordre important)
+
+    if (!db) {
+      // ── Mode mémoire (web) ──
+      const s = storeRef.current;
+      const svLearner = sv.learner;
+
+      // Learner : MAX des champs numériques
+      if (s.learner && svLearner) {
+        const merged = { ...s.learner };
+        merged.total_xp           = Math.max(s.learner.total_xp || 0, svLearner.total_xp || 0);
+        merged.streak_days        = Math.max(s.learner.streak_days || 0, svLearner.streak_days || 0);
+        merged.best_streak        = Math.max(s.learner.best_streak || 0, svLearner.best_streak || 0);
+        merged.streak_freezes     = Math.max(s.learner.streak_freezes ?? 2, svLearner.streak_freezes ?? 2);
+        merged.total_lessons_done = Math.max(s.learner.total_lessons_done || 0, svLearner.total_lessons_done || 0);
+        merged.phone   = s.learner.phone || svLearner.phone || null;
+        merged.language = s.learner.language || svLearner.language || 'fr';
+        merged.updated_at = now;
+        s.learner = merged;
+      }
+
+      // Progressions (MAX par module)
+      const svProgress = reduceServerProgressRows(sv.progress || []);
+      for (const [moduleId, sp] of Object.entries(svProgress)) {
+        const lp = s.progress[moduleId];
+        const rank = { not_started: 0, in_progress: 1, completed: 2 };
+        const merged = {
+          id: lp?.id ?? `${canonicalId}_${moduleId}`,
+          learner_id: canonicalId,
+          module_id: moduleId,
+          status: (rank[lp?.status] ?? 0) >= (rank[sp.status] ?? 0) ? (lp?.status ?? sp.status) : sp.status,
+          current_lesson:  Math.max(lp?.current_lesson || 0, sp.current_lesson || 0),
+          lessons_done:    Math.max(lp?.lessons_done || 0, sp.lessons_done || 0),
+          total_xp_earned: Math.max(lp?.total_xp_earned || 0, sp.total_xp_earned || 0),
+          best_score:      Math.max(lp?.best_score || 0, sp.best_score || 0),
+          started_at:      lp?.started_at || sp.started_at || now,
+          completed_at:    lp?.completed_at || sp.completed_at || null,
+          updated_at: now,
+        };
+        s.progress[moduleId] = merged;
+        if (lp) pushOps.push(['module_progress', 'UPDATE', merged.id, merged]);
+      }
+
+      // Badges : importer ceux du serveur absents localement
+      const localBadgeModules = new Set((s.badges || []).map(b => b.module_id));
+      const svBadgeModules = new Set((sv.badges || []).map(b => b.module_id));
+      for (const sb of sv.badges || []) {
+        if (localBadgeModules.has(sb.module_id)) continue;
+        s.badges.push({
+          id: `srv_${sb.server_id || sb.id || sb.module_id}`,
+          learner_id: canonicalId,
+          module_id: sb.module_id,
+          module_title: sb.module_title || '',
+          score: sb.score || 0,
+          xp_total: sb.xp_total || 0,
+          badge_hash: sb.badge_hash || '',
+          qr_payload: sb.qr_payload || '',
+          blockchain_tx: sb.blockchain_tx || null,
+          issued_at: sb.issued_at || now,
+          sync_status: 'synced',
+        });
+      }
+      for (const lb of s.badges || []) {
+        if (!svBadgeModules.has(lb.module_id)) {
+          pushOps.push(['badge', 'INSERT', lb.id, {
+            learner_id: canonicalId, module_id: lb.module_id,
+            module_title: lb.module_title, score: lb.score, xp_total: lb.xp_total,
+            badge_hash: lb.badge_hash, qr_payload: lb.qr_payload, issued_at: lb.issued_at,
+          }]);
+        }
+      }
+
+      // Succès : importer ceux du serveur absents localement
+      const localAchKeys = new Set((s.achievements || []).map(a => a.achievement_key));
+      const svAchKeys = new Set((sv.achievements || []).map(a => a.achievement_key));
+      for (const sa of sv.achievements || []) {
+        if (sa.achievement_key && !localAchKeys.has(sa.achievement_key)) {
+          s.achievements.push({ achievement_key: sa.achievement_key, unlocked_at: sa.unlocked_at || now });
+        }
+      }
+      for (const la of s.achievements || []) {
+        if (!svAchKeys.has(la.achievement_key)) {
+          pushOps.push(['achievement', 'INSERT', `${canonicalId}_${la.achievement_key}`, {
+            learner_id: canonicalId, achievement_key: la.achievement_key, unlocked_at: la.unlocked_at || now,
+          }]);
+        }
+      }
+
+      // Streak logs (MAX par date)
+      const logsToPush = {};
+      for (const sl of sv.streak_logs || []) {
+        const ll = s.streakLogs[sl.activity_date];
+        const mLessons = Math.max(ll?.lessons_done || 0, sl.lessons_done || 0);
+        const mXp = Math.max(ll?.xp_earned || 0, sl.xp_earned || 0);
+        const mGoal = Math.max(ll?.goal_met || 0, sl.goal_met || 0) ? 1 : 0;
+        const mFreeze = Math.max(ll?.streak_freeze_used || 0, sl.streak_freeze_used || 0);
+        s.streakLogs[sl.activity_date] = {
+          lessons_done: mLessons, xp_earned: mXp, goal_met: mGoal,
+          streak_freeze_used: mFreeze,
+          created_at: ll?.created_at || sl.created_at || now,
+          updated_at: now,
+        };
+        logsToPush[sl.activity_date] = { activity_date: sl.activity_date, lessons_done: mLessons, xp_earned: mXp, goal_met: mGoal, streak_freeze_used: mFreeze };
+      }
+      for (const [date, ll] of Object.entries(s.streakLogs || {})) {
+        if (!logsToPush[date]) {
+          logsToPush[date] = {
+            activity_date: date,
+            lessons_done: ll.lessons_done || 0, xp_earned: ll.xp_earned || 0,
+            goal_met: ll.goal_met || 0, streak_freeze_used: ll.streak_freeze_used || 0,
+          };
+        }
+      }
+      for (const m of Object.values(logsToPush)) {
+        pushOps.push(['streak_log', 'UPDATE', `${canonicalId}_${m.activity_date}`, { learner_id: canonicalId, ...m }]);
+      }
+
+      // Objectif quotidien : importer si absent localement
+      if (!s.dailyGoal?.goal_type && sv.daily_goal?.goal_type) {
+        s.dailyGoal = {
+          goal_type: sv.daily_goal.goal_type,
+          goal_target: sv.daily_goal.goal_target ?? 1,
+          enabled: sv.daily_goal.enabled ?? 1,
+          updated_at: now,
+        };
+      } else if (s.dailyGoal?.goal_type && !sv.daily_goal?.goal_type) {
+        pushOps.push(['daily_goal', 'UPDATE', `goal_${canonicalId}`, {
+          learner_id: canonicalId, goal_type: s.dailyGoal.goal_type,
+          goal_target: s.dailyGoal.goal_target, enabled: s.dailyGoal.enabled ?? 1, updated_at: now,
+        }]);
+      }
+    } else {
+      // ── SQLite natif ──
+      const localLearner = await db.getFirstAsync('SELECT * FROM learner WHERE id = ?', [canonicalId]);
+      const svLearner = sv.learner;
+
+      // Learner : MAX des champs numériques
+      if (localLearner && svLearner) {
+        const merged = { ...localLearner };
+        merged.total_xp           = Math.max(localLearner.total_xp || 0, svLearner.total_xp || 0);
+        merged.streak_days        = Math.max(localLearner.streak_days || 0, svLearner.streak_days || 0);
+        merged.best_streak        = Math.max(localLearner.best_streak || 0, svLearner.best_streak || 0);
+        merged.streak_freezes     = Math.max(localLearner.streak_freezes ?? 2, svLearner.streak_freezes ?? 2);
+        merged.total_lessons_done = Math.max(localLearner.total_lessons_done || 0, svLearner.total_lessons_done || 0);
+        merged.phone   = localLearner.phone || svLearner.phone || null;
+        merged.language = localLearner.language || svLearner.language || 'fr';
+        merged.updated_at = now;
+        await upsertLearnerRow(db, merged);
+      }
+
+      // Progressions (MAX par module)
+      const svProgress = reduceServerProgressRows(sv.progress || []);
+      const localRows = await db.getAllAsync('SELECT * FROM module_progress WHERE learner_id = ?', [canonicalId]);
+      const localByModule = {};
+      localRows.forEach(p => { localByModule[p.module_id] = p; });
+      const rank = { not_started: 0, in_progress: 1, completed: 2 };
+      for (const [moduleId, sp] of Object.entries(svProgress)) {
+        const lp = localByModule[moduleId];
+        const merged = {
+          id: lp?.id ?? `${canonicalId}_${moduleId}`,
+          learner_id: canonicalId,
+          module_id: moduleId,
+          status: (rank[lp?.status] ?? 0) >= (rank[sp.status] ?? 0) ? (lp?.status ?? sp.status) : sp.status,
+          current_lesson:  Math.max(lp?.current_lesson || 0, sp.current_lesson || 0),
+          lessons_done:    Math.max(lp?.lessons_done || 0, sp.lessons_done || 0),
+          total_xp_earned: Math.max(lp?.total_xp_earned || 0, sp.total_xp_earned || 0),
+          best_score:      Math.max(lp?.best_score || 0, sp.best_score || 0),
+          started_at:      lp?.started_at || sp.started_at || now,
+          completed_at:    lp?.completed_at || sp.completed_at || null,
+          updated_at: now,
+        };
+        await db.runAsync(QUERIES.UPSERT_PROGRESS, [
+          merged.id, merged.learner_id, merged.module_id, merged.status,
+          merged.current_lesson, merged.lessons_done, merged.total_xp_earned,
+          merged.best_score, merged.started_at, merged.completed_at, now,
+        ]);
+        if (lp) pushOps.push(['module_progress', 'UPDATE', merged.id, merged]);
+      }
+
+      // Badges
+      const localBadges = await db.getAllAsync('SELECT * FROM badge WHERE learner_id = ?', [canonicalId]);
+      const localBadgeModules = new Set(localBadges.map(b => b.module_id));
+      const svBadgeModules = new Set((sv.badges || []).map(b => b.module_id));
+      for (const sb of sv.badges || []) {
+        if (localBadgeModules.has(sb.module_id)) continue;
+        await db.runAsync(
+          `INSERT OR IGNORE INTO badge
+           (id, learner_id, module_id, module_title, score, xp_total, badge_hash, qr_payload, blockchain_tx, issued_at, sync_status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')`,
+          [`srv_${sb.server_id || sb.id || sb.module_id}`, canonicalId, sb.module_id,
+           sb.module_title || '', sb.score || 0, sb.xp_total || 0, sb.badge_hash || '',
+           sb.qr_payload || '', sb.blockchain_tx || null, sb.issued_at || now]
+        );
+      }
+      for (const lb of localBadges) {
+        if (!svBadgeModules.has(lb.module_id)) {
+          pushOps.push(['badge', 'INSERT', lb.id, {
+            learner_id: canonicalId, module_id: lb.module_id,
+            module_title: lb.module_title, score: lb.score, xp_total: lb.xp_total,
+            badge_hash: lb.badge_hash, qr_payload: lb.qr_payload, issued_at: lb.issued_at,
+          }]);
+        }
+      }
+
+      // Succès
+      const localAch = await db.getAllAsync('SELECT achievement_key, unlocked_at FROM achievement WHERE learner_id = ?', [canonicalId]);
+      const localAchKeys = new Set(localAch.map(a => a.achievement_key));
+      const svAchKeys = new Set((sv.achievements || []).map(a => a.achievement_key));
+      for (const sa of sv.achievements || []) {
+        if (!sa.achievement_key || localAchKeys.has(sa.achievement_key)) continue;
+        await db.runAsync(
+          `INSERT OR IGNORE INTO achievement (id, learner_id, achievement_key, unlocked_at, sync_status)
+           VALUES (?, ?, ?, ?, 'synced')`,
+          [`${canonicalId}_${sa.achievement_key}`, canonicalId, sa.achievement_key, sa.unlocked_at || now]
+        );
+      }
+      for (const la of localAch) {
+        if (!svAchKeys.has(la.achievement_key)) {
+          pushOps.push(['achievement', 'INSERT', `${canonicalId}_${la.achievement_key}`, {
+            learner_id: canonicalId, achievement_key: la.achievement_key, unlocked_at: la.unlocked_at || now,
+          }]);
+        }
+      }
+
+      // Streak logs (MAX par date)
+      const localLogs = await db.getAllAsync('SELECT * FROM streak_log WHERE learner_id = ?', [canonicalId]);
+      const localByDate = {};
+      localLogs.forEach(l => { localByDate[l.activity_date] = l; });
+      const logsToPush = {};
+      for (const sl of sv.streak_logs || []) {
+        const ll = localByDate[sl.activity_date];
+        const mLessons = Math.max(ll?.lessons_done || 0, sl.lessons_done || 0);
+        const mXp = Math.max(ll?.xp_earned || 0, sl.xp_earned || 0);
+        const mGoal = Math.max(ll?.goal_met || 0, sl.goal_met || 0) ? 1 : 0;
+        const mFreeze = Math.max(ll?.streak_freeze_used || 0, sl.streak_freeze_used || 0);
+        if (!ll) {
+          await db.runAsync(
+            `INSERT OR IGNORE INTO streak_log
+             (id, learner_id, activity_date, lessons_done, xp_earned, streak_freeze_used, goal_met, created_at, updated_at, sync_status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')`,
+            [`${canonicalId}_${sl.activity_date}`, canonicalId, sl.activity_date,
+             mLessons, mXp, mFreeze, mGoal, sl.created_at || now, now]
+          );
+        } else if (mLessons > ll.lessons_done || mXp > ll.xp_earned) {
+          await db.runAsync(
+            `UPDATE streak_log SET lessons_done = ?, xp_earned = ?, goal_met = ?, streak_freeze_used = ?, updated_at = ?
+             WHERE learner_id = ? AND activity_date = ?`,
+            [mLessons, mXp, mGoal, mFreeze, now, canonicalId, sl.activity_date]
+          );
+        }
+        logsToPush[sl.activity_date] = { activity_date: sl.activity_date, lessons_done: mLessons, xp_earned: mXp, goal_met: mGoal, streak_freeze_used: mFreeze };
+      }
+      for (const l of localLogs) {
+        if (!logsToPush[l.activity_date]) {
+          logsToPush[l.activity_date] = {
+            activity_date: l.activity_date,
+            lessons_done: l.lessons_done || 0, xp_earned: l.xp_earned || 0,
+            goal_met: l.goal_met || 0, streak_freeze_used: l.streak_freeze_used || 0,
+          };
+        }
+      }
+      for (const m of Object.values(logsToPush)) {
+        pushOps.push(['streak_log', 'UPDATE', `${canonicalId}_${m.activity_date}`, { learner_id: canonicalId, ...m }]);
+      }
+
+      // Objectif quotidien
+      const localGoal = await db.getFirstAsync('SELECT * FROM daily_goal WHERE learner_id = ?', [canonicalId]);
+      if (!localGoal && sv.daily_goal?.goal_type) {
+        await db.runAsync(
+          `INSERT INTO daily_goal (id, learner_id, goal_type, goal_target, enabled, updated_at, sync_status)
+           VALUES (?, ?, ?, ?, ?, ?, 'synced')`,
+          [`goal_${canonicalId}`, canonicalId, sv.daily_goal.goal_type,
+           sv.daily_goal.goal_target ?? 1, sv.daily_goal.enabled ?? 1, now]
+        );
+      } else if (localGoal && !sv.daily_goal?.goal_type) {
+        pushOps.push(['daily_goal', 'UPDATE', `goal_${canonicalId}`, {
+          learner_id: canonicalId, goal_type: localGoal.goal_type,
+          goal_target: localGoal.goal_target, enabled: localGoal.enabled ?? 1, updated_at: now,
+        }]);
+      }
+    }
+
+    // ── Pousser l'union vers le serveur (le learner D'ABORD : son op crée la
+    // ligne serveur client_id=lrn_<user.id> dont dépendent les autres ops) ──
+    if (enqueue) {
+      const finalLearner = storeRef.current.learner
+        ? storeRef.current.learner
+        : (db ? await db.getFirstAsync('SELECT * FROM learner WHERE id = ?', [canonicalId]) : null);
+      if (finalLearner) {
+        try { await enqueue('learner', 'UPDATE', canonicalId, finalLearner); } catch (_) {}
+      }
+      for (const [table, op, recordId, payload] of pushOps) {
+        try { await enqueue(table, op, recordId, payload); } catch (_) {}
+      }
+    }
+  }, [db, enqueue]);
+
+  // ── v1.1.6 : RESTAURATION depuis le compte serveur ───────────────────────
+  // Appelée après TOUTE authentification réussie. Corrige :
+  //   • Bug « l'écran Bienvenue s'affiche toujours après Google auth sur
+  //     mobile » : le learner est créé DIRECTEMENT depuis le compte (nom
+  //     Google/inscription) — plus jamais d'Onboarding pour un compte connu.
+  //   • Bug « comptes uniques web + mobile » : les données du compte (XP,
+  //     progressions, badges, succès, streaks, objectif) sont PULL-ées puis
+  //     fusionnées localement (MAX), et le learner local adopte l'id canonique
+  //     lrn_<user.id> — la même clé de sync sur toutes les plateformes.
+  // Hors-ligne : best-effort (le learner local est conservé tel quel).
+  const restoreFromServer = useCallback(async (serverUser) => {
+    const canonicalId = canonicalLearnerId(serverUser);
+    if (!canonicalId) return null;
+
+    // ── 1. Pull de l'état serveur (404 = compte sans données : normal) ──
+    let sv = null;
+    try {
+      const controller = new AbortController();
+      const tid = setTimeout(() => controller.abort(), 20000);
+      const resp = await fetch(
+        `${ENV.API_BASE}/api/progress/${encodeURIComponent(canonicalId)}`,
+        {
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': ENV.API_KEY, 'X-Client': 'edukraft-restore' },
+          signal: controller.signal,
+        }
+      );
+      clearTimeout(tid);
+      if (resp.ok) {
+        const json = await resp.json();
+        if (json?.success && json?.data) sv = json.data;
+      }
+    } catch (_) { /* hors-ligne / serveur endormi : restauration best-effort */ }
+
+    // ── 2. Learner local absent → création DIRECTE depuis le compte ──
+    let local = storeRef.current.learner || learner;
+    if (!local) {
+      const name = pickAccountDisplayName(serverUser, sv?.learner);
+      if (!name) {
+        // Aucun prénom connu (ex : compte téléphone neuf) → l'Onboarding
+        // reste le seul recours pour collecter le prénom.
+        return null;
+      }
+      await createLearner({
+        id: canonicalId,
+        name,
+        phone: serverUser.phone || '',
+        language: serverUser.language || 'fr',
+      });
+      local = storeRef.current.learner;
+    }
+
+    // ── 3. Adoption de l'id canonique du compte (invité → compte) ──
+    if (local && local.id !== canonicalId) {
+      try {
+        await adoptCanonicalLearnerId(local.id, canonicalId);
+        const refreshed = db
+          ? await db.getFirstAsync('SELECT * FROM learner WHERE id = ?', [canonicalId])
+          : storeRef.current.learner;
+        if (refreshed) { storeRef.current.learner = refreshed; setLearner(refreshed); }
+      } catch (e) {
+        console.warn('[DB] adoptCanonicalLearnerId échec :', e.message);
+      }
+    }
+
+    // ── 4. Fusion serveur → local (MAX par champ) ──
+    if (sv) {
+      try {
+        await mergeServerStateIntoLocal(sv, canonicalId);
+      } catch (e) {
+        console.warn('[DB] mergeServerStateIntoLocal échec :', e.message);
+      }
+    }
+
+    // ── 5. Rafraîchir l'UI + persister ──
+    const finalLearner = db
+      ? await db.getFirstAsync('SELECT * FROM learner WHERE id = ?', [canonicalId])
+      : storeRef.current.learner;
+    if (finalLearner) {
+      storeRef.current.learner = finalLearner;
+      setLearner(finalLearner);
+      try { await persistentStorage.setItem(KEYS.LEARNER, JSON.stringify(finalLearner)); } catch (_) {}
+    }
+    persistSnapshot();
+    console.log('[DB] Restauration compte terminée', sv ? '(données serveur fusionnées)' : '(aucune donnée serveur)');
+    return finalLearner || storeRef.current.learner;
+  }, [learner, db, createLearner, adoptCanonicalLearnerId, mergeServerStateIntoLocal, persistSnapshot]);
+
+  // ── v1.1.6 : auto-restauration au DÉMARRAGE ────────────────────────────
+  // Si une session authentifiée existe (l'utilisateur ne s'est pas
+  // déconnecté), on pull les dernières données du compte dès que la DB est
+  // prête : les activités effectuées sur un AUTRE appareil (ex : le web)
+  // pendant ce temps apparaissent sans attendre une reconnexion. Le garde
+  // ref évite toute boucle (une seule fois par lancement de l'app).
+  const autoRestoreDoneRef = useRef(false);
+  useEffect(() => {
+    if (!ready || autoRestoreDoneRef.current) return;
+    autoRestoreDoneRef.current = true;
+    let mounted = true;
+    (async () => {
+      try {
+        const stored = await authService.getStoredAuth();
+        if (!mounted) return;
+        // Session active (pas de déconnexion volontaire) + token présent → pull
+        if (stored?.user && stored.accessToken && !stored.sessionEnded) {
+          console.log('[DB] Session active détectée — pull des données du compte…');
+          await restoreFromServer(stored.user);
+        }
+      } catch (_) { /* best-effort */ }
+    })();
+    return () => { mounted = false; };
+  }, [ready, restoreFromServer]);
+
   // ── Progress ──────────────────────────────────────────────────────────
   const getProgress = useCallback(async (moduleId) => {
     return progressRepo().get(learner, moduleId);
@@ -659,6 +1222,8 @@ export function DbProvider({ children }) {
     learner, setLearner,
     // Learner
     createLearner, addXP, updateProfile, getProfileCompletion, linkLearnerToAccount,
+    // v1.1.6 : restauration multi-appareils (appelée après chaque login)
+    restoreFromServer,
     // Progress
     getProgress, getAllProgress, updateProgress,
     // Quiz

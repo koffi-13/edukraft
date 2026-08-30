@@ -76,7 +76,7 @@ const FACEBOOK_APP_ID  = process.env.EXPO_PUBLIC_FACEBOOK_APP_ID || '';
 export default function RegisterScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { register, loginGoogle, loginApple, loginFacebook, error, clearError } = useAuth();
-  const { learner, linkLearnerToAccount } = useDb();
+  const { learner, linkLearnerToAccount, restoreFromServer } = useDb();
 
   // v1.1.3 : `fromLogout` — inscription demandée depuis le Profil (invité qui
   // veut se déconnecter) : après l'inscription, on LIE le learner local au
@@ -92,14 +92,27 @@ export default function RegisterScreen({ navigation, route }) {
   const [oauthLoading, setOauthLoading] = useState(null);
 
   // ── Après une authentification réussie ───────────────────────────────
-  // v1.1.3 : si un learner local existe déjà (invité / utilisateur
-  // déconnecté), on le LIE au compte et on NE PASSE PAS par l'Onboarding —
-  // ses données sont restaurées directement. Sinon, Onboarding normal.
+  // v1.1.6 : comme LoginScreen — le learner est créé/restauré DIRECTEMENT
+  // depuis le compte (nom d'inscription fourni dans le formulaire, ou nom
+  // Google), puis les données serveur sont pull-fusionnées. L'écran
+  // Onboarding n'apparaît plus que si AUCUN nom n'est exploitable.
   const afterAuthSuccess = async (authData) => {
-    if (learner) {
-      try {
-        await linkLearnerToAccount(authData?.user || authData);
-      } catch (_) {}
+    const serverUser = authData?.user || (authData?.id ? authData : null);
+
+    // 1. Liaison du learner local existant (invité) au compte
+    if (learner && serverUser) {
+      try { await linkLearnerToAccount(serverUser); } catch (_) {}
+    }
+
+    // 2. Restauration : création depuis le compte + pull/fusion serveur
+    let restored = null;
+    try {
+      restored = await restoreFromServer(serverUser);
+    } catch (e) {
+      console.warn('[Register] restoreFromServer :', e.message);
+    }
+
+    if (restored || learner) {
       if (fromLogout) {
         Alert.alert(
           'Compte créé ✓',
@@ -108,11 +121,12 @@ export default function RegisterScreen({ navigation, route }) {
         );
         return;
       }
-      // Connexion classique avec learner existant : le gating bascule
-      // automatiquement vers le Dashboard (sessionEnded retiré par
-      // handleAuthSuccess).
+      // Connexion classique : le gating bascule automatiquement vers le
+      // Dashboard (sessionEnded retiré par handleAuthSuccess).
       return;
     }
+
+    // 3. Aucun learner, aucun nom connu → Onboarding
     navigation?.navigate('Onboarding');
   };
 
@@ -187,8 +201,9 @@ export default function RegisterScreen({ navigation, route }) {
       if (!params.id_token) {
         throw new Error('id_token absent de la reponse Google');
       }
-      await loginGoogle(params.id_token);
-      await afterAuthSuccess(null);
+      // v1.1.6 : transmettre la réponse (user, tokens) à afterAuthSuccess
+      const data = await loginGoogle(params.id_token);
+      await afterAuthSuccess(data);
     } catch (e) {
       Alert.alert(t('auth.oauth_error'), e.message);
     } finally {
@@ -226,8 +241,9 @@ export default function RegisterScreen({ navigation, route }) {
         setOauthLoading(null);
         return;
       }
-      await loginFacebook(params.access_token);
-      await afterAuthSuccess(null);
+      // v1.1.6 : transmettre la réponse (user, tokens) à afterAuthSuccess
+      const data = await loginFacebook(params.access_token);
+      await afterAuthSuccess(data);
     } catch (e) {
       Alert.alert(t('auth.oauth_error'), e.message);
     } finally {
@@ -251,11 +267,12 @@ export default function RegisterScreen({ navigation, route }) {
         ],
       });
       if (!credential.identityToken) throw new Error('identityToken manquant');
-      await loginApple({
+      // v1.1.6 : transmettre la réponse (user, tokens) à afterAuthSuccess
+      const data = await loginApple({
         identityToken: credential.identityToken,
         authorizationCode: credential.authorizationCode,
       });
-      await afterAuthSuccess(null);
+      await afterAuthSuccess(data);
     } catch (e) {
       if (e.code !== 'ERR_CANCELED') {
         Alert.alert(t('auth.oauth_error'), e.message);
