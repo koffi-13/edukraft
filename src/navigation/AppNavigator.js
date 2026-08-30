@@ -104,7 +104,7 @@ function MainTabs() {
 
 function RootStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={{ headerShown: false, cardStyle: { flex: 1, minHeight: 0 } }}>
       <Stack.Screen name="Main" component={MainTabs} />
       <Stack.Screen name="Lesson" component={LessonScreen}
         options={{ presentation: 'card', gestureEnabled: true }} />
@@ -127,7 +127,7 @@ function RootStack() {
 
 function AuthStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={{ headerShown: false, cardStyle: { flex: 1, minHeight: 0 } }}>
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
       {/* Correctif : Onboarding doit être ATTEIGNABLE — c'est le seul écran
@@ -163,7 +163,14 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {/* cardStyle flex:1 + minHeight:0 — correctif WEB v1.1.4 : le CardSheet de
+          @react-navigation/stack rend le conteneur d'écran avec minHeight:'100%'
+          SANS contrainte max. Sur web (body en overflow:hidden), un écran plus
+          haut que la fenêtre s'étirait au lieu de défiler → contenu coupé,
+          défilement impossible (bouton « Continuer sans compte » invisible).
+          minHeight:0 + flex:1 contraignent le card à la hauteur du viewport,
+          le ScrollView interne déborde alors et le défilement fonctionne. */}
+      <Stack.Navigator screenOptions={{ headerShown: false, cardStyle: { flex: 1, minHeight: 0 } }}>
         {showAuth ? (
           <Stack.Screen name="Auth" component={AuthStack} />
         ) : (
