@@ -257,8 +257,8 @@ export const QUERIES = {
   GET_QUIZ_ATTEMPTS:        'SELECT * FROM quiz_attempt WHERE learner_id = ? AND module_id = ? AND lesson_index = ? ORDER BY completed_at DESC',
   COUNT_PASSED_QUIZZES:     'SELECT COUNT(*) as cnt FROM quiz_attempt WHERE learner_id = ? AND passed = 1',
   COUNT_PERFECT_QUIZZES:    'SELECT COUNT(*) as cnt FROM quiz_attempt WHERE learner_id = ? AND score = 1.0',
-  COUNT_STARTED_MODULES:    'SELECT COUNT(*) as cnt FROM module_progress WHERE learner_id = ? AND status != "not_started"',
-  COUNT_COMPLETED_MODULES:  'SELECT COUNT(*) as cnt FROM module_progress WHERE learner_id = ? AND status = "completed"',
+  COUNT_STARTED_MODULES:    "SELECT COUNT(*) as cnt FROM module_progress WHERE learner_id = ? AND status != 'not_started'",
+  COUNT_COMPLETED_MODULES:  "SELECT COUNT(*) as cnt FROM module_progress WHERE learner_id = ? AND status = 'completed'",
 
   // Badges
   INSERT_BADGE:             `INSERT INTO badge

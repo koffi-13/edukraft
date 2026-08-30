@@ -143,6 +143,102 @@ async function loadMemorySnapshot(store) {
   }
 }
 
+// ── v1.1.5 : restaure un snapshot COMPLET dans SQLite (natif) ─────────────
+// Sécurité de persistance : si la base SQLite a été vidée/réinitialisée
+// (mise à jour de l'app, migration, corruption) alors qu'un snapshot existe
+// dans le stockage persistant, on réinsère TOUT — le learner ET ses
+// progressions, badges, succès, streaks et objectif quotidien. Avant, seul
+// le learner était réinséré : l'utilisateur retrouvait son profil mais
+// TOUTES ses progressions étaient perdues (« la persistance ne fonctionne
+// pas »). Idempotent : ne fait rien si les tables contiennent déjà des
+// lignes pour ce learner.
+async function restoreSnapshotToSqlite(db, snap) {
+  if (!db || !snap?.learner?.id) return false;
+  const learnerId = snap.learner.id;
+  try {
+    // Learner
+    await upsertLearnerRow(db, snap.learner);
+
+    // Progressions
+    const progRows = Object.values(snap.progress || {});
+    for (const p of progRows) {
+      const existing = await db.getFirstAsync(
+        'SELECT id FROM module_progress WHERE learner_id = ? AND module_id = ?',
+        [learnerId, p.module_id]
+      );
+      if (existing) continue;
+      await db.runAsync(
+        `INSERT INTO module_progress
+         (id, learner_id, module_id, status, current_lesson, lessons_done, total_xp_earned, best_score, started_at, completed_at, sync_status, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+        [p.id ?? `${learnerId}_${p.module_id}`, learnerId, p.module_id,
+         p.status ?? 'in_progress', p.current_lesson ?? 0, p.lessons_done ?? 0,
+         p.total_xp_earned ?? 0, p.best_score ?? 0, p.started_at ?? null,
+         p.completed_at ?? null, p.updated_at ?? new Date().toISOString()]
+      );
+    }
+
+    // Badges
+    for (const b of (snap.badges || [])) {
+      const existing = await db.getFirstAsync(
+        'SELECT id FROM badge WHERE learner_id = ? AND module_id = ?',
+        [learnerId, b.module_id]
+      );
+      if (existing) continue;
+      await db.runAsync(
+        `INSERT INTO badge
+         (id, learner_id, module_id, module_title, score, xp_total, badge_hash, qr_payload, blockchain_tx, issued_at, sync_status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+        [b.id, learnerId, b.module_id, b.module_title ?? '', b.score ?? 0,
+         b.xp_total ?? 0, b.badge_hash ?? '', b.qr_payload ?? '',
+         b.blockchain_tx ?? null, b.issued_at ?? new Date().toISOString()]
+      );
+    }
+
+    // Achievements
+    for (const a of (snap.achievements || [])) {
+      await db.runAsync(
+        `INSERT OR IGNORE INTO achievement (id, learner_id, achievement_key, unlocked_at, sync_status)
+         VALUES (?, ?, ?, ?, 'pending')`,
+        [`${learnerId}_${a.achievement_key}`, learnerId, a.achievement_key,
+         a.unlocked_at ?? new Date().toISOString()]
+      );
+    }
+
+    // Streak logs
+    for (const [date, log] of Object.entries(snap.streakLogs || {})) {
+      await db.runAsync(
+        `INSERT OR IGNORE INTO streak_log
+         (id, learner_id, activity_date, lessons_done, xp_earned, streak_freeze_used, goal_met, created_at, updated_at, sync_status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+        [`${learnerId}_${date}`, learnerId, date,
+         log.lessons_done ?? 0, log.xp_earned ?? 0, log.streak_freeze_used ?? 0,
+         log.goal_met ?? 0, log.created_at ?? date, log.updated_at ?? date]
+      );
+    }
+
+    // Objectif quotidien
+    if (snap.dailyGoal?.goal_type) {
+      await db.runAsync(
+        `INSERT INTO daily_goal (id, learner_id, goal_type, goal_target, enabled, updated_at, sync_status)
+         VALUES (?, ?, ?, ?, ?, ?, 'pending')
+         ON CONFLICT(learner_id) DO UPDATE SET
+           goal_type = excluded.goal_type, goal_target = excluded.goal_target,
+           enabled = excluded.enabled, updated_at = excluded.updated_at`,
+        [`goal_${learnerId}`, learnerId, snap.dailyGoal.goal_type,
+         snap.dailyGoal.goal_target ?? 1, snap.dailyGoal.enabled ?? 1,
+         snap.dailyGoal.updated_at ?? new Date().toISOString()]
+      );
+    }
+
+    console.log('[DB] Snapshot complet restauré dans SQLite (persistance renforcée)');
+    return true;
+  } catch (e) {
+    console.warn('[DB] restoreSnapshotToSqlite échec :', e.message);
+    return false;
+  }
+}
+
 // ── Provider ─────────────────────────────────────────────────────────────────
 export function DbProvider({ children }) {
   const [db, setDb]           = useState(null);
@@ -210,20 +306,38 @@ export function DbProvider({ children }) {
           } else {
             // Pas de learner en SQLite — vérifier le stockage persistant
             try {
-              const storedLearner = await persistentStorage.getItem(KEYS.LEARNER);
-              if (storedLearner) {
-                const parsed = JSON.parse(storedLearner);
-                // v1.1 : RÉINSÉRER le learner dans SQLite (avant il restait
-                // uniquement en state → get()/addXP() retournaient null)
-                try {
-                  await upsertLearnerRow(nativeDb, parsed);
-                  console.log('[DB] Learner réinséré en SQLite depuis le stockage persistant');
-                } catch (reinsertErr) {
-                  console.warn('[DB] Échec réinsertion SQLite :', reinsertErr.message);
+              // v1.1.5 : essayer d'abord le SNAPSHOT COMPLET (learner +
+              // progressions + badges + succès + streaks + objectif) —
+              // réinséré intégralement dans SQLite. Avant, seul le learner
+              // était réinséré : le profil revenait mais toutes les
+              // progressions étaient perdues.
+              let snapRaw = null;
+              try { snapRaw = await persistentStorage.getItem(KEYS.SNAPSHOT); } catch (_) {}
+              if (snapRaw) {
+                const snap = JSON.parse(snapRaw);
+                await restoreSnapshotToSqlite(nativeDb, snap);
+                if (snap.learner) {
+                  storeRef.current.learner = snap.learner;
+                  // Le store mémoire sert de fallback — on le remplit aussi
+                  await loadMemorySnapshot(storeRef.current);
+                  setLearner(snap.learner);
                 }
-                storeRef.current.learner = parsed;
-                setLearner(parsed);
-                console.log('[DB] Learner restauré (SQLite vide → stockage persistant)');
+              } else {
+                const storedLearner = await persistentStorage.getItem(KEYS.LEARNER);
+                if (storedLearner) {
+                  const parsed = JSON.parse(storedLearner);
+                  // v1.1 : RÉINSÉRER le learner dans SQLite (avant il restait
+                  // uniquement en state → get()/addXP() retournaient null)
+                  try {
+                    await upsertLearnerRow(nativeDb, parsed);
+                    console.log('[DB] Learner réinséré en SQLite depuis le stockage persistant');
+                  } catch (reinsertErr) {
+                    console.warn('[DB] Échec réinsertion SQLite :', reinsertErr.message);
+                  }
+                  storeRef.current.learner = parsed;
+                  setLearner(parsed);
+                  console.log('[DB] Learner restauré (SQLite vide → stockage persistant)');
+                }
               }
             } catch (_) {}
           }

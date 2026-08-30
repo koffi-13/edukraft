@@ -164,7 +164,11 @@ export async function recordLessonCompleted(ctx, payload) {
     }
   } catch (_) {}
 
-  const snapshot = await buildSnapshot(ctx);
+  // v1.1.5 : le snapshot est construit avec le learner À JOUR (XP et streak
+  // de CETTE leçon inclus) — avant, ctx.learner était l'objet périmé du
+  // closure, donc xp_100 / streak_3 etc. ne se débloquaient qu'un événement
+  // trop tard.
+  const snapshot = await buildSnapshot({ ...ctx, learner: updatedLearner });
   snapshot.comebackAfterDays = comebackAfterDays;
   snapshot.totalLessonsDone = updatedLearner.total_lessons_done;
 
@@ -246,6 +250,18 @@ export async function getGamificationState(ctx) {
   let unlockedAchievements = [];
   try {
     if (getAchievements) unlockedAchievements = await getAchievements();
+  } catch (_) {}
+
+  // v1.1.5 (correctif « Progression & succès figé ») : l'affichage fusionne
+  // les succès STOCKÉS avec les succès SATISFAITS PAR LES DONNÉES ACTUELLES.
+  // Ainsi, même si l'écriture avait échoué (ancien no-op mémoire sur web,
+  // migration, base effacée), l'écran reflète toujours la réalité du
+  // parcours au lieu de rester figé à 0.
+  try {
+    const liveSnapshot = await buildSnapshot(ctx);
+    const liveKeys = evaluateAchievements(liveSnapshot, []);
+    const merged = new Set([...unlockedAchievements, ...liveKeys]);
+    unlockedAchievements = ACHIEVEMENTS.map(a => a.key).filter(k => merged.has(k));
   } catch (_) {}
 
   let goal = null;
