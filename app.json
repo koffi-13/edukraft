@@ -2,7 +2,7 @@
   "expo": {
     "name": "EduKraft",
     "slug": "edukraft",
-    "version": "1.1.8",
+    "version": "1.1.9",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "splash": {
@@ -11,7 +11,7 @@
     },
     "icon": "./assets/icon.png",
     "android": {
-      "versionCode": 10308,
+      "versionCode": 10309,
       "adaptiveIcon": {
         "backgroundColor": "#5B4ABB",
         "foregroundImage": "./assets/icon.png"

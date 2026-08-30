@@ -47,6 +47,11 @@ export function AuthProvider({ children }) {
   const [sessionEnded, setSessionEnded] = useState(false);
   const [restored, setRestored]   = useState(false);
   const [error, setError]         = useState(null);
+  // v1.1.9 : l'utilisateur a-t-il reporté la vérification d'email ?
+  // (mémoire de session uniquement — la question reviendra à la prochaine
+  // connexion tant que l'email n'est pas vérifié + rappel permanent dans
+  // le Profil).
+  const [verificationSkipped, setVerificationSkipped] = useState(false);
 
   const clearError = useCallback(() => setError(null), []);
 
@@ -200,6 +205,38 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  // ── v1.1.9 : VÉRIFICATION D'EMAIL ──────────────────────────────────────
+  // needsEmailVerification : compte avec email NON vérifié (les comptes
+  // Google/Apple/Facebook arrivent déjà vérifiés : le provider a validé
+  // l'adresse). Gating : écran de vérification après connexion, avec
+  // possibilité de reporter (« Plus tard ») — jamais bloquant.
+  const needsEmailVerification = !!(
+    user && user.email && (user.email_verified === false || user.email_verified === 0)
+  );
+
+  /** Demande l'envoi d'un nouveau code de vérification. */
+  const resendVerificationCode = useCallback(async () => {
+    return await authService.requestEmailVerification();
+  }, []);
+
+  /** Vérifie le code saisi → user actualisé (email_verified: true). */
+  const verifyEmail = useCallback(async (code) => {
+    const freshUser = await authService.confirmEmailVerification(code);
+    setUser(freshUser);
+    setVerificationSkipped(false);
+    return freshUser;
+  }, []);
+
+  /** Reporte la vérification à plus tard (session courante uniquement). */
+  const skipEmailVerification = useCallback(() => {
+    setVerificationSkipped(true);
+  }, []);
+
+  /** Rouvre l'écran de vérification (depuis la carte du Profil). */
+  const reopenEmailVerification = useCallback(() => {
+    setVerificationSkipped(false);
+  }, []);
+
   const value = {
     user,
     skipAuth,
@@ -211,6 +248,10 @@ export function AuthProvider({ children }) {
     // NB : le gating de AppNavigator utilise la variante AUTHENTIFIÉE
     // (!!user) — un invité sans learner local retourne à l'Onboarding.
     sessionActive: (!!user || skipAuth) && !sessionEnded,
+    // v1.1.9 : vérification d'email
+    needsEmailVerification,
+    verificationSkipped,
+    resendVerificationCode, verifyEmail, skipEmailVerification, reopenEmailVerification,
     login, register,
     loginGoogle, loginApple, loginFacebook, loginPhone,
     skip, logout, refreshUser, clearError,

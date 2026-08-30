@@ -281,34 +281,34 @@ async function parseResponse(response) {
   return data;
 }
 
-// ── Fetch avec timeout de 30s + retry (Render free tier s'endort) ────────────
+// ── Fetch avec timeout + retries (Render free tier s'endort : cold start
+// jusqu'à ~60 s — la 1re tentative peut expirer AVANT le réveil complet) ──
 async function fetchWithTimeout(url, options = {}, timeoutMs = 30000) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const response = await fetch(url, { ...options, signal: controller.signal });
-    clearTimeout(timeoutId);
-    return response;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    // Si timeout ou réseau, retry une fois après 2s (Render en train de se réveiller)
-    if (error.name === 'AbortError' || error.message.includes('Network')) {
-      console.log('[authService] Retry dans 2s (serveur en cours de réveil)...');
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      const controller2 = new AbortController();
-      const timeoutId2 = setTimeout(() => controller2.abort(), 30000);
-      try {
-        const response = await fetch(url, { ...options, signal: controller2.signal });
-        clearTimeout(timeoutId2);
-        return response;
-      } catch (error2) {
-        clearTimeout(timeoutId2);
-        throw error2;
-      }
+  // v1.1.9 : 3 tentatives max (30 s chacune + backoff 2 s/5 s) ≈ 100 s de
+  // fenêtre totale — largement le temps d'un réveil Render. Avant : une
+  // seule retry → « connexion Google sans activité » / login en échec
+  // quand le serveur dormait depuis 15 min.
+  const MAX_ATTEMPTS = 3;
+  let lastError = null;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      lastError = error;
+      const retryable = error.name === 'AbortError' ||
+        /network|fetch|failed/i.test(error.message || '');
+      if (!retryable || attempt === MAX_ATTEMPTS) throw error;
+      const delay = attempt === 1 ? 2000 : 5000;
+      console.log(`[authService] Tentative ${attempt} échouée (${error.name}) — retry dans ${delay / 1000}s (réveil serveur ?)`);
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
-    throw error;
   }
+  throw lastError;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -424,6 +424,38 @@ export async function me() {
     return data.data.user;
   }
   throw new AuthenticationError(data.error || 'Utilisateur introuvable');
+}
+
+// ── v1.1.9 : VÉRIFICATION D'EMAIL ───────────────────────────────────────────
+
+/** Demande l'envoi d'un code de vérification à l'email du compte connecté.
+ *  Réponse : { sent, email, expiresInSeconds, devCode? } — devCode n'est
+ *  renvoyé QUE en mode test (aucun provider email configuré côté serveur). */
+export async function requestEmailVerification() {
+  const response = await authFetch(`${AUTH_BASE}/api/auth/verify-email/request`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  const data = await parseResponse(response);
+  if (data.success && data.data) return data.data;
+  throw new AuthenticationError(data.error || 'Envoi du code impossible');
+}
+
+/** Vérifie le code reçu par email → user actualisé (email_verified: true). */
+export async function confirmEmailVerification(code) {
+  const response = await authFetch(`${AUTH_BASE}/api/auth/verify-email/confirm`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: String(code || '').trim() }),
+  });
+  const data = await parseResponse(response);
+  if (data.success && data.data?.user) {
+    // Persister immédiatement l'utilisateur vérifié (session + restart)
+    await store.setItem(KEYS.USER, JSON.stringify(data.data.user));
+    return data.data.user;
+  }
+  throw new AuthenticationError(data.error || 'Code incorrect');
 }
 
 /** Rotation du refresh token > nouveaux tokens */

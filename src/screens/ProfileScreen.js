@@ -1,6 +1,6 @@
 // src/screens/ProfileScreen.js
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors, Typography, Spacing, Radius, Shadow, getLevel } from '../theme';
@@ -14,7 +14,11 @@ import { getRemoteVersion } from '../content/moduleRegistry';
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { db, learner, getAllBadges, resetAll, getPendingQueue, getSyncMeta } = useDb();
-  const { user, skipAuth, logout } = useAuth();
+  const {
+    user, skipAuth, logout,
+    // v1.1.9 : état de vérification d'email (carte de rappel)
+    needsEmailVerification, reopenEmailVerification,
+  } = useAuth();
   const [badges, setBadges] = useState([]);
   const [syncInfo, setSyncInfo] = useState({ pending: 0, lastSync: null });
   // v1.1.7 : diagnostics de persistance (aide au support « écran Login en
@@ -181,17 +185,65 @@ export default function ProfileScreen({ navigation }) {
     >
       {/* Header profil */}
       <View style={styles.header}>
+        {/* v1.1.9 : photo de profil AFFICHÉE quand elle existe (avant, seule
+            l'initiale du prénom était rendue — « la photo n'est pas affichée
+            dans Profil »). La photo est persistée (SQLite + snapshot + sync
+            serveur) et survit aux redémarrages. */}
         <View style={styles.avatar}>
-          <Text style={styles.avatarInitial}>
-            {(learner.name || '?').charAt(0).toUpperCase()}
-          </Text>
+          {learner.photo_url ? (
+            <Image
+              source={{ uri: learner.photo_url }}
+              style={styles.avatarImage}
+              defaultSource={undefined}
+              onError={() => {/* URI expirée (ex : avatar Google) → l'initiale reste visible */}}
+            />
+          ) : null}
+          {!learner.photo_url ? (
+            <Text style={styles.avatarInitial}>
+              {(learner.name || '?').charAt(0).toUpperCase()}
+            </Text>
+          ) : null}
         </View>
         <Text style={styles.name}>{learner.name}</Text>
-        <Text style={styles.phone}>{learner.phone}</Text>
+        {/* v1.1.9 : l'email du compte est visible (exigence « l'email doit
+            être connu ») — sous le téléphone, discret. */}
+        {(learner.email || user?.email) ? (
+          <Text style={styles.emailLine}>{learner.email || user.email}</Text>
+        ) : null}
+        {learner.phone ? <Text style={styles.phone}>{learner.phone}</Text> : null}
         <Text style={styles.language}>
           {learner.language === 'fr' ? 'Français' : 'Eʋe'}
         </Text>
       </View>
+
+      {/* v1.1.9 : carte de vérification d'email — rappel permanent tant que
+          l'adresse n'est pas vérifiée (après un « Plus tard » ou directement). */}
+      {user && needsEmailVerification ? (
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={[styles.verifyCard, Shadow.card]}
+            onPress={() => reopenEmailVerification()}
+            activeOpacity={0.85}
+          >
+            <View style={styles.premiumLeft}>
+              <Text style={styles.premiumIcon}>✉️</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.verifyTitle}>{t('verify.profile_card_title')}</Text>
+                <Text style={styles.premiumDesc}>{t('verify.profile_card_desc')}</Text>
+              </View>
+            </View>
+            <Text style={styles.premiumArrow}>›</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+      {user && user.email && !needsEmailVerification ? (
+        <View style={styles.section}>
+          <View style={[styles.accountCard, Shadow.card, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
+            <Text style={{ fontSize: 16 }}>✅</Text>
+            <Text style={styles.verifiedText}>{t('verify.verified_badge')}</Text>
+          </View>
+        </View>
+      ) : null}
 
       {/* Stats */}
       <View style={styles.stats}>
@@ -427,11 +479,44 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.md,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
   },
   avatarInitial: {
     fontSize: Typography.h1,
     fontWeight: Typography.bold,
     color: Colors.surface,
+  },
+  emailLine: {
+    fontSize: Typography.caption,
+    color: Colors.ink50,
+    marginBottom: Spacing.xs,
+  },
+  verifyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.xpGold,
+  },
+  verifyTitle: {
+    fontSize: Typography.body,
+    fontWeight: Typography.bold,
+    color: Colors.ink,
+    marginBottom: 2,
+  },
+  verifiedText: {
+    fontSize: Typography.small,
+    color: Colors.teal,
+    fontWeight: Typography.semibold,
+    flex: 1,
   },
   name: {
     fontSize: Typography.h2,
