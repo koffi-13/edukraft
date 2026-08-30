@@ -29,6 +29,19 @@ export function createProgressRepository(db, store, enqueue) {
     const learnerId = learner?.id || store.learner?.id;
     if (!learnerId) return null;
 
+    // v1.1.5 (correctif « module En cours N/N ») : le statut 'completed' est
+    // COLLANT. Avant, le useEffect de LessonScreen réécrivait status:'in_progress'
+    // à chaque ré-ouverture d'une leçon d'un module TERMINÉ → le Dashboard
+    // affichait « En cours » avec N/N leçons faites, et le re-passage du quiz
+    // final ré-émettait le badge (moduleAlreadyCompleted=false à cause du
+    // statut rétrogradé). Un module complété ne redevient jamais « en cours ».
+    const guardStatus = (existing, requested) => {
+      if (existing?.status === 'completed' && requested && requested !== 'completed') {
+        return 'completed';
+      }
+      return requested ?? existing?.status ?? 'not_started';
+    };
+
     if (isMemory()) {
       const existing = store.progress[moduleId];
       const id = existing?.id ?? `${learnerId}_${moduleId}`;
@@ -36,7 +49,7 @@ export function createProgressRepository(db, store, enqueue) {
         id,
         learner_id: learnerId,
         module_id: moduleId,
-        status:          updates.status          ?? existing?.status          ?? 'not_started',
+        status:          guardStatus(existing, updates.status),
         current_lesson:  Math.max(updates.current_lesson ?? 0, existing?.current_lesson ?? 0),
         lessons_done:    Math.max(updates.lessons_done ?? 0, existing?.lessons_done ?? 0),
         total_xp_earned: Math.max(updates.total_xp_earned ?? 0, existing?.total_xp_earned ?? 0),
@@ -55,7 +68,7 @@ export function createProgressRepository(db, store, enqueue) {
     const id = existing?.id ?? `${learnerId}_${moduleId}`;
     const merged = {
       id, learner_id: learnerId, module_id: moduleId,
-      status:          updates.status          ?? existing?.status          ?? 'not_started',
+      status:          guardStatus(existing, updates.status),
       current_lesson:  Math.max(updates.current_lesson ?? 0, existing?.current_lesson ?? 0),
       lessons_done:    Math.max(updates.lessons_done ?? 0, existing?.lessons_done ?? 0),
       total_xp_earned: Math.max(updates.total_xp_earned ?? 0, existing?.total_xp_earned ?? 0),

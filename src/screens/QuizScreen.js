@@ -133,7 +133,14 @@ export default function QuizScreen({ route, navigation }) {
   answersRef.current = answers;
 
   // ── Terminer le quiz ──────────────────────────────────────────────────
+  const finishingRef = React.useRef(false);
   const handleFinish = useCallback(async () => {
+    // v1.1.5 : garde anti double-exécution — un double-tap rapide sur la
+    // dernière question exécutait handleFinish DEUX FOIS avant la première
+    // sauvegarde → XP attribués 2× et badge émis 2×.
+    if (finishingRef.current) return; // exécution déjà en cours → ignorer
+    finishingRef.current = true;
+    try {
     const ans = answersRef.current;
     const correct = ans.filter(a => a.correct).length;
     const finalScore = totalQ > 0 ? correct / totalQ : 0;
@@ -231,6 +238,9 @@ export default function QuizScreen({ route, navigation }) {
     }
 
     setStep(STEP_RESULT);
+    } finally {
+      finishingRef.current = false;
+    }
   }, [learner, moduleId, lessonIndex, totalQ, passingScore, xpBase, quiz, isLastLesson, module, saveQuizAttempt, addXP, updateProgress, issueBadge, recordLessonCompleted]);
 
   // ── Question suivante ─────────────────────────────────────────────────

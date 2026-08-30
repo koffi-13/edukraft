@@ -11,9 +11,70 @@ export function createGamificationRepository(db, store, enqueue) {
   const isMemory = () => !db;
   const { QUERIES } = require('../schema');
 
-  /** Exécute une requête préparée par nom (natif) ou renvoie null (mémoire). */
+  /** Exécute une requête préparée par nom.
+   * v1.1.5 (correctif « Progression & succès figé ») : le mode MÉMOIRE (web)
+   * n'est plus un no-op ! Avant, runAsync retournait null sans rien faire →
+   * UPSERT_STREAK_LOG / UPDATE_STREAK_CACHE / INSERT_ACHIEVEMENT /
+   * UPSERT_DAILY_GOAL n'écrivaient JAMAIS rien sur web → les succès ne
+   * se débloquaient pas et l'objectif quotidien restait à 0, quelles que
+   * soient les activités. Chaque mutation SQL a désormais son équivalent
+   * mémoire sur le store. */
   async function runAsync(queryName, params = []) {
-    if (isMemory()) return null;
+    if (isMemory()) {
+      const s = store;
+      const now = new Date().toISOString();
+      if (queryName === 'UPSERT_STREAK_LOG') {
+        // params: [id, learnerId, date, lessons, xp, freezeUsed, goalMet, createdAt, updatedAt]
+        const [, , date, lessons, xp, freezeUsed, goalMet] = params;
+        const ex = s.streakLogs[date];
+        if (ex) {
+          ex.lessons_done += lessons || 0;
+          ex.xp_earned += xp || 0;
+          ex.goal_met = Math.max(ex.goal_met || 0, goalMet || 0);
+          ex.streak_freeze_used = Math.max(ex.streak_freeze_used || 0, freezeUsed || 0);
+          ex.updated_at = now;
+        } else {
+          s.streakLogs[date] = {
+            lessons_done: lessons || 0,
+            xp_earned: xp || 0,
+            goal_met: goalMet || 0,
+            streak_freeze_used: freezeUsed || 0,
+            created_at: now,
+            updated_at: now,
+          };
+        }
+        return null;
+      }
+      if (queryName === 'UPDATE_STREAK_CACHE') {
+        // params: [streak, freezes, best, lastActiveDate, lastActiveAt, lessonsDelta, updatedAt, learnerId]
+        const [streak, freezes, best, lastActiveDate, lastActiveAt, lessonsDelta] = params;
+        if (s.learner) {
+          s.learner.streak_days = streak;
+          s.learner.streak_freezes = freezes;
+          s.learner.best_streak = best;
+          s.learner.last_active_date = lastActiveDate;
+          s.learner.last_active_at = lastActiveAt || now;
+          s.learner.total_lessons_done = (s.learner.total_lessons_done ?? 0) + (lessonsDelta || 0);
+          s.learner.updated_at = now;
+        }
+        return null;
+      }
+      if (queryName === 'INSERT_ACHIEVEMENT') {
+        // params: [id, learnerId, key, unlockedAt]
+        const [, , key, unlockedAt] = params;
+        if (key && !s.achievements.some(a => a.achievement_key === key)) {
+          s.achievements.push({ achievement_key: key, unlocked_at: unlockedAt || now });
+        }
+        return null;
+      }
+      if (queryName === 'UPSERT_DAILY_GOAL') {
+        // params: [id, learnerId, goalType, target, enabled, updatedAt]
+        const [, , goalType, target, enabled] = params;
+        s.dailyGoal = { goal_type: goalType, goal_target: target, enabled: enabled ?? 1, updated_at: now };
+        return null;
+      }
+      return null; // requête de lecture → utiliser getFirst
+    }
     const sql = QUERIES[queryName];
     if (!sql) throw new Error(`Query inconnue: ${queryName}`);
     return db.runAsync(sql, params);

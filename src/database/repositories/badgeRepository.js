@@ -8,10 +8,32 @@ export function createBadgeRepository(db, store, enqueue) {
   const isMemory = () => !db;
   const { QUERIES } = require('../schema');
 
-  /** Émet un badge (génère le hash + QR payload, insère en DB). */
+  /** Émet un badge (génère le hash + QR payload, insère en DB).
+   * v1.1.5 : IDEMPOTENT — si un badge existe déjà pour ce module, on le
+   * retourne au lieu d'en émettre un nouveau. Avant, le re-passage du quiz
+   * final d'un module (statut rétrogradé « En cours » par le bug du
+   * LessonScreen) ré-émettait un 2e badge identique. */
   async function issue(learner, { moduleId, moduleTitle, score, xpTotal }) {
     const learnerId = learner?.id || store.learner?.id;
     if (!learnerId) return null;
+
+    // Badge déjà émis pour ce module ? → idempotence (anti-doublon)
+    if (isMemory()) {
+      const existingBadge = store.badges.find(b => b.module_id === moduleId);
+      if (existingBadge) {
+        console.log(`[DB/MEMORY] Badge déjà émis pour ${moduleTitle} — pas de doublon`);
+        return existingBadge;
+      }
+    } else {
+      const existingBadge = await db.getFirstAsync(
+        'SELECT * FROM badge WHERE learner_id = ? AND module_id = ? LIMIT 1',
+        [learnerId, moduleId]
+      );
+      if (existingBadge) {
+        console.log(`[DB] Badge déjà émis pour ${moduleTitle} — pas de doublon`);
+        return existingBadge;
+      }
+    }
 
     const badge = generateBadge({
       learnerId,
