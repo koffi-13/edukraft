@@ -59,6 +59,7 @@ import RegisterScreen   from '../screens/RegisterScreen';
 import AchievementsScreen from '../screens/AchievementsScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import CommunityScreen   from '../screens/CommunityScreen';
+import EmailVerificationScreen from '../screens/EmailVerificationScreen';
 import { useDb }        from '../database/DbProvider';
 
 const Tab   = createBottomTabNavigator();
@@ -155,7 +156,7 @@ function AuthStack({ initialRoute = 'Login' }) {
 
 export default function AppNavigator() {
   const { learner, ready } = useDb();
-  const { sessionEnded, user, restored } = useAuth();
+  const { sessionEnded, user, restored, needsEmailVerification, verificationSkipped } = useAuth();
   // v1.1.7 : session AUTHENTIFIÉE (compte Google/email/téléphone…).
   // NB : le mode invité (skipAuth) n'est PAS inclus — un invité qui a perdu
   // son profil local doit repasser par l'Onboarding (aucun prénom connu pour
@@ -193,6 +194,14 @@ export default function AppNavigator() {
   const needsOnboarding = authedSession && !learner;
   const showAuth = needsOnboarding || (!learner && !authedSession) || sessionEnded;
 
+  // v1.1.9 : VÉRIFICATION D'EMAIL — après connexion/inscription, un compte
+  // email+mot-de-passe dont l'adresse n'est pas vérifiée voit l'écran de
+  // vérification (code à 6 chiffres). Jamais bloquant : « Plus tard »
+  // reporte à la session suivante + carte de rappel dans le Profil.
+  // Les comptes Google/Apple/Facebook arrivent déjà vérifiés.
+  const showEmailVerification = authedSession && !showAuth
+    && needsEmailVerification && !verificationSkipped;
+
   return (
     <NavigationContainer>
       {/* cardStyle flex:1 + minHeight:0 — correctif WEB v1.1.4 : le CardSheet de
@@ -207,6 +216,8 @@ export default function AppNavigator() {
           <Stack.Screen name="Auth">
             {() => <AuthStack initialRoute={needsOnboarding ? 'Onboarding' : 'Login'} />}
           </Stack.Screen>
+        ) : showEmailVerification ? (
+          <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
         ) : (
           <Stack.Screen name="Root" component={RootStack} />
         )}

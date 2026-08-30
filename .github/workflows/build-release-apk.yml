@@ -127,21 +127,35 @@ jobs:
             3. Autorisez "Sources inconnues" si demandé
             4. Ouvrez EduKraft
 
-            ## Nouveautés v1.1.8
-            - **Comptes isolés sur un même appareil** (correctif majeur) :
-              après une déconnexion puis une connexion à un AUTRE compte,
-              seules les données du compte connecté s'affichent — plus
-              jamais celles de l'ancien utilisateur. Chaque donnée locale
-              est liée à un compte par son identifiant, et les données de
-              chaque compte sont conservées pour son retour.
-            - **Profil synchronisé** : vos informations personnelles
-              (prénom, nom, email, photo, profession, ville, bio…)
-              remontent vers votre compte et retombent sur tous vos
-              appareils. L'email du compte est connu dès la connexion
-              Google.
-            - **Email affiché** : « Modifier mon profil » pré-remplit
-              l'email du compte (Google : adresse vérifiée) si le champ
-              local est vide.
+            ## Nouveautés v1.1.9
+            - **Connexion Email + Mot de passe réparée** (correctif majeur) :
+              le serveur perdait tous les comptes à chaque redémarrage Render
+              (disque éphémère du plan gratuit) — « l'inscription marche mais
+              pas la connexion ». La base du serveur est désormais sauvegardée
+              automatiquement (snapshot GitHub) et restaurée à chaque
+              démarrage : les comptes survivent aux redéploiements.
+            - **Vos données ne disparaissent plus après une reconnexion** :
+              si le serveur avait recréé votre compte (nouvel identifiant),
+              l'app reconnaissait à tort un « changement de compte » et
+              repartait d'un profil vide. Désormais, même email = même
+              compte : votre objectif du jour, votre photo de profil, vos
+              informations et votre XP suivent votre compte, et tout est
+              renvoyé au serveur pour vos autres appareils.
+            - **Photo de profil affichée** dans l'onglet Profil (et conservée
+              sur tous vos appareils) — avant, seule l'initiale du prénom
+              apparaissait.
+            - **Vérification d'email** : après une connexion ou une
+              inscription par email, un code à 6 chiffres vous est envoyé
+              pour sécuriser votre compte (non bloquant, « Plus tard »
+              possible). Les comptes Google sont considérés vérifiés
+              automatiquement.
+            - **Objectif du jour conservé** : le réglage (leçons/XP) survit
+              aux redémarrages, aux reconnexions et aux effacements serveur.
+            - **Connexion Google plus résistante** : l'app réessaie
+              automatiquement (jusqu'à ~100 s) pendant le réveil du serveur
+              Render — fini le retour silencieux à l'écran de connexion
+              « sans aucune activité » sur un téléphone qui se connecte pour
+              la première fois de la journée.
           files: edukraft-${{ steps.version.outputs.VERSION }}.apk
           draft: false
           prerelease: false

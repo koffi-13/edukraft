@@ -12,6 +12,7 @@ const { init: initBlockchain, mintBadge: mintOnChain, verifyBadge: verifyOnChain
 const payments = require('./payments');
 const auth = require('./auth');
 const gamification = require('./gamification');
+const replication = require('./dbReplication');
 
 // ── Configuration ────────────────────────────────────────────────────────────
 const PORT    = parseInt(process.env.PORT, 10) || 3001;
@@ -43,6 +44,12 @@ app.use(cors({
   credentials: false,
 }));
 app.use(express.json({ limit: '2mb' }));
+
+// v1.1.9 : suivi des écritures pour la réplication GitHub — DOIT être
+// installé AVANT le montage des routes (middleware pass-through qui écoute
+// res.on('finish')). L'attachement de la DB (attachDb) se fait après
+// initDatabase() dans le démarrage asynchrone ci-dessous.
+replication.installDirtyTracking(app);
 
 // ── Base de données SQLite ───────────────────────────────────────────────────
 let db;
@@ -913,7 +920,9 @@ app.get('/api/admin/dump', requireAdminKey, rateLimit(30, 60_000), (req, res) =>
     success(res, {
       generated_at: new Date().toISOString(),
       db_path: DB_PATH,
-      storage_warning: 'Render free tier : disque éphémère — les données sont réinitialisées à chaque redéploiement. Voir docs/DEPLOYMENT-V1.md §12.',
+      storage_warning: 'Render free tier : disque éphémère — les données sont réinitialisées à chaque redéploiement. Voir docs/DEPLOYMENT-V1.md §12-13.',
+      // v1.1.9 : état de la réplication GitHub (activée/dernier upload)
+      replication: replication.getReplicationStatus(),
       counts,
       users,
       learners,
@@ -985,23 +994,43 @@ const otpLimiter  = rateLimit(5, 60_000);        // phone OTP
 app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/login',    authLimiter);
 app.use('/api/auth/phone',    otpLimiter);
+// v1.1.9 : vérification email — même limite que l'OTP téléphone (5/min/IP)
+app.use('/api/auth/verify-email', otpLimiter);
 
 // ── Démarrage ────────────────────────────────────────────────────────────────
-initDatabase();
-auth.initAuthTables(db);          // tables user + refresh_token
-auth.mountAuthRoutes(app, db);    // /api/auth/* (register, login, google, apple, facebook, phone, me, refresh, logout)
-gamification.initGamificationTables(db);  // tables streak_log + achievement + daily_goal + colonnes learner v2
-gamification.mountGamificationRoutes(app, db);  // /api/gamification/*
-initBlockchain();
-payments.init(db);
+// v1.1.9 : AVANT d'ouvrir la DB, restaurer le snapshot distant (GitHub) —
+// le disque Render est éphémère (effacé à chaque redéploiement ET à chaque
+// sortie de veille du free tier). Sans cette restauration, tous les comptes
+// créés depuis le dernier démarrage sont perdus (« la connexion échoue
+// alors que l'inscription avait fonctionné »).
+(async () => {
+  try {
+    await replication.restoreDbFromRemote(DB_PATH);
+  } catch (e) {
+    console.warn('[BOOT] Restauration DB distante impossible :', e.message);
+  }
 
-app.listen(PORT, () => {
-  console.log(`
+  initDatabase();
+  auth.initAuthTables(db);          // tables user + refresh_token (+ colonnes v1.1.9)
+  auth.mountAuthRoutes(app, db);    // /api/auth/* (register, login, google, apple, facebook, phone, verify-email, me, refresh, logout)
+  gamification.initGamificationTables(db);  // tables streak_log + achievement + daily_goal + colonnes learner v2
+  gamification.mountGamificationRoutes(app, db);  // /api/gamification/*
+  initBlockchain();
+  payments.init(db);
+
+  // v1.1.9 : DB ouverte → active les uploads répliqués (upload de démarrage
+  // + flush debounced après chaque écriture + flush SIGTERM)
+  replication.attachDb(db);
+
+  app.listen(PORT, () => {
+    console.log(`
   ┌─────────────────────────────────────┐
   │       EduKraft API v1.0.0           │
   │     http://localhost:${PORT}          │
   │     Health: /api/health              │
   │     Sync:   POST /api/sync           │
+  │     DB remote: ${replication.getReplicationStatus().enabled ? 'ON (GitHub)' : 'OFF'}   │
   └─────────────────────────────────────┘
   `);
-});
+  });
+})();

@@ -793,8 +793,20 @@ export function DbProvider({ children }) {
     if (!learner || !serverUser?.id) return learner;
     // v1.1.8 : refus si le learner actif appartient à un AUTRE compte
     if (learner.server_id && String(learner.server_id) !== String(serverUser.id)) {
-      console.warn('[DB] linkLearnerToAccount REFUSÉ : le learner actif appartient à un autre compte (isolation v1.1.8)');
-      return learner; // restoreFromServer effectuera le switch de profil
+      // v1.1.9 : EXCEPTION — même EMAIL = même compte RECRÉÉ côté serveur.
+      // Le disque Render étant éphémère, le find-or-create peut générer un
+      // NOUVEL user.id pour le même utilisateur (même email Google/email).
+      // Refuser le lien ici ferait traiter ce cas comme un « changement de
+      // compte » → bascule vers un learner VIDE (objectif, photo, profil,
+      // XP perdus). On autorise donc le re-liage quand l'email coïncide —
+      // la promesse « comptes uniques par email » (v1.1.6) reste intacte.
+      const sameEmail = !!(learner.email && serverUser.email
+        && String(learner.email).toLowerCase().trim() === String(serverUser.email).toLowerCase().trim());
+      if (!sameEmail) {
+        console.warn('[DB] linkLearnerToAccount REFUSÉ : le learner actif appartient à un autre compte (isolation v1.1.8)');
+        return learner; // restoreFromServer effectuera le switch de profil
+      }
+      console.log('[DB] linkLearnerToAccount : compte serveur recréé (même email) — re-liage autorisé');
     }
     const now = new Date().toISOString();
     try {
@@ -1293,6 +1305,36 @@ export function DbProvider({ children }) {
     });
   }, [db, createLearner, persistSnapshot]);
 
+  // ── v1.1.9 : re-push de l'état local après re-liage ─────────────────────
+  // Après un effacement serveur (disque éphémère), le compte recréé est VIDE.
+  // Les ops sync de la session précédente ont déjà été consommées → le serveur
+  // ne recevrait rien. On ré-enfile donc l'état local complet : learner
+  // (profil + XP + photo), objectif du jour et progressions des modules —
+  // la continuité multi-appareils est rétablie au premier passage en ligne.
+  const reEnqueueLocalState = useCallback(async (learnerId) => {
+    if (!enqueue) return;
+    try {
+      if (db) {
+        const goalRow = await db.getFirstAsync('SELECT * FROM daily_goal WHERE learner_id = ?', [learnerId]);
+        if (goalRow) await enqueue('daily_goal', 'UPDATE', `goal_${learnerId}`, goalRow);
+        const progressRows = await db.getAllAsync('SELECT * FROM module_progress WHERE learner_id = ?', [learnerId]);
+        for (const pr of progressRows) {
+          await enqueue('module_progress', 'UPDATE', pr.id, pr);
+        }
+      } else {
+        const s = storeRef.current;
+        if (s.dailyGoal?.goal_type) {
+          await enqueue('daily_goal', 'UPDATE', `goal_${learnerId}`, { learner_id: learnerId, ...s.dailyGoal });
+        }
+        for (const [moduleId, pr] of Object.entries(s.progress || {})) {
+          await enqueue('module_progress', 'UPDATE', pr.id || `${learnerId}_${moduleId}`, { learner_id: learnerId, ...pr });
+        }
+      }
+    } catch (e) {
+      console.warn('[DB] reEnqueueLocalState partiel :', e.message);
+    }
+  }, [db, enqueue]);
+
   const restoreFromServer = useCallback(async (serverUser) => {
     const canonicalId = canonicalLearnerId(serverUser);
     if (!canonicalId) return null;
@@ -1322,12 +1364,58 @@ export function DbProvider({ children }) {
       const belongsToOtherAccount = !!local.server_id
         && String(local.server_id) !== String(serverUser.id);
       if (belongsToOtherAccount) {
-        // CHANGEMENT DE COMPTE : jamais de renommage croisé — on bascule
-        // vers les données du compte qui se connecte (ou l'Onboarding).
-        console.log('[DB] Changement de compte détecté — isolation des données de l\'ancien compte');
-        const switched = await switchActiveLearner(canonicalId, serverUser, sv);
-        if (!switched) return null; // → Onboarding (prénom inconnu)
-        local = switched;
+        // v1.1.9 : MÊME EMAIL = MÊME COMPTE recréé côté serveur (disque
+        // éphémère Render : le find-or-create a généré un nouvel user.id
+        // pour le même utilisateur). On RE-LIE le learner local au compte :
+        // toutes ses données (objectif, photo, profil, XP, progressions)
+        // suivent — c'est la continuité de « comptes uniques par email ».
+        // Sans ce re-liage, chaque effacement serveur faisait basculer
+        // l'utilisateur vers un learner vide (« objectif non conservé »,
+        // « photo disparue », « informations de profil perdues »).
+        const sameAccountByEmail = !!(local.email && serverUser.email
+          && String(local.email).toLowerCase().trim() === String(serverUser.email).toLowerCase().trim());
+        if (sameAccountByEmail) {
+          console.log('[DB] Même email — compte serveur recréé : re-liage du learner local (', local.id, '→', canonicalId, ')');
+          try {
+            const nowIso = new Date().toISOString();
+            await adoptCanonicalLearnerId(local.id, canonicalId);
+            if (db) {
+              await db.runAsync(
+                'UPDATE learner SET server_id = ?, sync_status = ?, updated_at = ? WHERE id = ?',
+                [String(serverUser.id), 'pending', nowIso, canonicalId]
+              );
+              const refreshed = await db.getFirstAsync('SELECT * FROM learner WHERE id = ?', [canonicalId]);
+              // v1.1.9 : l'état local complet repart aussitôt au serveur
+              // (le compte recréé est vide) — XP, profil, photo, objectif.
+              if (refreshed && enqueue) {
+                await enqueue('learner', 'UPDATE', canonicalId, refreshed);
+              }
+              await reEnqueueLocalState(canonicalId);
+              local = refreshed;
+            } else {
+              storeRef.current.learner = {
+                ...storeRef.current.learner,
+                id: canonicalId,
+                server_id: String(serverUser.id),
+                sync_status: 'pending',
+                updated_at: nowIso,
+              };
+              if (enqueue) {
+                await enqueue('learner', 'UPDATE', canonicalId, storeRef.current.learner);
+              }
+              local = storeRef.current.learner;
+            }
+          } catch (e) {
+            console.warn('[DB] Re-liage par email échoué :', e.message);
+          }
+        } else {
+          // VRAI changement de compte : jamais de renommage croisé — on bascule
+          // vers les données du compte qui se connecte (ou l'Onboarding).
+          console.log('[DB] Changement de compte détecté — isolation des données de l\'ancien compte');
+          const switched = await switchActiveLearner(canonicalId, serverUser, sv);
+          if (!switched) return null; // → Onboarding (prénom inconnu)
+          local = switched;
+        }
       }
       // Sinon : invité non lié (server_id NULL) → adoption ci-dessous
     }
@@ -1369,6 +1457,14 @@ export function DbProvider({ children }) {
           ? await db.getFirstAsync('SELECT * FROM learner WHERE id = ?', [canonicalId])
           : storeRef.current.learner;
         if (refreshed) { storeRef.current.learner = refreshed; setLearner(refreshed); }
+        // v1.1.9 : pousser l'état local complet vers le compte serveur —
+        // indispensable après un re-liage (compte serveur recréé sur disque
+        // éphémère) : sans cet enqueue, le serveur resterait vide et un autre
+        // appareil ne verrait jamais ces données (XP, profil, photo, objectif).
+        if (refreshed && enqueue) {
+          await enqueue('learner', 'UPDATE', canonicalId, refreshed);
+        }
+        await reEnqueueLocalState(canonicalId);
       } catch (e) {
         console.warn('[DB] adoptCanonicalLearnerId échec :', e.message);
       }
@@ -1398,7 +1494,7 @@ export function DbProvider({ children }) {
     persistSnapshot();
     console.log('[DB] Restauration compte terminée', sv ? '(données serveur fusionnées)' : '(aucune donnée serveur)');
     return finalLearner || storeRef.current.learner;
-  }, [learner, db, createLearner, adoptCanonicalLearnerId, mergeServerStateIntoLocal, persistSnapshot, switchActiveLearner]);
+  }, [learner, db, createLearner, adoptCanonicalLearnerId, mergeServerStateIntoLocal, persistSnapshot, switchActiveLearner, enqueue, reEnqueueLocalState]);
 
   // ── v1.1.6 : auto-restauration au DÉMARRAGE ────────────────────────────
   // Si une session authentifiée existe (l'utilisateur ne s'est pas

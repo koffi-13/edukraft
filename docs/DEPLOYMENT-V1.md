@@ -446,3 +446,90 @@ web et mobile). Sur un appareil partagé :
   (locales si déjà vues ici, sinon serveur, sinon Onboarding) ;
 - les données du compte précédent restent intactes et seront restaurées
   à sa reconnexion.
+
+---
+
+## §13 — Persistance automatique de la DB + vérification d'email (v1.1.9)
+
+### A. Réplication SQLite → GitHub (répond au bug « le serveur ne conserve pas les données »)
+
+La section §12 listait 3 options payantes. La v1.1.9 apporte une **4e option,
+gratuite et automatique** : le fichier SQLite est répliqué en continu vers
+votre dépôt GitHub (asset d'une release technique `db-backup`), et restauré
+à chaque démarrage du serveur — comptes, profils, progressions et badges
+survivent aux redéploiements **et aux sorties de veille** du plan gratuit.
+
+**Activation (2 variables d'environnement sur Render)** :
+
+```
+GITHUB_DB_TOKEN   = <PAT GitHub avec droit « Contents: Read and write » sur le dépôt>
+GITHUB_DB_REPO    = koffi-13/edukraft   (valeur par défaut — optionnel)
+```
+
+Render → votre service → *Environment* → Add Environment Variable →
+redéployer. Dès le premier démarrage : `[DB-REPL] Snapshot uploadé…` dans les
+logs, et la release `db-backup` apparaît sur GitHub (asset `edukraft.db`,
+remplacé à chaque écriture, ~4 s après — pas de gonflement de l'historique).
+
+Sans `GITHUB_DB_TOKEN`, le module reste inactif (comportement éphémère
+inchangé) — l'app fonctionne, mais les données serveur repartent de zéro à
+chaque redémarrage.
+
+**Vérifier l'état de la réplication** :
+
+```bash
+curl "https://<votre-api>.onrender.com/api/admin/dump?admin_key=VOTRE_ADMIN_KEY"
+# → champ "replication": { enabled, repo, lastUploadAt, uploadCount, dirty }
+```
+
+> 🔒 Le PAT doit être dédié à cet usage (scope Contents uniquement sur ce
+> dépôt). Révoquez-le et régénérez-le si nécessaire — la réplication lira la
+> nouvelle valeur au redémarrage suivant.
+
+### B. Éviter l'endormissement Render (cold start 30-60 s)
+
+Le plan gratuit s'endort après 15 min d'inactivité. Le premier utilisateur
+de la journée subit alors un réveil de 30-60 s (l'app mobile réessaie
+automatiquement ~100 s — v1.1.9). Pour un confort maximal, programmez un
+*ping* gratuit toutes les 10 min sur `https://<votre-api>.onrender.com/api/health`
+via **cron-job.org** ou **UptimeRobot** (gratuits).
+
+### C. Vérification d'email (v1.1.9)
+
+Après connexion/inscription email+mot-de-passe, l'app propose de vérifier
+l'adresse (code à 6 chiffres, non bloquant). Les comptes Google/Apple/
+Facebook sont vérifiés automatiquement (le provider a déjà validé l'email).
+
+L'envoi réel des emails utilise **Resend** ou **Brevo** (API HTTP, aucun
+paquet à installer). Sans clé configurée, le code est renvoyé dans la
+réponse API (« mode test ») et affiché à l'utilisateur — utile en dev, à
+éviter en production.
+
+**Activation (Render → Environment)** :
+
+```
+# Option Resend (100 emails/jour gratuits — resend.com)
+RESEND_API_KEY    = re_xxx
+EMAIL_FROM        = EduKraft <onboarding@votre-domaine.com>
+
+# Option Brevo (300 emails/jour gratuits — brevo.com)
+BREVO_API_KEY     = xkeysib-xxx
+EMAIL_FROM        = EduKraft <onboarding@votre-domaine.com>
+```
+
+Endpoints : `POST /api/auth/verify-email/request` (envoi du code, cooldown
+45 s, TTL 10 min) puis `POST /api/auth/verify-email/confirm` (code →
+`email_verified = 1`). Toutes deux requièrent le Bearer token.
+
+### D. Récapitulatif des variables d'environnement serveur (v1.1.9)
+
+| Variable | Rôle | Requis |
+|---|---|---|
+| `JWT_SECRET` | Signature des tokens (sinon sessions invalidées à chaque redémarrage) | **Oui** |
+| `API_KEY` | Clé des routes /api/sync, /api/progress… | Oui (défaut : dev-key) |
+| `ADMIN_KEY` | Endpoints /api/admin/* (dump des données) | Recommandé |
+| `GITHUB_DB_TOKEN` | Réplication de la DB (persistance gratuite) | **Recommandé** |
+| `GITHUB_DB_REPO` | Dépôt cible (défaut : koffi-13/edukraft) | Non |
+| `RESEND_API_KEY` ou `BREVO_API_KEY` | Envoi réel des emails de vérification | Recommandé |
+| `EMAIL_FROM` | Expéditeur des emails | Non (défaut resend.dev) |
+| `GOOGLE_CLIENT_ID` | Vérification des id_token Google | Recommandé |

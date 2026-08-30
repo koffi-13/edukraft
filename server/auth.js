@@ -8,6 +8,16 @@
 //   4. Facebook OAuth (vérification access_token via Graph API)
 //   5. Phone OTP (code unique par téléphone, mock en dev)
 //
+// v1.1.9 — VÉRIFICATION D'EMAIL :
+//   - Colonne email_verified sur user (Google/Apple/Facebook : vérifié
+//     automatiquement dès la connexion — le provider a déjà validé l'email).
+//   - POST /api/auth/verify-email/request : génère un code à 6 chiffres
+//     (haché sha256, TTL 10 min, max 5 tentatives), envoyé par email via
+//     Resend ou Brevo (API HTTP, zéro dépendance). Sans clé API configurée
+//     (mode dev/test), le code est renvoyé dans la réponse — même pattern
+//     que l'OTP téléphone mock.
+//   - POST /api/auth/verify-email/confirm : vérifie le code → email_verified=1.
+//
 // Sécurité :
 //   - Mots de passe hachés avec bcrypt (rounds configurables)
 //   - Access token JWT court (7j par défaut) signé avec JWT_SECRET
@@ -84,6 +94,11 @@ function initAuthTables(db) {
       provider      TEXT NOT NULL DEFAULT 'email',
       provider_uid  TEXT,
       language      TEXT DEFAULT 'fr',
+      email_verified         INTEGER DEFAULT 0,
+      verification_code_hash TEXT,
+      verification_expires_at TEXT,
+      verification_attempts  INTEGER DEFAULT 0,
+      verification_sent_at   TEXT,
       created_at    TEXT NOT NULL,
       updated_at    TEXT NOT NULL,
       last_login_at TEXT
@@ -104,6 +119,18 @@ function initAuthTables(db) {
     CREATE INDEX IF NOT EXISTS idx_user_phone      ON user(phone);
     CREATE INDEX IF NOT EXISTS idx_user_provider   ON user(provider, provider_uid);
   `);
+
+  // v1.1.9 : migration des bases existantes (try/catch — colonne déjà là)
+  const MIGRATIONS_V119 = [
+    'ALTER TABLE user ADD COLUMN email_verified INTEGER DEFAULT 0',
+    'ALTER TABLE user ADD COLUMN verification_code_hash TEXT',
+    'ALTER TABLE user ADD COLUMN verification_expires_at TEXT',
+    'ALTER TABLE user ADD COLUMN verification_attempts INTEGER DEFAULT 0',
+    'ALTER TABLE user ADD COLUMN verification_sent_at TEXT',
+  ];
+  for (const stmt of MIGRATIONS_V119) {
+    try { db.exec(stmt); } catch (_) { /* colonne déjà présente */ }
+  }
   console.log('[AUTH] Tables user + refresh_token initialisées');
 }
 
@@ -209,17 +236,21 @@ function findUserByProvider(db, provider, providerUid) {
 
 function sanitizeUser(user) {
   if (!user) return null;
-  const { password_hash, ...safe } = user;
+  const { password_hash, verification_code_hash, verification_expires_at,
+    verification_attempts, verification_sent_at, ...safe } = user;
+  // v1.1.9 : email_verified exposé au client (gating de l'écran de
+  // vérification) — booléen strict pour éviter les surprises SQLite (0/1).
+  safe.email_verified = !!user.email_verified;
   return safe;
 }
 
-function createUser(db, { email, phone, password, displayName, avatarUrl, provider, providerUid, language }) {
+function createUser(db, { email, phone, password, displayName, avatarUrl, provider, providerUid, language, emailVerified }) {
   const id = uuidv4();
   const now = new Date().toISOString();
   const passwordHash = password ? bcrypt.hashSync(password, BCRYPT_ROUNDS) : null;
   db.prepare(`
-    INSERT INTO user (id, email, phone, password_hash, display_name, avatar_url, provider, provider_uid, language, created_at, updated_at, last_login_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO user (id, email, phone, password_hash, display_name, avatar_url, provider, provider_uid, language, email_verified, created_at, updated_at, last_login_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id,
     email ? String(email).toLowerCase().trim() : null,
@@ -230,6 +261,7 @@ function createUser(db, { email, phone, password, displayName, avatarUrl, provid
     provider || 'email',
     providerUid || null,
     language || 'fr',
+    emailVerified ? 1 : 0,
     now, now, now
   );
   return findUserById(db, id);
@@ -345,6 +377,88 @@ function sendOtp(phone, code) {
   // En prod : remplacer par Twilio / Vonage / provider SMS local togolais.
   console.log(`[AUTH/OTP] SMS vers ${phone} — code: ${code}`);
   // TODO prod : await twilioClient.messages.create({ ... })
+}
+
+// ── v1.1.9 : Vérification d'email ─────────────────────────────────────────────
+const EMAIL_PROVIDER = (process.env.EMAIL_PROVIDER || '').toLowerCase(); // 'resend' | 'brevo' | ''
+const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
+const BREVO_API_KEY = process.env.BREVO_API_KEY || '';
+const EMAIL_FROM = process.env.EMAIL_FROM || 'EduKraft <onboarding@resend.dev>';
+const VERIFY_CODE_TTL_MS = 10 * 60 * 1000;   // 10 minutes
+const VERIFY_MAX_ATTEMPTS = 5;
+
+function emailProviderConfigured() {
+  if (EMAIL_PROVIDER === 'resend' && RESEND_API_KEY) return 'resend';
+  if (EMAIL_PROVIDER === 'brevo' && BREVO_API_KEY) return 'brevo';
+  // Auto-détection : une clé présente suffit même sans EMAIL_PROVIDER explicite
+  if (RESEND_API_KEY) return 'resend';
+  if (BREVO_API_KEY) return 'brevo';
+  return null;
+}
+
+/**
+ * Envoie l'email de vérification via Resend ou Brevo (API HTTP — zéro
+ * dépendance, compatible Render qui filtre parfois le SMTP sortant).
+ * Retourne { sent: true } ou { sent: false, reason } — l'appelant décide
+ * du fallback (mode test : code renvoyé dans la réponse API).
+ */
+async function sendVerificationEmail(toEmail, code, displayName) {
+  const provider = emailProviderConfigured();
+  if (!provider) return { sent: false, reason: 'no-provider' };
+
+  const subject = 'EduKraft — Vérifiez votre adresse email';
+  const text =
+    `Bonjour ${displayName || ''},\n\n` +
+    `Votre code de vérification EduKraft est : ${code}\n\n` +
+    `Il expire dans 10 minutes. Si vous n'êtes pas à l'origine de cette demande, ignorez simplement ce message.\n\n` +
+    `— L'équipe EduKraft`;
+  const html =
+    `<div style="font-family:-apple-system,Roboto,'Segoe UI',sans-serif;max-width:480px;margin:0 auto;padding:24px">` +
+    `<h2 style="color:#5B4ABB;margin:0 0 12px">EduKraft</h2>` +
+    `<p style="color:#333;font-size:15px">Bonjour ${displayName || ''},</p>` +
+    `<p style="color:#333;font-size:15px">Voici votre code de vérification :</p>` +
+    `<p style="font-size:32px;letter-spacing:8px;font-weight:700;color:#5B4ABB;background:#F4F2FA;border-radius:12px;padding:16px;text-align:center">${code}</p>` +
+    `<p style="color:#777;font-size:13px">Ce code expire dans 10 minutes. Si vous n'êtes pas à l'origine de cette demande, ignorez ce message.</p>` +
+    `</div>`;
+
+  try {
+    if (provider === 'resend') {
+      const resp = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ from: EMAIL_FROM, to: [toEmail], subject, text, html }),
+      });
+      if (!resp.ok) throw new Error(`resend ${resp.status}: ${(await resp.text()).slice(0, 200)}`);
+      return { sent: true };
+    }
+    if (provider === 'brevo') {
+      const fromMatch = EMAIL_FROM.match(/<(.+)>/);
+      const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': BREVO_API_KEY,
+          'Content-Type': 'application/json',
+          'accept': 'application/json',
+        },
+        body: JSON.stringify({
+          sender: { name: 'EduKraft', email: fromMatch ? fromMatch[1] : EMAIL_FROM },
+          to: [{ email: toEmail }],
+          subject,
+          textContent: text,
+          htmlContent: html,
+        }),
+      });
+      if (!resp.ok) throw new Error(`brevo ${resp.status}: ${(await resp.text()).slice(0, 200)}`);
+      return { sent: true };
+    }
+  } catch (e) {
+    console.error('[AUTH/verify-email] Échec envoi via', provider, ':', e.message);
+    return { sent: false, reason: 'provider-error', error: e.message };
+  }
+  return { sent: false, reason: 'no-provider' };
 }
 
 function validatePhone(phone) {
@@ -580,6 +694,12 @@ function mountAuthRoutes(app, db) {
             .run('google', profile.providerUid, new Date().toISOString(), user.id);
           user = findUserById(db, user.id);
         }
+        // v1.1.9 : Google a déjà validé l'email — marquer vérifié (une fois)
+        if (profile.emailVerified && !user.email_verified) {
+          db.prepare('UPDATE user SET email_verified = 1, updated_at = ? WHERE id = ?')
+            .run(new Date().toISOString(), user.id);
+          user = findUserById(db, user.id);
+        }
       } else {
         user = createUser(db, {
           email: profile.email,
@@ -587,6 +707,8 @@ function mountAuthRoutes(app, db) {
           avatarUrl: profile.avatarUrl,
           provider: 'google',
           providerUid: profile.providerUid,
+          // v1.1.9 : email déjà vérifié par Google
+          emailVerified: profile.emailVerified,
         });
       }
 
@@ -623,6 +745,11 @@ function mountAuthRoutes(app, db) {
             .run('apple', profile.providerUid, new Date().toISOString(), user.id);
           user = findUserById(db, user.id);
         }
+        if (profile.emailVerified && !user.email_verified) {
+          db.prepare('UPDATE user SET email_verified = 1, updated_at = ? WHERE id = ?')
+            .run(new Date().toISOString(), user.id);
+          user = findUserById(db, user.id);
+        }
       } else {
         user = createUser(db, {
           email: profile.email,
@@ -630,6 +757,7 @@ function mountAuthRoutes(app, db) {
           avatarUrl: profile.avatarUrl,
           provider: 'apple',
           providerUid: profile.providerUid,
+          emailVerified: profile.emailVerified,
         });
       }
 
@@ -666,6 +794,11 @@ function mountAuthRoutes(app, db) {
             .run('facebook', profile.providerUid, new Date().toISOString(), user.id);
           user = findUserById(db, user.id);
         }
+        if (profile.emailVerified && !user.email_verified) {
+          db.prepare('UPDATE user SET email_verified = 1, updated_at = ? WHERE id = ?')
+            .run(new Date().toISOString(), user.id);
+          user = findUserById(db, user.id);
+        }
       } else {
         user = createUser(db, {
           email: profile.email,
@@ -673,6 +806,7 @@ function mountAuthRoutes(app, db) {
           avatarUrl: profile.avatarUrl,
           provider: 'facebook',
           providerUid: profile.providerUid,
+          emailVerified: profile.emailVerified,
         });
       }
 
@@ -782,6 +916,137 @@ function mountAuthRoutes(app, db) {
       }
     } catch (err) {
       console.error('[AUTH/phone]', err);
+      return res.status(500).json({ success: false, error: 'Erreur serveur' });
+    }
+  });
+
+  // ── v1.1.9 : POST /api/auth/verify-email/request ─────────────────────────
+  // Génère et envoie un code de vérification à 6 chiffres (haché en DB,
+  // TTL 10 min, max 5 tentatives). Sans provider email configuré, le code
+  // est renvoyé dans la réponse (mode test — même pattern que l'OTP mock).
+  app.post('/api/auth/verify-email/request', requireAuth(db), async (req, res) => {
+    try {
+      const user = req.user;
+      if (!user.email) {
+        return res.status(400).json({
+          success: false,
+          error: 'Ce compte n\'a pas d\'adresse email à vérifier',
+        });
+      }
+      if (user.email_verified) {
+        return res.status(400).json({
+          success: false,
+          error: 'Votre email est déjà vérifié',
+          code: 'ALREADY_VERIFIED',
+        });
+      }
+      // Anti-spam simple : 1 envoi / 45 s (sauf admin via DB reset)
+      if (user.verification_sent_at) {
+        const since = Date.now() - new Date(user.verification_sent_at).getTime();
+        if (since < 45_000) {
+          return res.status(429).json({
+            success: false,
+            error: `Un code vient d'être envoyé. Réessayez dans ${Math.ceil((45_000 - since) / 1000)} s.`,
+            code: 'COOLDOWN',
+            retryInSeconds: Math.ceil((45_000 - since) / 1000),
+          });
+        }
+      }
+
+      // Code à 6 chiffres (crypto → imprévisible)
+      const code = String(100000 + crypto.randomInt(0, 900000));
+      const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+      const expiresAt = new Date(Date.now() + VERIFY_CODE_TTL_MS).toISOString();
+      const now = new Date().toISOString();
+
+      db.prepare(`
+        UPDATE user
+        SET verification_code_hash = ?, verification_expires_at = ?,
+            verification_attempts = 0, verification_sent_at = ?, updated_at = ?
+        WHERE id = ?
+      `).run(codeHash, expiresAt, now, now, user.id);
+
+      const mail = await sendVerificationEmail(user.email, code, user.display_name);
+      if (!mail.sent) {
+        // Mode test (aucun provider configuré) OU échec provider :
+        // on log côté serveur et on renvoie le code pour ne pas bloquer
+        // l'utilisateur (déploiement sans clé email).
+        console.log(`[AUTH/verify-email] Code de vérification pour ${user.email} : ${code} (mode test — provider email non configuré)`);
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          sent: mail.sent,
+          email: user.email,
+          expiresInSeconds: VERIFY_CODE_TTL_MS / 1000,
+          // Mode test uniquement : jamais renvoyé si un vrai email est parti
+          devCode: mail.sent ? undefined : code,
+        },
+      });
+    } catch (err) {
+      console.error('[AUTH/verify-email/request]', err);
+      return res.status(500).json({ success: false, error: 'Erreur serveur' });
+    }
+  });
+
+  // ── v1.1.9 : POST /api/auth/verify-email/confirm ─────────────────────────
+  app.post('/api/auth/verify-email/confirm', requireAuth(db), async (req, res) => {
+    try {
+      const { code } = req.body || {};
+      const user = req.user;
+      if (!user.email) {
+        return res.status(400).json({ success: false, error: 'Aucune adresse email sur ce compte' });
+      }
+      if (user.email_verified) {
+        return res.json({ success: true, data: { user: sanitizeUser(user), alreadyVerified: true } });
+      }
+      if (!code || !/^\d{6}$/.test(String(code).trim())) {
+        return res.status(400).json({ success: false, error: 'Code invalide (6 chiffres attendus)' });
+      }
+      if (!user.verification_code_hash || !user.verification_expires_at) {
+        return res.status(400).json({
+          success: false,
+          error: 'Aucun code en attente. Demandez un nouveau code.',
+          code: 'NO_CODE',
+        });
+      }
+      if (Date.now() > new Date(user.verification_expires_at).getTime()) {
+        return res.status(400).json({
+          success: false,
+          error: 'Code expiré. Demandez un nouveau code.',
+          code: 'CODE_EXPIRED',
+        });
+      }
+      if ((user.verification_attempts || 0) >= VERIFY_MAX_ATTEMPTS) {
+        return res.status(429).json({
+          success: false,
+          error: 'Trop de tentatives. Demandez un nouveau code.',
+          code: 'TOO_MANY_ATTEMPTS',
+        });
+      }
+
+      const codeHash = crypto.createHash('sha256').update(String(code).trim()).digest('hex');
+      if (codeHash !== user.verification_code_hash) {
+        db.prepare('UPDATE user SET verification_attempts = verification_attempts + 1 WHERE id = ?')
+          .run(user.id);
+        return res.status(400).json({ success: false, error: 'Code incorrect' });
+      }
+
+      // ✓ Code valide
+      const now = new Date().toISOString();
+      db.prepare(`
+        UPDATE user
+        SET email_verified = 1, verification_code_hash = NULL,
+            verification_expires_at = NULL, verification_attempts = 0, updated_at = ?
+        WHERE id = ?
+      `).run(now, user.id);
+      const fresh = findUserById(db, user.id);
+
+      console.log(`[AUTH/verify-email] Email vérifié : ${fresh.email}`);
+      return res.json({ success: true, data: { user: sanitizeUser(fresh) } });
+    } catch (err) {
+      console.error('[AUTH/verify-email/confirm]', err);
       return res.status(500).json({ success: false, error: 'Erreur serveur' });
     }
   });
