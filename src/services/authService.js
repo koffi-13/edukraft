@@ -30,21 +30,20 @@ import { Platform } from 'react-native';
 // ── Stockage sécurisé (expo-secure-store sur natif, fallback mémoire sur web) ─
 // ⚠️ expo-secure-store v12 utilise setItemAsync/getItemAsync/deleteItemAsync
 //    expo-secure-store v13 utilise setItem/getItem/deleteItem
-// On crée un wrapper qui gère les deux API automatiquement + AsyncStorage
-// comme double stockage pour garantir la persistance.
+// v1.1.3 : le fallback passe par persistentStorage (AsyncStorage natif >
+// localStorage web > mémoire) — sur web, tokens et session survivent au
+// rechargement de la page.
+
+import persistentStorage from '../utils/persistentStorage';
 
 let SecureStore = null;
-let AsyncStorage = null;
 
 if (Platform.OS !== 'web') {
   try { SecureStore = require('expo-secure-store'); } catch (_) {}
-  try { AsyncStorage = require('@react-native-async-storage/async-storage'); } catch (_) {}
 }
 
-// Fallback mémoire (web / tests)
-const memoryStorage = new Map();
-
-// Wrapper triple : SecureStore (sécurisé) + AsyncStorage (persistance) + mémoire
+// Wrapper : SecureStore (sécurisé, natif) + persistentStorage (persistance
+// multi-plateforme)
 const store = {
   async setItem(key, value) {
     // 1. SecureStore (tokens sécurisés sur natif)
@@ -54,12 +53,8 @@ const store = {
         else if (SecureStore.setItem) await SecureStore.setItem(key, value);
       } catch (e) { console.warn('[store] SecureStore setItem error:', e.message); }
     }
-    // 2. AsyncStorage (double stockage pour garantir la persistance)
-    if (AsyncStorage) {
-      try { await AsyncStorage.setItem(key, value); } catch (e) {}
-    }
-    // 3. Mémoire (toujours)
-    memoryStorage.set(key, value);
+    // 2. Stockage persistant multi-plateforme (toujours)
+    try { await persistentStorage.setItem(key, value); } catch (e) {}
   },
 
   async getItem(key) {
@@ -72,15 +67,12 @@ const store = {
         if (val) return val;
       } catch (e) { console.warn('[store] SecureStore getItem error:', e.message); }
     }
-    // 2. AsyncStorage en fallback
-    if (AsyncStorage) {
-      try {
-        const val = await AsyncStorage.getItem(key);
-        if (val) return val;
-      } catch (e) {}
-    }
-    // 3. Mémoire
-    return memoryStorage.get(key) ?? null;
+    // 2. Stockage persistant multi-plateforme
+    try {
+      const val = await persistentStorage.getItem(key);
+      if (val) return val;
+    } catch (e) {}
+    return null;
   },
 
   async deleteItem(key) {
@@ -90,10 +82,7 @@ const store = {
         else if (SecureStore.deleteItem) await SecureStore.deleteItem(key);
       } catch (e) {}
     }
-    if (AsyncStorage) {
-      try { await AsyncStorage.removeItem(key); } catch (e) {}
-    }
-    memoryStorage.delete(key);
+    try { await persistentStorage.removeItem(key); } catch (e) {}
   },
 };
 
@@ -102,6 +91,11 @@ const KEYS = {
   REFRESH_TOKEN: 'ek_refresh_token',
   USER:          'ek_user',
   SKIP_AUTH:     'ek_skip_auth',
+  // v1.1.3 : flag « session explicitement terminée » — posé à la déconnexion,
+  // retiré à la reconnexion. Force l'écran Login au démarrage même si un
+  // learner local existe (ses données restent intactes et seront restaurées
+  // dès la reconnexion).
+  SESSION_ENDED: 'ek_logged_out',
 };
 
 // ── Base URL ─────────────────────────────────────────────────────────────────
@@ -130,6 +124,8 @@ async function saveAuth({ accessToken, refreshToken, user }) {
     store.setItem(KEYS.REFRESH_TOKEN, refreshToken),
     store.setItem(KEYS.USER, JSON.stringify(user)),
     store.deleteItem(KEYS.SKIP_AUTH).catch(() => {}),
+    // v1.1.3 : reconnexion → la session redevient active (auto-login autorisé)
+    store.deleteItem(KEYS.SESSION_ENDED).catch(() => {}),
   ]);
 }
 
@@ -152,13 +148,31 @@ export async function clearAll() {
   ]);
 }
 
+/** v1.1.3 : marque la session comme terminée (déconnexion volontaire).
+ *  Le learner local et ses progressions NE SONT PAS supprimés — ils seront
+ *  restaurés à la prochaine connexion, ou via « Continuer sans compte ». */
+export async function markSessionEnded() {
+  try { await store.setItem(KEYS.SESSION_ENDED, '1'); } catch (_) {}
+}
+
+/** v1.1.3 : la session était-elle explicitement terminée ? */
+export async function isSessionEnded() {
+  try {
+    const v = await store.getItem(KEYS.SESSION_ENDED);
+    return v === '1';
+  } catch (_) {
+    return false;
+  }
+}
+
 export async function getStoredAuth() {
   try {
-    const [accessToken, refreshToken, userStr, skip] = await Promise.all([
+    const [accessToken, refreshToken, userStr, skip, ended] = await Promise.all([
       store.getItem(KEYS.ACCESS_TOKEN),
       store.getItem(KEYS.REFRESH_TOKEN),
       store.getItem(KEYS.USER),
       store.getItem(KEYS.SKIP_AUTH),
+      store.getItem(KEYS.SESSION_ENDED),
     ]);
     const user = userStr ? JSON.parse(userStr) : null;
     return {
@@ -166,10 +180,11 @@ export async function getStoredAuth() {
       refreshToken,
       user,
       skipAuth: skip === '1',
+      sessionEnded: ended === '1',
     };
   } catch (e) {
     console.warn('[authService] getStoredAuth error:', e.message);
-    return { accessToken: null, refreshToken: null, user: null, skipAuth: false };
+    return { accessToken: null, refreshToken: null, user: null, skipAuth: false, sessionEnded: false };
   }
 }
 
@@ -409,7 +424,10 @@ export async function refresh() {
   throw new AuthenticationError(data.error || 'Refresh échoué', 'REFRESH_FAILED');
 }
 
-/** Déconnexion : révoque les tokens serveur + clear local */
+/** Déconnexion : révoque les tokens serveur + clear local.
+ *  v1.1.3 : marque AUSSI la session terminée — l'écran Login réapparaîtra au
+ *  prochain démarrage, mais le learner local et ses progressions sont
+ *  conservés (restaurés dès la reconnexion). */
 export async function logout() {
   try {
     await authFetch(`${AUTH_BASE}/api/auth/logout`, { method: 'POST' });
@@ -417,12 +435,16 @@ export async function logout() {
     // Même si la requête échoue (réseau), on nettoie localement
   }
   await clearAll();
+  await markSessionEnded();
 }
 
-/** Active le mode "continuer sans compte" (hors-ligne, pas de token) */
+/** Active le mode "continuer sans compte" (hors-ligne, pas de token).
+ *  v1.1.3 : reprend la session locale si des données existent — le flag
+ *  sessionEnded est retiré pour rouvrir directement le Dashboard. */
 export async function skip() {
   await clearTokens();
   await store.setItem(KEYS.SKIP_AUTH, '1');
+  try { await store.deleteItem(KEYS.SESSION_ENDED); } catch (_) {}
 }
 
 /** fetch authentifié exporté pour les autres services */

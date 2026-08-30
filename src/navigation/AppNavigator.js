@@ -16,6 +16,15 @@
 // réussi OU après "Continuer hors ligne" ; Onboarding crée le learner →
 // le gating bascule automatiquement vers Root (Dashboard).
 
+// v1.1.3 (gating v2 — persistance hors-ligne) :
+//   2b. Learner existe MAIS session terminée (déconnexion volontaire) → Auth
+//       (les données locales sont conservées : la reconnexion ou « Continuer
+//       sans compte » les restaure immédiatement)
+//   3. Learner existe et session active → Dashboard direct (le profil invité
+//       et toutes ses progressions sont chargés automatiquement au démarrage)
+//   + RegisterScreen montée en modal dans RootStack : l'invité qui demande
+//     une déconnexion doit créer un compte pour sécuriser ses données avant.
+
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
@@ -25,6 +34,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors, Typography, Spacing } from '../theme';
 import { t } from '../i18n';
+import { useAuth } from '../contexts/AuthContext';
 
 import DashboardScreen  from '../screens/DashboardScreen';
 import LessonScreen     from '../screens/LessonScreen';
@@ -44,20 +54,20 @@ const Tab   = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
 function TabIcon({ name, focused, color }) {
-  // Icônes ASCII uniquement — les emojis/glyphes Unicode peuvent s'afficher
-  // en caractères parasites (ex. "IJ" au lieu d'une flèche) ou crasher sur
-  // certains appareils Android anciens.
+  // Icônes emoji d'origine (v1.1.3 — restauration) : elles s'affichaient
+  // parfaitement sur l'appareil de test (captures AVANT). La purge ASCII
+  // de la v1.1 ([#] [B] [C]…) dégradait l'interface : annulée.
   const icons = {
-    dashboard: focused ? '[#]' : '[ ]',
-    learn:     focused ? '[=]' : '[ ]',
-    badges:    focused ? '[B]' : '[ ]',
-    community: focused ? '[C]' : '[ ]',
-    profile:  focused ? '[P]' : '[ ]',
+    dashboard: focused ? '⬛' : '□',
+    learn:   focused ? '📖' : '📄',
+    badges:  focused ? '🏅' : '🏷️',
+    community: focused ? '👥' : '◯',
+    profile: focused ? '👤' : '◯',
   };
   return (
     <View style={styles.iconWrap}>
       <Text style={[styles.iconText, { opacity: focused ? 1 : 0.5 }]}>
-        {icons[name] || '[ ]'}
+        {icons[name] || '◯'}
       </Text>
     </View>
   );
@@ -106,6 +116,11 @@ function RootStack() {
         options={{ presentation: 'card', gestureEnabled: true }} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen}
         options={{ presentation: 'card', gestureEnabled: true }} />
+      {/* v1.1.3 : inscription depuis le Profil (invité demandant une
+          déconnexion) — il doit créer un compte pour sécuriser ses données
+          avant de pouvoir se déconnecter. */}
+      <Stack.Screen name="RegisterAccount" component={RegisterScreen}
+        options={{ presentation: 'modal', gestureEnabled: false }} />
     </Stack.Navigator>
   );
 }
@@ -126,6 +141,7 @@ function AuthStack() {
 
 export default function AppNavigator() {
   const { learner, ready } = useDb();
+  const { sessionEnded } = useAuth();
 
   if (!ready) {
     return (
@@ -136,11 +152,19 @@ export default function AppNavigator() {
     );
   }
 
-  // SIMPLIFIÉ : learner existe → Dashboard. Pas de learner → Login.
+  // GATING v2 (v1.1.3) :
+  //   - Pas de learner → Auth (premier lancement)
+  //   - Learner + sessionEnded (déconnexion volontaire) → Auth : l'écran
+  //     Login s'affiche, mais les données locales sont conservées — elles
+  //     seront restaurées à la reconnexion (ou via « Continuer sans compte »)
+  //   - Learner + session active → Dashboard direct avec toutes les
+  //     progressions de l'utilisateur (exigence : chargement automatique)
+  const showAuth = !learner || sessionEnded;
+
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!learner ? (
+        {showAuth ? (
           <Stack.Screen name="Auth" component={AuthStack} />
         ) : (
           <Stack.Screen name="Root" component={RootStack} />
@@ -152,7 +176,7 @@ export default function AppNavigator() {
 
 const styles = StyleSheet.create({
   iconWrap: { alignItems: 'center', justifyContent: 'center' },
-  iconText: { fontSize: 14, fontWeight: '600', letterSpacing: 1 },
+  iconText: { fontSize: 18 },
   splash: {
     flex: 1, backgroundColor: Colors.primary,
     alignItems: 'center', justifyContent: 'center', gap: Spacing.sm,

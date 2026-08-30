@@ -172,7 +172,7 @@ export default function AchievementsScreen({ navigation }) {
                 >
                   <View style={[styles.achievementIconWrap, { backgroundColor: (ach.categoryInfo?.color || Colors.primary) + '22' }]}>
                     <Text style={styles.achievementIconText}>
-                      {ach.unlocked ? (cat.icon || '[*]') : '[x]'}
+                      {ach.unlocked ? (cat.icon || '🏆') : '🔒'}
                     </Text>
                   </View>
                   <View style={styles.achievementInfo}>
@@ -181,7 +181,7 @@ export default function AchievementsScreen({ navigation }) {
                     </Text>
                     <Text style={styles.achievementDesc}>{ach.description}</Text>
                   </View>
-                  {ach.unlocked && <Text style={styles.checkIcon}>OK</Text>}
+                  {ach.unlocked && <Text style={styles.checkIcon}>✓</Text>}
                 </View>
               ))}
             </View>

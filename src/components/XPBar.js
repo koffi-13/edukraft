@@ -42,8 +42,8 @@ export default function XPBar({ xp, compact = false }) {
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <View>
-          {/* v1.1 : séparateur ASCII */}
-          <Text style={styles.levelLabel}>{t('dashboard.level_label')} {current.level} - {current.label}</Text>
+          {/* v1.1.3 : icône d'origine restaurée */}
+          <Text style={styles.levelLabel}>{t('dashboard.level_label')} {current.level} · {current.label}</Text>
           <Text style={styles.xpValue}>{xp} {t('dashboard.xp_label')}</Text>
         </View>
         {next && (

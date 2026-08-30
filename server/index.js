@@ -17,10 +17,31 @@ const gamification = require('./gamification');
 const PORT    = parseInt(process.env.PORT, 10) || 3001;
 const API_KEY = process.env.API_KEY || 'dev-key';
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data', 'edukraft.db');
+// CORS_ORIGINS : liste d'origines séparées par des virgules, ou '*'.
+// ⚠️ Bug v1.1.3 corrigé : avant, `CORS_ORIGINS='*'` produisait origin:['*'],
+// un TABLEAU — que le middleware cors traite comme une liste blanche EXACTE
+// (l'origine littérale '*' n'existe jamais) → AUCUNE réponse n'avait l'en-tête
+// Access-Control-Allow-Origin → « Failed to fetch » sur TOUT le web (l'APK
+// natif n'est pas soumis au CORS, d'où l'illusion que l'API marchait).
 const CORS_ORIGINS = process.env.CORS_ORIGINS || '*';
 
 const app = express();
-app.use(cors({ origin: CORS_ORIGINS.split(',').map(s => s.trim()) }));
+
+const corsOriginsList = CORS_ORIGINS.split(',').map(s => s.trim()).filter(Boolean);
+const corsAllowAll = corsOriginsList.length === 0 || corsOriginsList.includes('*');
+app.use(cors({
+  origin(origin, callback) {
+    // Autorisé : mode ouvert ('*'), requêtes same-origin/sans Origin (curl,
+    // apps natives, health checks), ou origine explicitement listée.
+    if (corsAllowAll || !origin || corsOriginsList.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(null, false); // origine non autorisée : pas d'en-tête CORS
+  },
+  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'X-Client'],
+  credentials: false,
+}));
 app.use(express.json({ limit: '2mb' }));
 
 // ── Base de données SQLite ───────────────────────────────────────────────────

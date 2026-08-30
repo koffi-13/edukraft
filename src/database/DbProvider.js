@@ -22,6 +22,7 @@ import { createProgressRepository } from './repositories/progressRepository';
 import { createBadgeRepository } from './repositories/badgeRepository';
 import { createGamificationRepository } from './repositories/gamificationRepository';
 import { createSyncRepository } from './repositories/syncRepository';
+import persistentStorage from '../utils/persistentStorage';
 
 const DbContext = createContext(null);
 
@@ -53,6 +54,16 @@ class MemoryStore {
 }
 
 const memoryStore = new MemoryStore();
+
+// ── Clés de persistance ──────────────────────────────────────────────────
+// v1.1.3 : tout passe par persistentStorage (AsyncStorage natif > localStorage
+// web > mémoire). Avant, le `require('@react-native-async-storage/async-storage')`
+// levait une exception silencieuse sur web → RIEN n'était persisté → au
+// rechargement, le profil invité était perdu (écran Login à chaque fois).
+const KEYS = {
+  LEARNER:  'ek_learner',
+  SNAPSHOT: 'ek_memory_snapshot', // snapshot complet du store mémoire
+};
 
 // ── Helper : persister un objet learner complet dans SQLite ──────────────────
 // v1.1 (correctif critique) : quand SQLite est vide mais qu'un learner existe
@@ -91,6 +102,47 @@ async function upsertLearnerRow(db, learner) {
   );
 }
 
+// ── Snapshot du store mémoire (mode web / SQLite indisponible) ────────────
+// v1.1.3 : sauvegarde TOUT l'état (learner, progress, quiz, badges, streaks,
+// succès, objectif quotidien) sous une seule clé — restauré intégralement au
+// démarrage. C'est LA correction du bug de persistance : avant, seules les
+// anciennes clés séparées (ek_learner/ek_progress/ek_badges) étaient écrites,
+// et uniquement quand `learner` changeait — les progressions récentes
+// n'étaient jamais re-sauvegardées, et sur web rien n'était persisté du tout.
+async function saveMemorySnapshot(store) {
+  try {
+    const snapshot = {
+      learner: store.learner,
+      progress: store.progress,
+      quizAttempts: store.quizAttempts,
+      badges: store.badges,
+      streakLogs: store.streakLogs,
+      achievements: store.achievements,
+      dailyGoal: store.dailyGoal,
+      savedAt: new Date().toISOString(),
+    };
+    await persistentStorage.setItem(KEYS.SNAPSHOT, JSON.stringify(snapshot));
+  } catch (_) {}
+}
+
+async function loadMemorySnapshot(store) {
+  try {
+    const raw = await persistentStorage.getItem(KEYS.SNAPSHOT);
+    if (!raw) return false;
+    const snap = JSON.parse(raw);
+    if (snap.learner) store.learner = snap.learner;
+    if (snap.progress) store.progress = snap.progress;
+    if (snap.quizAttempts) store.quizAttempts = snap.quizAttempts;
+    if (snap.badges) store.badges = snap.badges;
+    if (snap.streakLogs) store.streakLogs = snap.streakLogs;
+    if (snap.achievements) store.achievements = snap.achievements;
+    if (snap.dailyGoal) store.dailyGoal = snap.dailyGoal;
+    return !!snap.learner;
+  } catch (_) {
+    return false;
+  }
+}
+
 // ── Provider ─────────────────────────────────────────────────────────────────
 export function DbProvider({ children }) {
   const [db, setDb]           = useState(null);
@@ -99,36 +151,23 @@ export function DbProvider({ children }) {
   const [error, setError]     = useState(null);
   const storeRef              = useRef(memoryStore);
 
-  // ── Synchroniser le learner dans AsyncStorage à chaque changement ──────
+  // ── Synchroniser le learner dans le stockage persistant à chaque changement ──
   // Garantit que le learner survit au redémarrage même sans SQLite
   useEffect(() => {
     if (learner) {
-      try {
-        const AsyncStorage = require('@react-native-async-storage/async-storage');
-        AsyncStorage.setItem('ek_learner', JSON.stringify(learner)).catch(() => {});
-      } catch (_) {}
+      persistentStorage.setItem(KEYS.LEARNER, JSON.stringify(learner)).catch(() => {});
     }
   }, [learner]);
 
-  // ── Synchroniser les progrès dans AsyncStorage ─────────────────────────
-  useEffect(() => {
-    if (learner && storeRef.current.progress) {
-      try {
-        const AsyncStorage = require('@react-native-async-storage/async-storage');
-        AsyncStorage.setItem('ek_progress', JSON.stringify(storeRef.current.progress)).catch(() => {});
-      } catch (_) {}
-    }
-  }, [learner]); // Se déclenche quand le learner change (approximatif)
-
-  // ── Synchroniser les badges dans AsyncStorage ──────────────────────────
-  useEffect(() => {
-    if (learner && storeRef.current.badges) {
-      try {
-        const AsyncStorage = require('@react-native-async-storage/async-storage');
-        AsyncStorage.setItem('ek_badges', JSON.stringify(storeRef.current.badges)).catch(() => {});
-      } catch (_) {}
-    }
-  }, [learner]);
+  // ── Persister un snapshot complet après chaque mutation ────────────────
+  // v1.1.3 : l'ancien useEffect ne se déclenchait qu'au changement du
+  // learner — les PROGRESSIONS (leçons terminées, quiz, badges) n'étaient
+  // jamais re-sauvegardées. persistSnapshot est maintenant appelé après
+  // CHAQUE mutation publique (createLearner, updateProgress, saveQuizAttempt,
+  // issueBadge, addXP, recordLessonCompleted, setDailyGoal, updateProfile).
+  const persistSnapshot = useCallback(() => {
+    saveMemorySnapshot(storeRef.current);
+  }, []);
 
   // ── Initialisation ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -164,29 +203,27 @@ export function DbProvider({ children }) {
           const row = await nativeDb.getFirstAsync('SELECT * FROM learner LIMIT 1');
           if (row) {
             setLearner(row);
-            // Aussi sauvegarder dans AsyncStorage pour le fallback
+            // Aussi sauvegarder dans le stockage persistant (fallback)
             try {
-              const AsyncStorage = require('@react-native-async-storage/async-storage');
-              await AsyncStorage.setItem('ek_learner', JSON.stringify(row));
+              await persistentStorage.setItem(KEYS.LEARNER, JSON.stringify(row));
             } catch (_) {}
           } else {
-            // Pas de learner en SQLite — vérifier AsyncStorage
+            // Pas de learner en SQLite — vérifier le stockage persistant
             try {
-              const AsyncStorage = require('@react-native-async-storage/async-storage');
-              const storedLearner = await AsyncStorage.getItem('ek_learner');
+              const storedLearner = await persistentStorage.getItem(KEYS.LEARNER);
               if (storedLearner) {
                 const parsed = JSON.parse(storedLearner);
                 // v1.1 : RÉINSÉRER le learner dans SQLite (avant il restait
                 // uniquement en state → get()/addXP() retournaient null)
                 try {
                   await upsertLearnerRow(nativeDb, parsed);
-                  console.log('[DB] Learner AsyncStorage réinséré en SQLite');
+                  console.log('[DB] Learner réinséré en SQLite depuis le stockage persistant');
                 } catch (reinsertErr) {
                   console.warn('[DB] Échec réinsertion SQLite :', reinsertErr.message);
                 }
                 storeRef.current.learner = parsed;
                 setLearner(parsed);
-                console.log('[DB] Learner restauré depuis AsyncStorage (SQLite vide)');
+                console.log('[DB] Learner restauré (SQLite vide → stockage persistant)');
               }
             } catch (_) {}
           }
@@ -197,27 +234,26 @@ export function DbProvider({ children }) {
           // expo-sqlite non disponible (web, etc.) > fallback mémoire
           console.log('[DB] SQLite non disponible, mode mémoire activé');
 
-          // Restaurer TOUT depuis AsyncStorage
-          try {
-            const AsyncStorage = require('@react-native-async-storage/async-storage');
-            const storedLearner = await AsyncStorage.getItem('ek_learner');
-            if (storedLearner) {
-              const parsed = JSON.parse(storedLearner);
-              storeRef.current.learner = parsed;
-              setLearner(parsed);
-              console.log('[DB] Learner restauré depuis AsyncStorage');
-            }
-            const storedProgress = await AsyncStorage.getItem('ek_progress');
-            if (storedProgress) {
-              storeRef.current.progress = JSON.parse(storedProgress);
-              console.log('[DB] Progress restauré depuis AsyncStorage');
-            }
-            const storedBadges = await AsyncStorage.getItem('ek_badges');
-            if (storedBadges) {
-              storeRef.current.badges = JSON.parse(storedBadges);
-              console.log('[DB] Badges restaurés depuis AsyncStorage');
-            }
-          } catch (_) {}
+          // v1.1.3 : restaurer le SNAPSHOT COMPLET depuis le stockage
+          // persistant (learner + progressions + badges + streaks + succès).
+          // Avant : sur web le require AsyncStorage échouait silencieusement
+          // → rien n'était restauré → écran Login à chaque rechargement.
+          const restoredFromSnapshot = await loadMemorySnapshot(storeRef.current);
+          if (restoredFromSnapshot) {
+            console.log('[DB] Snapshot complet restauré (learner + progressions)');
+            setLearner(storeRef.current.learner);
+          } else {
+            // Compat : ancienne clé individuelle (ek_learner seul)
+            try {
+              const storedLearner = await persistentStorage.getItem(KEYS.LEARNER);
+              if (storedLearner) {
+                const parsed = JSON.parse(storedLearner);
+                storeRef.current.learner = parsed;
+                setLearner(parsed);
+                console.log('[DB] Learner restauré depuis le stockage persistant');
+              }
+            } catch (_) {}
+          }
 
           if (storeRef.current.learner) {
             setLearner(storeRef.current.learner);
@@ -260,13 +296,14 @@ export function DbProvider({ children }) {
   const createLearner = useCallback(async ({ id, name, phone, language = 'fr' }) => {
     const result = await learnerRepo().create({ id, name, phone, language });
     setLearner(result);
-    // Persister dans AsyncStorage (fallback si SQLite non dispo)
+    storeRef.current.learner = result;
+    // Persister dans le stockage multi-plateforme + snapshot complet
     try {
-      const AsyncStorage = require('@react-native-async-storage/async-storage');
-      await AsyncStorage.setItem('ek_learner', JSON.stringify(result));
+      await persistentStorage.setItem(KEYS.LEARNER, JSON.stringify(result));
     } catch (_) {}
+    persistSnapshot();
     return result;
-  }, [learnerRepo]);
+  }, [learnerRepo, persistSnapshot]);
 
   const addXP = useCallback(async (amount) => {
     if (!learner) return null;
@@ -274,25 +311,79 @@ export function DbProvider({ children }) {
     // Recharger le learner pour l'UI
     const updated = await learnerRepo().get();
     setLearner(updated);
-    // Persister dans AsyncStorage
+    storeRef.current.learner = updated || storeRef.current.learner;
+    // Persister dans le stockage multi-plateforme
     if (updated) {
       try {
-        const AsyncStorage = require('@react-native-async-storage/async-storage');
-        await AsyncStorage.setItem('ek_learner', JSON.stringify(updated));
+        await persistentStorage.setItem(KEYS.LEARNER, JSON.stringify(updated));
       } catch (_) {}
     }
+    persistSnapshot();
     return totalXp;
-  }, [learner, learnerRepo]);
+  }, [learner, learnerRepo, persistSnapshot]);
 
   /** Met à jour les champs du profil étendu (v1.1). */
   const updateProfile = useCallback(async (fields) => {
     if (!learner) return null;
     const updated = await learnerRepo().updateProfile(learner.id, fields);
     setLearner(updated);
+    storeRef.current.learner = updated || storeRef.current.learner;
     // Enqueue pour sync (type 'learner' avec operation UPDATE)
     if (enqueue) await enqueue('learner', 'UPDATE', learner.id, updated);
+    persistSnapshot();
     return updated;
-  }, [learner, learnerRepo, enqueue]);
+  }, [learner, learnerRepo, enqueue, persistSnapshot]);
+
+  /**
+   * v1.1.3 : lie le learner local à un compte serveur (après inscription ou
+   * connexion). Le learner GARDE toutes ses progressions locales — il gagne
+   * un server_id pour la synchronisation. Utilisé notamment quand un invité
+   * crée son compte au moment de demander une déconnexion : ses données
+   * locales deviennent rattachées au compte et seront synchronisées.
+   */
+  const linkLearnerToAccount = useCallback(async (serverUser) => {
+    if (!learner || !serverUser?.id) return learner;
+    const now = new Date().toISOString();
+    try {
+      if (db) {
+        await db.runAsync(
+          'UPDATE learner SET server_id = ?, sync_status = ?, updated_at = ? WHERE id = ?',
+          [String(serverUser.id), 'pending', now, learner.id]
+        );
+        const { QUERIES } = require('./schema');
+        const refreshed = await db.getFirstAsync(QUERIES.GET_LEARNER);
+        if (refreshed) {
+          setLearner(refreshed);
+          storeRef.current.learner = refreshed;
+          try {
+            await persistentStorage.setItem(KEYS.LEARNER, JSON.stringify(refreshed));
+          } catch (_) {}
+        }
+      } else {
+        // Mode mémoire
+        const updated = {
+          ...storeRef.current.learner,
+          server_id: String(serverUser.id),
+          sync_status: 'pending',
+          updated_at: now,
+        };
+        storeRef.current.learner = updated;
+        setLearner(updated);
+        try {
+          await persistentStorage.setItem(KEYS.LEARNER, JSON.stringify(updated));
+        } catch (_) {}
+      }
+      // Enqueue pour que la sync pousse le learner vers le compte serveur
+      if (enqueue) {
+        await enqueue('learner', 'UPDATE', learner.id, storeRef.current.learner);
+      }
+      persistSnapshot();
+      console.log('[DB] Learner lié au compte serveur', serverUser.id);
+    } catch (e) {
+      console.warn('[DB] linkLearnerToAccount échec :', e.message);
+    }
+    return storeRef.current.learner;
+  }, [learner, db, enqueue, persistSnapshot]);
 
   /** Calcule le pourcentage de complétion du profil. */
   const getProfileCompletion = useCallback(() => {
@@ -315,18 +406,24 @@ export function DbProvider({ children }) {
   }, [learner, progressRepo]);
 
   const updateProgress = useCallback(async (moduleId, updates) => {
-    return progressRepo().update(learner, moduleId, updates);
-  }, [learner, progressRepo]);
+    const result = await progressRepo().update(learner, moduleId, updates);
+    persistSnapshot();
+    return result;
+  }, [learner, progressRepo, persistSnapshot]);
 
   // ── Quiz ──────────────────────────────────────────────────────────────
   const saveQuizAttempt = useCallback(async (payload) => {
-    return progressRepo().saveQuizAttempt(learner, payload);
-  }, [learner, progressRepo]);
+    const result = await progressRepo().saveQuizAttempt(learner, payload);
+    persistSnapshot();
+    return result;
+  }, [learner, progressRepo, persistSnapshot]);
 
   // ── Badges ────────────────────────────────────────────────────────────
   const issueBadge = useCallback(async (payload) => {
-    return badgeRepo().issue(learner, payload);
-  }, [learner, badgeRepo]);
+    const result = await badgeRepo().issue(learner, payload);
+    persistSnapshot();
+    return result;
+  }, [learner, badgeRepo, persistSnapshot]);
 
   const getAllBadges = useCallback(async () => {
     return badgeRepo().getAll(learner);
@@ -350,8 +447,10 @@ export function DbProvider({ children }) {
   }, [learner, gamificationRepo]);
 
   const setDailyGoal = useCallback(async (goalType, target) => {
-    return gamificationRepo().setDailyGoal(learner, goalType, target);
-  }, [learner, gamificationRepo]);
+    const result = await gamificationRepo().setDailyGoal(learner, goalType, target);
+    persistSnapshot();
+    return result;
+  }, [learner, gamificationRepo, persistSnapshot]);
 
   /**
    * Enregistre une leçon complétée et déclenche toute la gamification.
@@ -359,7 +458,7 @@ export function DbProvider({ children }) {
    */
   const recordLessonCompleted = useCallback(async (payload) => {
     const gamification = require('../gamification');
-    return gamification.recordLessonCompleted(
+    const result = await gamification.recordLessonCompleted(
       {
         learner, setLearner, enqueue,
         getCurrentLearner: () => storeRef.current.learner,
@@ -369,7 +468,9 @@ export function DbProvider({ children }) {
       },
       payload,
     );
-  }, [learner, enqueue, runAsync, getFirst, getAllProgress, getAchievements, getDailyGoal]);
+    persistSnapshot();
+    return result;
+  }, [learner, enqueue, runAsync, getFirst, getAllProgress, getAchievements, getDailyGoal, persistSnapshot]);
 
   /** Retourne l'état gamification complet pour l'affichage. */
   const getGamificationState = useCallback(async () => {
@@ -412,6 +513,11 @@ export function DbProvider({ children }) {
     if (!db) {
       storeRef.current.reset();
       setLearner(null);
+      // v1.1.3 : purge aussi le stockage persistant (reset = tout effacer)
+      try {
+        await persistentStorage.removeItem(KEYS.LEARNER);
+        await persistentStorage.removeItem(KEYS.SNAPSHOT);
+      } catch (_) {}
       return;
     }
     // SQLite : supprimer et recréer la DB
@@ -426,6 +532,11 @@ export function DbProvider({ children }) {
     }
     setDb(newDb);
     setLearner(null);
+    // v1.1.3 : purge aussi le stockage persistant (reset = tout effacer)
+    try {
+      await persistentStorage.removeItem(KEYS.LEARNER);
+      await persistentStorage.removeItem(KEYS.SNAPSHOT);
+    } catch (_) {}
   }, [db]);
 
   // ── Context value ─────────────────────────────────────────────────────
@@ -433,7 +544,7 @@ export function DbProvider({ children }) {
     db, ready, error,
     learner, setLearner,
     // Learner
-    createLearner, addXP, updateProfile, getProfileCompletion,
+    createLearner, addXP, updateProfile, getProfileCompletion, linkLearnerToAccount,
     // Progress
     getProgress, getAllProgress, updateProgress,
     // Quiz

@@ -58,7 +58,7 @@ export default function OnboardingScreen({ navigation }) {
         try { await setDailyGoal('lessons', 1); } catch (_) {}
       }
     } catch (e) {
-      Alert.alert('Erreur', 'Impossible de creer ton profil.\n\n' + (e.message || e));
+      Alert.alert('Erreur', 'Impossible de créer ton profil.\n\n' + (e.message || e));
     } finally {
       setLoading(false);
     }
@@ -77,9 +77,13 @@ export default function OnboardingScreen({ navigation }) {
         <TouchableOpacity
           style={styles.backBtn}
           onPress={() => {
-            // v1.1 : logout() efface les tokens serveur MAIS GARDE le learner
-            // local (ek_learner). Puis on revient à l'écran Login.
-            logout().catch(() => {});
+            // v1.1.3 : « Retour » — si l'utilisateur a un compte (tokens), on
+            // le déconnecte proprement ; sinon (invité) on revient simplement
+            // au Login. Aucune donnée n'est supprimée (le learner n'existe
+            // pas encore à ce stade).
+            if (user) {
+              logout().catch(() => {});
+            }
             navigation?.navigate('Login');
           }}
           activeOpacity={0.85}
@@ -97,10 +101,10 @@ export default function OnboardingScreen({ navigation }) {
 
         <View style={[styles.card, Shadow.card]}>
           <Text style={styles.formTitle}>Finalise ton profil</Text>
-          <Text style={styles.formSub}>Une derniere etape avant de commencer</Text>
+          <Text style={styles.formSub}>Une dernière étape avant de commencer</Text>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Ton prenom *</Text>
+            <Text style={styles.label}>Ton prénom *</Text>
             <TextInput
               style={styles.input}
               placeholder="Ex: Kofi, Ama, Moussa..."
@@ -112,7 +116,7 @@ export default function OnboardingScreen({ navigation }) {
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Numero de telephone (optionnel)</Text>
+            <Text style={styles.label}>Numéro de téléphone (optionnel)</Text>
             <TextInput
               style={styles.input}
               placeholder="Ex: 90 XX XX XX"
@@ -148,12 +152,12 @@ export default function OnboardingScreen({ navigation }) {
           disabled={loading}
           activeOpacity={0.85}
         >
-          <Text style={styles.ctaText}>{loading ? 'Creation...' : 'Commencer l\'apprentissage'}</Text>
+          <Text style={styles.ctaText}>{loading ? 'Création...' : 'Commencer l\'apprentissage'}</Text>
         </TouchableOpacity>
 
         <Text style={styles.disclaimer}>
-          Tes donnees sont stockees sur ton telephone.{'\n'}
-          Tu peux apprendre hors ligne apres cette etape.
+          Tes données d'apprentissage sont stockées sur ton téléphone.{'\n'}
+          Tu peux apprendre hors ligne après cette étape.
         </Text>
       </ScrollView>
     </KeyboardAvoidingView>

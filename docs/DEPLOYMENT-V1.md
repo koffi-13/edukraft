@@ -244,3 +244,78 @@ Une seule variable a changer, partout ou l'API est declaree :
 ---
 
 *Genere automatiquement apres l'audit complet v1.1 - voir worklog pour le detail des 15 constats et correctifs.*
+
+---
+
+## 9. Deploiement WEB sur Vercel (v1.1.3)
+
+Le site web EduKraft est un export statique Expo (React Native Web). Deux methodes :
+
+### Option A - Via le dashboard Vercel (recommandee, ~3 min, zero terminal)
+
+1. Pousser le depot sur GitHub (branche `feat/phase1-functional`).
+2. https://vercel.com > Add New Project > Import `koffi-13/edukraft`.
+3. Framework Preset : **Other** (auto-detecte grace au `vercel.json` versionne).
+   - Build Command : `npx expo export --platform web --output-dir dist --clear`
+   - Output Directory : `dist`
+   - Install Command : `npm install --legacy-peer-deps --include=dev`
+4. (Optionnel) Environment Variable : `EXPO_PUBLIC_API_URL = https://edukraft-api.onrender.com`
+   — sans elle, le fallback runtime pointe deja sur Render (port != 3000).
+5. Deploy > le site est servi sur `https://edukraft-<hash>-koffi-13.vercel.app`
+   (renommer ensuite : Settings > Domains, ex: `edukraft.vercel.app`).
+
+Chaque push sur la branche redeploie automatiquement.
+
+### Option B - En local avec le CLI Vercel
+
+```bash
+npm i -g vercel
+cd edukraft
+vercel login            # ouvre le navigateur
+vercel --prod           # lit vercel.json, build + deploy en un commande
+```
+
+### Option C - Script API (token limite sans acces CLI)
+
+```bash
+npx expo export --platform web --output-dir web-dist --clear
+node scripts/vercel-deploy.mjs web-dist edukraft <TOKEN_VERCEL>
+```
+
+### ⚠️ CORS : action requise cote Render (fait dans le code, a deployer)
+
+Le correctif CORS v1.1.3 (`server/index.js`) doit etre DEPLOYE sur Render pour
+que le site Vercel puisse appeler l'API (sinon « Failed to fetch » sur
+login/register ; le mode sans compte fonctionne des maintenant car 100 % local).
+Si la variable `CORS_ORIGINS` est definie sur Render, y ajouter le domaine
+Vercel : `CORS_ORIGINS=https://edukraft.vercel.app` (ou `*` en dev).
+
+### Google OAuth sur le web
+
+Ajouter dans Google Cloud Console > Credentials > Authorized redirect URIs :
+`https://<domaine-vercel>` (l'origine exacte). Le flux web redirige vers
+l'origine avec le `id_token` en fragment hash.
+
+---
+
+## 10. Tests de recette v1.1.3 (mis a jour - persistance hors-ligne)
+
+1. **Premier lancement** : Login > « Continuer sans compte » > Onboarding
+   (prenom + telephone optionnel + langue) > Dashboard.
+2. **Persistance (CAHIER DES CHARGES)** : tuer l'app completement > rouvrir >
+   Dashboard DIRECT avec le prenom et TOUTES les progressions.
+3. **Deconnexion invite (CAHIER DES CHARGES)** : Profil > Se deconnecter >
+   alerte « Cree ton compte pour te deconnecter » > « Plus tard » : rien ne
+   bouge, les donnees restent dans l'app.
+4. **Invite > compte** : Se deconnecter > « Creer un compte » > formulaire
+   pre-rempli > inscription en ligne > compte cree, donnees LIEES (server_id)
+   > maintenant la deconnexion est autorisee.
+5. **Reconnexion** : Login (email/OTP/Google) > Dashboard DIRECT avec les
+   donnees (plus jamais d'Onboarding qui ecrase la progression).
+6. **« Continuer sans compte » apres deconnexion** : reprend la session locale
+   la ou elle s'etait arretee (Dashboard direct).
+7. **Google** (APK) : bouton G > consentement > retour automatique dans l'app
+   via la page relais `https://edukraft-api.onrender.com/api/auth/google/callback`
+   (URI a autoriser dans Google Cloud Console).
+8. **Mode avion** : lecon complete + quiz > XP/streak s'incrementent en local >
+   reconnexion > la sync se vide toute seule.

@@ -31,7 +31,7 @@
     "in_progress":        "en cours",
     "lessons_done":       "leçons terminées",
     "streak_label":       "Jours d'affilée",
-    "offline_banner":     "Mode hors-ligne - progression sauvegardée localement"
+    "offline_banner":     "Mode hors-ligne — progression sauvegardée localement"
   },
 
   "lesson": {
@@ -151,7 +151,7 @@
     "email_label":            "Email",
     "email_placeholder":      "ton@email.com",
     "password_label":         "Mot de passe",
-    "password_placeholder":   "********",
+    "password_placeholder":   "••••••••",
     "login_button":           "Se connecter",
     "login_loading":          "Connexion...",
     "forgot_password":        "Mot de passe oublié ?",
@@ -179,7 +179,7 @@
     "phone_placeholder":      "228 90 XX XX XX",
     "send_code":              "Envoyer le code",
     "code_label":             "Code de vérification",
-    "code_placeholder":       "* * * * * *",
+    "code_placeholder":       "• • • • • •",
     "verify_code":            "Vérifier le code",
     "code_sent":              "Code envoyé par SMS",
     "otp_send_error":         "Envoi du code échoué",
@@ -224,7 +224,7 @@
     "goal_met":                  "Objectif atteint !",
     "goal_remaining":            "Encore {{remaining}} pour atteindre ton objectif",
     "set_goal_title":            "Définis ton objectif",
-    "set_goal_desc":             "Choisis un rythme qui te convient - modifiable à tout moment.",
+    "set_goal_desc":             "Choisis un rythme qui te convient — modifiable à tout moment.",
     "choose_goal":               "Choisir un objectif",
     "goal_confirm_title":        "Confirmer l'objectif",
     "goal_confirm_msg":          "Ton objectif : {{goal}}",
@@ -258,7 +258,7 @@
     "celebration_goal_met_title":"Objectif du jour atteint",
     "celebration_achievement_title": "Nouveau succès débloqué",
     "celebration_streak_title":  "Ta série continue",
-    "streak_restarted":          "Nouvelle série - chaque jour compte.",
+    "streak_restarted":          "Nouvelle série — chaque jour compte.",
     "daily_goal_reached":        " Bravo, tu as atteint ton objectif du jour.",
 
     "profile_link_title":        "Progression & succès",

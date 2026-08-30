@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../theme';
 import { t, setLanguage, AVAILABLE_LANGUAGES } from '../i18n';
 import { useAuth } from '../contexts/AuthContext';
+import { useDb } from '../database/DbProvider';
 import ENV from '../config/env';
 
 // Imports dynamiques (peuvent ne pas être dispo en web/test)
@@ -72,16 +73,48 @@ const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ||
   '627774206464-ktg1e33crrdq398e6hiunvlg9pucf1j7.apps.googleusercontent.com';
 const FACEBOOK_APP_ID  = process.env.EXPO_PUBLIC_FACEBOOK_APP_ID || '';
 
-export default function RegisterScreen({ navigation }) {
+export default function RegisterScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { register, loginGoogle, loginApple, loginFacebook, error, clearError } = useAuth();
+  const { learner, linkLearnerToAccount } = useDb();
 
-  const [name, setName]           = useState('');
+  // v1.1.3 : `fromLogout` — inscription demandée depuis le Profil (invité qui
+  // veut se déconnecter) : après l'inscription, on LIE le learner local au
+  // compte (progression conservée) et on revient au Profil au lieu d'aller
+  // à l'Onboarding (le profil existe déjà).
+  const fromLogout = !!(route?.params?.fromLogout);
+
+  const [name, setName]           = useState(learner?.name || '');
   const [email, setEmail]         = useState('');
   const [password, setPassword]   = useState('');
-  const [lang, setLang]           = useState('fr');
+  const [lang, setLang]           = useState(learner?.language || 'fr');
   const [loading, setLoading]     = useState(false);
   const [oauthLoading, setOauthLoading] = useState(null);
+
+  // ── Après une authentification réussie ───────────────────────────────
+  // v1.1.3 : si un learner local existe déjà (invité / utilisateur
+  // déconnecté), on le LIE au compte et on NE PASSE PAS par l'Onboarding —
+  // ses données sont restaurées directement. Sinon, Onboarding normal.
+  const afterAuthSuccess = async (authData) => {
+    if (learner) {
+      try {
+        await linkLearnerToAccount(authData?.user || authData);
+      } catch (_) {}
+      if (fromLogout) {
+        Alert.alert(
+          'Compte créé ✓',
+          'Tes données sont maintenant rattachées à ton compte. Tu peux te déconnecter : elles seront restaurées automatiquement à ta prochaine connexion.',
+          [{ text: 'OK', onPress: () => navigation?.goBack() }],
+        );
+        return;
+      }
+      // Connexion classique avec learner existant : le gating bascule
+      // automatiquement vers le Dashboard (sessionEnded retiré par
+      // handleAuthSuccess).
+      return;
+    }
+    navigation?.navigate('Onboarding');
+  };
 
   // ── Inscription email ────────────────────────────────────────────────────
   const handleRegister = async () => {
@@ -100,14 +133,14 @@ export default function RegisterScreen({ navigation }) {
     setLoading(true);
     try {
       setLanguage(lang);
-      await register({
+      const data = await register({
         displayName: name.trim(),
         email: email.trim(),
         password,
         language: lang,
       });
-      // v1.1 : succès → Onboarding pré-rempli (le learner est créé là-bas)
-      navigation?.navigate('Onboarding');
+      // v1.1.3 : learner existant → liaison + retour ; sinon → Onboarding
+      await afterAuthSuccess(data);
     } catch (e) {
       Alert.alert(t('auth.error_generic'), e.message);
     } finally {
@@ -155,7 +188,7 @@ export default function RegisterScreen({ navigation }) {
         throw new Error('id_token absent de la reponse Google');
       }
       await loginGoogle(params.id_token);
-      navigation?.navigate('Onboarding');
+      await afterAuthSuccess(null);
     } catch (e) {
       Alert.alert(t('auth.oauth_error'), e.message);
     } finally {
@@ -194,7 +227,7 @@ export default function RegisterScreen({ navigation }) {
         return;
       }
       await loginFacebook(params.access_token);
-      navigation?.navigate('Onboarding');
+      await afterAuthSuccess(null);
     } catch (e) {
       Alert.alert(t('auth.oauth_error'), e.message);
     } finally {
@@ -222,7 +255,7 @@ export default function RegisterScreen({ navigation }) {
         identityToken: credential.identityToken,
         authorizationCode: credential.authorizationCode,
       });
-      navigation?.navigate('Onboarding');
+      await afterAuthSuccess(null);
     } catch (e) {
       if (e.code !== 'ERR_CANCELED') {
         Alert.alert(t('auth.oauth_error'), e.message);

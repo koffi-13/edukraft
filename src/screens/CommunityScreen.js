@@ -14,22 +14,22 @@ import { t } from '../i18n';
 // ── Liste des fonctionnalités à venir ─────────────────────────────────────────
 const UPCOMING_FEATURES = [
   {
-    icon: '[S]',
+    icon: '📊',
     title: 'Classements locaux',
     desc: 'Compare ta progression avec d\'autres apprenants de ta ville',
   },
   {
-    icon: '[D]',
+    icon: '💬',
     title: 'Forum d\'entraide',
     desc: 'Pose tes questions et partage tes expériences',
   },
   {
-    icon: '[!]',
+    icon: '🎯',
     title: 'Défis de groupe',
     desc: 'Rejoins des défis collectifs pour te motiver',
   },
   {
-    icon: '[&]',
+    icon: '🤝',
     title: 'Mentorat',
     desc: 'Connecte-toi avec des professionnels expérimentés',
   },
@@ -68,7 +68,7 @@ export default function CommunityScreen() {
       >
         {/* Héro / illustration */}
         <View style={[styles.hero, Shadow.card]}>
-          <Text style={styles.heroEmoji}>[C]</Text>
+          <Text style={styles.heroEmoji}>👥</Text>
           <Text style={styles.heroTitle}>Une communauté qui apprend ensemble</Text>
           <Text style={styles.heroDesc}>
             EduKraft construit un espace où les apprenants du Togo et d'ailleurs
@@ -82,7 +82,7 @@ export default function CommunityScreen() {
           <Text style={styles.sectionLabel}>Ce que tu pourras faire</Text>
           {BENEFITS.map((benefit, i) => (
             <View key={i} style={styles.benefitRow}>
-              <Text style={styles.benefitBullet}>+</Text>
+              <Text style={styles.benefitBullet}>✓</Text>
               <Text style={styles.benefitText}>{benefit}</Text>
             </View>
           ))}
@@ -116,7 +116,7 @@ export default function CommunityScreen() {
 
         {/* Bannière de bas de page */}
         <View style={[styles.bottomBanner, Shadow.card]}>
-          <Text style={styles.bottomBannerEmoji}>[&gt;&gt;]</Text>
+          <Text style={styles.bottomBannerEmoji}>🚀</Text>
           <View style={styles.bottomBannerTextWrap}>
             <Text style={styles.bottomBannerTitle}>Bientôt disponible</Text>
             <Text style={styles.bottomBannerDesc}>
