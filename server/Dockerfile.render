@@ -4,7 +4,16 @@ FROM node:20-slim
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install --omit=dev --legacy-peer-deps
-COPY index.js auth.js gamification.js payments.js blockchain.js ./
+# ⚠️ Wildcard *.js : TOUT nouveau module serveur (dbReplication.js en v1.1.9,
+# futurs modules) est copié automatiquement. Avant, la liste explicite oubliait
+# les nouveaux fichiers → crash « Cannot find module './dbReplication' » sur Render.
+# Le .dockerignore exclut déjà test-*.js et run-e2e.sh du contexte.
+COPY *.js ./
+
+# Catalogue de formation (server/content/*.json) servi par /api/content/modules —
+# sans lui, l'app démarre mais la liste des modules est VIDE.
+COPY content ./content
+
 RUN mkdir -p /data
 EXPOSE 3001
 ENV PORT=3001
