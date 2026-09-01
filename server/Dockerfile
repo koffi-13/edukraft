@@ -13,7 +13,12 @@ RUN npm install --omit=dev --legacy-peer-deps
 
 # Copier le code du serveur SANS node_modules
 # (les binaires Windows de node_modules seraient incompatibles)
-COPY server/index.js server/auth.js server/gamification.js server/payments.js server/blockchain.js ./
+# ⚠️ Wildcard : tout nouveau module (ex. dbReplication.js v1.1.9) est copié
+# automatiquement — sinon crash « Cannot find module » au démarrage.
+COPY server/*.js ./
+
+# Catalogue de formation servi par /api/content/modules
+COPY server/content ./content
 
 # Créer le dossier de données
 RUN mkdir -p /data
