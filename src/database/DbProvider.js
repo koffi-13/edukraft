@@ -587,6 +587,47 @@ export function DbProvider({ children }) {
               await persistentStorage.setItem(KEYS.LEARNER, JSON.stringify(row));
               await persistentStorage.setItem(KEYS.ACTIVE_LEARNER, row.id);
             } catch (_) {}
+
+            // ── v1.1.10 : RÉPARATION des objectifs orphelins ──
+            // Bug de closure v1.1.9 : l'objectif de l'Onboarding était écrit
+            // avec learner_id NULL / id « goal_undefined » → invisible pour
+            // getDailyGoal (WHERE learner_id = ?) et jamais poussé. On
+            // repointe la ligne vers le learner ACTIF puis on l'enfile pour
+            // le serveur (INSERT direct sync_queue, comme syncRepository).
+            try {
+              const orphanGoal = await nativeDb.getFirstAsync(
+                "SELECT * FROM daily_goal WHERE learner_id IS NULL OR id = 'goal_undefined' OR learner_id = 'undefined'"
+              );
+              if (orphanGoal) {
+                await nativeDb.runAsync(
+                  'UPDATE daily_goal SET learner_id = ?, id = ? WHERE id = ?',
+                  [row.id, `goal_${row.id}`, orphanGoal.id]
+                );
+                const fixed = await nativeDb.getFirstAsync(
+                  'SELECT * FROM daily_goal WHERE learner_id = ?', [row.id]
+                );
+                if (fixed) {
+                  await nativeDb.runAsync(
+                    `INSERT INTO sync_queue (id, table_name, record_id, operation, payload, queued_at, retry_count)
+                     VALUES (?, ?, ?, ?, ?, ?, 0)`,
+                    [
+                      `sq_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                      'daily_goal', 'UPDATE', fixed.id, JSON.stringify({
+                        learner_id: row.id,
+                        goal_type: fixed.goal_type,
+                        goal_target: fixed.goal_target,
+                        enabled: fixed.enabled ?? 1,
+                        updated_at: fixed.updated_at || new Date().toISOString(),
+                      }),
+                      new Date().toISOString(),
+                    ]
+                  );
+                  console.log('[DB] v1.1.10 : objectif orphelin réparé et ré-enfilé pour', row.id);
+                }
+              }
+            } catch (e) {
+              console.warn('[DB] Réparation objectif orphelin :', e.message);
+            }
           } else {
             // Pas de learner en SQLite pour CETTE session — vérifier le
             // stockage persistant (v1.1.8 : snapshot SCOPÉ au compte attendu)
@@ -1572,7 +1613,15 @@ export function DbProvider({ children }) {
   }, [learner, gamificationRepo]);
 
   const setDailyGoal = useCallback(async (goalType, target) => {
-    const result = await gamificationRepo().setDailyGoal(learner, goalType, target);
+    // v1.1.10 : le state `learner` peut être NULL juste après createLearner
+    // (closure obsolète — OnboardingScreen appelle setDailyGoal dans le MÊME
+    // handler que createLearner, avant le re-render React). Résultat v1.1.9 :
+    // ligne daily_goal écrite avec learner_id NULL (invisible ensuite —
+    // « l'objectif n'est jamais conservé ») et op sync rejetée par le serveur
+    // (« learner_id manquant » → abandon après retries). On résout
+    // dynamiquement le learner ACTIF : state, sinon store mémoire.
+    const active = learner || storeRef.current?.learner || null;
+    const result = await gamificationRepo().setDailyGoal(active, goalType, target);
     persistSnapshot();
     return result;
   }, [learner, gamificationRepo, persistSnapshot]);

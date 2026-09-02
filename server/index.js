@@ -247,6 +247,172 @@ function findOrCreateLearner(clientId, payload) {
   return learner;
 }
 
+// ── v1.1.10 : fusion des learners ORPHELINS par email ───────────────────────
+//
+// CAUSE RACINE du bug « la progression est perdue alors que le profil est
+// conservé » : quand le disque Render était éphémère (avant la persistance),
+// le compte Google était recréé avec un NOUVEL user.id → la clé canonique du
+// client basculait (lrn_<ancien id> → lrn_<nouvel id>) → les données poussées
+// avant l'effacement restaient accrochées à l'ANCIENNE ligne learner, tandis
+// que le pull (GET /api/progress/:clientId, clé canonique) renvoyait la
+// ligne NEUVE quasi vide. Le profil semblait conservé (il vient du compte
+// d'authentification), la progression disparaissait.
+//
+// GUÉRISON : rapatrier TOUT le contenu des lignes orphelines (même email,
+// autre client_id) vers la ligne canonique — compteurs MAX, profil rempli,
+// progressions fusionnées par module, quiz/badges repointés, streaks
+// fusionnés par date, succès importés, objectif le plus récent conservé.
+// Appelée sur le pull (/api/progress) ET sur le push sync (op learner avec
+// email) : les appareils se guérissent au prochain passage en ligne, sans
+// mise à jour de l'APK.
+function mergeOrphanLearnerRows(canonicalClientId, email) {
+  if (!canonicalClientId || !email) return 0;
+  const canonical = db.prepare('SELECT * FROM learner WHERE client_id = ?').get(canonicalClientId);
+  if (!canonical) return 0;
+  const norm = String(email).toLowerCase().trim();
+  const orphans = db.prepare(
+    'SELECT * FROM learner WHERE LOWER(TRIM(COALESCE(email, \'\'))) = ? AND client_id != ?'
+  ).all(norm, canonicalClientId);
+  let merged = 0;
+  for (const orph of orphans) {
+    try {
+      const now = new Date().toISOString();
+      // 1. Compteurs du learner canonique : MAX (jamais de rétrogradation)
+      db.prepare(`
+        UPDATE learner SET
+          total_xp           = MAX(total_xp, ?),
+          streak_days        = MAX(streak_days, ?),
+          streak_freezes     = MAX(COALESCE(streak_freezes, 2), COALESCE(?, 2)),
+          best_streak        = MAX(COALESCE(best_streak, 0), COALESCE(?, 0)),
+          total_lessons_done = MAX(COALESCE(total_lessons_done, 0), COALESCE(?, 0)),
+          last_active_date   = MAX(COALESCE(last_active_date, ''), COALESCE(?, '')),
+          updated_at         = ?
+        WHERE id = ?
+      `).run(
+        orph.total_xp || 0, orph.streak_days || 0,
+        orph.streak_freezes ?? 2, orph.best_streak || 0, orph.total_lessons_done || 0,
+        orph.last_active_date || '', now, canonical.id
+      );
+
+      // 2. Profil : les champs vides du canonique sont remplis par l'orphelin
+      const setClauses = [];
+      const params = [];
+      for (const f of [...LEARNER_PROFILE_FIELDS, 'name', 'phone', 'language']) {
+        const cur = canonical[f];
+        const val = orph[f];
+        const curEmpty = cur === null || cur === undefined || String(cur).trim() === '';
+        const valOk = val !== null && val !== undefined && String(val).trim() !== '';
+        if (curEmpty && valOk) { setClauses.push(`${f} = ?`); params.push(val); }
+      }
+      if (setClauses.length) {
+        setClauses.push('updated_at = ?');
+        params.push(now, canonical.id);
+        db.prepare(`UPDATE learner SET ${setClauses.join(', ')} WHERE id = ?`).run(...params);
+      }
+
+      // 3. module_progress : fusion MAX par module_id
+      const orphProgress = db.prepare('SELECT * FROM module_progress WHERE learner_id = ?').all(orph.id);
+      for (const op of orphProgress) {
+        const existing = db.prepare(
+          'SELECT * FROM module_progress WHERE learner_id = ? AND module_id = ?'
+        ).get(canonical.id, op.module_id);
+        if (existing) {
+          db.prepare(`
+            UPDATE module_progress SET
+              status = CASE WHEN ? = 'completed' OR status = 'completed' THEN 'completed' ELSE status END,
+              current_lesson  = MAX(current_lesson, COALESCE(?, current_lesson)),
+              lessons_done    = MAX(lessons_done, COALESCE(?, lessons_done)),
+              total_xp_earned = MAX(total_xp_earned, COALESCE(?, total_xp_earned)),
+              best_score      = MAX(best_score, COALESCE(?, best_score)),
+              completed_at    = COALESCE(completed_at, ?),
+              updated_at      = ?
+            WHERE id = ?
+          `).run(
+            op.status, op.current_lesson ?? 0, op.lessons_done ?? 0,
+            op.total_xp_earned ?? 0, op.best_score ?? 0,
+            op.completed_at || null, now, existing.id
+          );
+        } else {
+          const newCli = `${canonical.client_id}_${op.module_id}`;
+          db.prepare(`
+            INSERT INTO module_progress
+              (id, server_id, client_id, learner_id, module_id, status, current_lesson, lessons_done, total_xp_earned, best_score, started_at, completed_at, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            newCli, `srv_${uuidv4().slice(0, 8)}`, newCli, canonical.id, op.module_id,
+            op.status || 'not_started', op.current_lesson || 0, op.lessons_done || 0,
+            op.total_xp_earned || 0, op.best_score || 0,
+            op.started_at || null, op.completed_at || null, op.created_at || now, now
+          );
+        }
+      }
+      db.prepare('DELETE FROM module_progress WHERE learner_id = ?').run(orph.id);
+
+      // 4. quiz_attempt / badge : repointés vers le canonique
+      db.prepare('UPDATE quiz_attempt SET learner_id = ? WHERE learner_id = ?').run(canonical.id, orph.id);
+      db.prepare('UPDATE badge SET learner_id = ? WHERE learner_id = ?').run(canonical.id, orph.id);
+
+      // 5. streak_log : fusion MAX par date d'activité
+      const orphLogs = db.prepare('SELECT * FROM streak_log WHERE learner_id = ?').all(orph.id);
+      for (const ol of orphLogs) {
+        db.prepare(`
+          INSERT INTO streak_log (id, learner_id, activity_date, lessons_done, xp_earned, streak_freeze_used, goal_met, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(learner_id, activity_date) DO UPDATE SET
+            lessons_done      = MAX(streak_log.lessons_done, excluded.lessons_done),
+            xp_earned         = MAX(streak_log.xp_earned, excluded.xp_earned),
+            goal_met          = MAX(streak_log.goal_met, excluded.goal_met),
+            streak_freeze_used = MAX(streak_log.streak_freeze_used, excluded.streak_freeze_used),
+            updated_at        = excluded.updated_at
+        `).run(
+          `${canonical.client_id}_${ol.activity_date}`, canonical.id, ol.activity_date,
+          ol.lessons_done || 0, ol.xp_earned || 0, ol.streak_freeze_used || 0,
+          ol.goal_met || 0, ol.created_at || now, now
+        );
+      }
+      db.prepare('DELETE FROM streak_log WHERE learner_id = ?').run(orph.id);
+
+      // 6. achievement : import idempotent
+      const orphAch = db.prepare('SELECT * FROM achievement WHERE learner_id = ?').all(orph.id);
+      for (const oa of orphAch) {
+        db.prepare(
+          'INSERT OR IGNORE INTO achievement (id, learner_id, achievement_key, unlocked_at) VALUES (?, ?, ?, ?)'
+        ).run(`${canonical.client_id}_${oa.achievement_key}`, canonical.id, oa.achievement_key, oa.unlocked_at || now);
+      }
+      db.prepare('DELETE FROM achievement WHERE learner_id = ?').run(orph.id);
+
+      // 7. daily_goal : le plus récent gagne
+      const orphGoal = db.prepare('SELECT * FROM daily_goal WHERE learner_id = ?').get(orph.id);
+      if (orphGoal) {
+        const canGoal = db.prepare('SELECT * FROM daily_goal WHERE learner_id = ?').get(canonical.id);
+        if (!canGoal || (orphGoal.updated_at || '') > (canGoal.updated_at || '')) {
+          db.prepare(`
+            INSERT INTO daily_goal (id, learner_id, goal_type, goal_target, enabled, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(learner_id) DO UPDATE SET
+              goal_type = excluded.goal_type,
+              goal_target = excluded.goal_target,
+              enabled = excluded.enabled,
+              updated_at = excluded.updated_at
+          `).run(
+            `goal_${canonical.id}`, canonical.id, orphGoal.goal_type,
+            orphGoal.goal_target, orphGoal.enabled ?? 1, orphGoal.updated_at || now
+          );
+        }
+        db.prepare('DELETE FROM daily_goal WHERE learner_id = ?').run(orph.id);
+      }
+
+      // 8. Ligne orpheline supprimée — une seule source de vérité
+      db.prepare('DELETE FROM learner WHERE id = ?').run(orph.id);
+      merged++;
+      console.log(`[SYNC-MERGE] Learner orphelin ${orph.client_id} (XP ${orph.total_xp || 0}) fusionné dans ${canonicalClientId} — l'appareil se guérira au prochain pull`);
+    } catch (e) {
+      console.warn(`[SYNC-MERGE] Échec fusion orphelin ${orph.client_id} :`, e.message);
+    }
+  }
+  return merged;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // ROUTES
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -348,13 +514,24 @@ app.post('/api/sync', rateLimit(30, 60000), async (req, res) => {
             learnerServerId = learner.id;
             result.server_id = learner.id;
             result.client_id = clientId;
+            // v1.1.10 : fusion des orphelins du même email vers CETTE clé
+            // canonique (guérison des comptes scindés par les anciens
+            // effacements du disque Render — l'ancienne ligne détenait la
+            // progression, la nouvelle est celle que le client pull).
+            const emailForMerge = payload.email || learner.email;
+            if (emailForMerge) {
+              try {
+                const n = mergeOrphanLearnerRows(clientId, emailForMerge);
+                if (n > 0) learnerServerId = db.prepare('SELECT id FROM learner WHERE client_id = ?').get(clientId)?.id || learnerServerId;
+              } catch (_) {}
+            }
             // Gamification : sync des champs streak/freezes/best_streak si présents
             if (payload.streak_days !== undefined || payload.streak_freezes !== undefined
                 || payload.best_streak !== undefined || payload.last_active_date !== undefined
                 || payload.total_lessons_done !== undefined) {
               gamification.applySyncOperation(db, 'learner', {
                 ...payload,
-                learner_id: learner.id,
+                learner_id: learnerServerId,
               });
             }
             break;
@@ -640,8 +817,21 @@ app.post('/api/learners/:clientId/photo', (req, res) => {
  *  RESTAURER l'intégralité des données du compte sur un nouvel appareil
  *  (inscription sur le web → connexion dans l'app APK, et vice versa). */
 app.get('/api/progress/:clientId', (req, res) => {
-  const learner = db.prepare('SELECT * FROM learner WHERE client_id = ?').get(req.params.clientId);
+  let learner = db.prepare('SELECT * FROM learner WHERE client_id = ?').get(req.params.clientId);
   if (!learner) return fail(res, 'Learner non trouvé', 404);
+
+  // v1.1.10 : fusionner les learners orphelins du même email dans cette clé
+  // canonique — guérit les comptes scindés par les anciens effacements du
+  // disque Render (progression restée sur l'ancienne ligne) — PUIS relire
+  // la ligne enrichie avant de construire la réponse.
+  if (learner.email) {
+    try {
+      const merged = mergeOrphanLearnerRows(req.params.clientId, learner.email);
+      if (merged > 0) {
+        learner = db.prepare('SELECT * FROM learner WHERE client_id = ?').get(req.params.clientId) || learner;
+      }
+    } catch (_) {}
+  }
 
   const progress = db.prepare('SELECT * FROM module_progress WHERE learner_id = ? ORDER BY updated_at DESC').all(learner.id);
   const badges = db.prepare('SELECT * FROM badge WHERE learner_id = ? ORDER BY issued_at DESC').all(learner.id);
