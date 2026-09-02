@@ -58,8 +58,15 @@ export default function ProfileScreen({ navigation }) {
   // v1.1.11 : AUTO-GUÉRISON d'une photo distante morte — si l'URL http ne
   // charge plus (avatar Google expiré), on remplace la photo locale par
   // l'avatar ACTUEL du compte (data URI matérialisée côté serveur depuis
-  // v1.1.11) ou par null si le compte n'en a pas. La correction est poussée
-  // au serveur via la file de sync → la photo « est conservée » durablement.
+  // v1.1.11). La correction est poussée au serveur via la file de sync → la
+  // photo « est conservée » durablement.
+  // v1.1.12 : BUG flip-flop — si le compte n'a PAS d'avatar data URI (login
+  // antérieur au déploiement v1.1.11 serveur, ou matérialisation en échec),
+  // l'ancien code écrivait photo_url = NULL → le pull suivant ramenait l'URL
+  // http du serveur (fusion : local vide → serveur) → onError → re-heal →
+  // null… boucle INFINIE, jamais de photo. Désormais on ne remplace QUE si
+  // un avatar data URI du compte est disponible ; sinon on garde l'URL (et
+  // on affiche l'initiale) — le flip-flop est impossible.
   // Guard (healedPhotoRef) : une seule tentative par valeur de photo_url.
   const healBrokenPhoto = useCallback(async () => {
     const photoUrl = learner?.photo_url;
@@ -69,9 +76,13 @@ export default function ProfileScreen({ navigation }) {
     try {
       const accountAvatar = user?.avatar_url || null;
       const replacement = (accountAvatar && String(accountAvatar).startsWith('data:')) ? accountAvatar : null;
-      if (replacement !== photoUrl && updateProfile) {
+      if (replacement && replacement !== photoUrl && updateProfile) {
         await updateProfile({ photo_url: replacement });
-        console.log('[Profile] Photo distante morte remplacée' + (replacement ? ' par l\'avatar du compte' : ' (retour à l\'initiale)'));
+        console.log('[Profile] Photo distante morte remplacée par l\'avatar du compte');
+      } else {
+        // v1.1.12 : pas de remplacement dispo → on ne NULLIFIE PAS (flip-flop),
+        // l'initiale reste affichée tant qu'aucune data URI n'est disponible.
+        console.log('[Profile] Photo distante morte — initiale affichée (aucun avatar data URI de remplacement)');
       }
     } catch (e) {
       console.warn('[Profile] Guérison photo échouée :', e?.message || e);

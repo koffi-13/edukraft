@@ -1026,10 +1026,27 @@ export function DbProvider({ children }) {
       }
 
       // Badges : importer ceux du serveur absents localement
+      // v1.1.12 : RÉCONCILIATION DES DATES — avant, un badge serveur pour un
+      // module déjà badgé localement était IGNORÉ (`continue`) : chaque
+      // appareil gardait « sa » date d'émission (horloge de l'appareil qui a
+      // (re-)gagné le badge) → « badges avec des dates différentes entre le
+      // web et le mobile », divergence PERMANENTE. Désormais : la date la
+      // PLUS ANCIENNE gagne (première fois que le badge a réellement été
+      // gagné) — côté local (UPDATE) et côté serveur (re-push si le local
+      // est plus ancien, le serveur appliquant lui aussi MIN).
       const localBadgeModules = new Set((s.badges || []).map(b => b.module_id));
       const svBadgeModules = new Set((sv.badges || []).map(b => b.module_id));
+      const svBadgeByModule = {};
+      for (const sb of sv.badges || []) svBadgeByModule[sb.module_id] = sb;
       for (const sb of sv.badges || []) {
-        if (localBadgeModules.has(sb.module_id)) continue;
+        if (localBadgeModules.has(sb.module_id)) {
+          // v1.1.12 : module déjà badgé localement → réconcilier la date
+          const lb = (s.badges || []).find(b => b.module_id === sb.module_id);
+          if (lb && sb.issued_at && lb.issued_at && sb.issued_at < lb.issued_at) {
+            lb.issued_at = sb.issued_at; // le serveur est plus ancien → adopté
+          }
+          continue;
+        }
         s.badges.push({
           id: `srv_${sb.server_id || sb.id || sb.module_id}`,
           learner_id: canonicalId,
@@ -1051,6 +1068,18 @@ export function DbProvider({ children }) {
             module_title: lb.module_title, score: lb.score, xp_total: lb.xp_total,
             badge_hash: lb.badge_hash, qr_payload: lb.qr_payload, issued_at: lb.issued_at,
           }]);
+        } else {
+          // v1.1.12 : badge des DEUX côtés — si le LOCAL est plus ancien, le
+          // re-pousser pour que le serveur adopte la date la plus ancienne
+          // (son upsert v1.1.12 fait issued_at = MIN(existant, entrant)).
+          const sb = svBadgeByModule[lb.module_id];
+          if (lb.issued_at && sb?.issued_at && lb.issued_at < sb.issued_at) {
+            pushOps.push(['badge', 'INSERT', lb.id, {
+              learner_id: canonicalId, module_id: lb.module_id,
+              module_title: lb.module_title, score: lb.score, xp_total: lb.xp_total,
+              badge_hash: lb.badge_hash, qr_payload: lb.qr_payload, issued_at: lb.issued_at,
+            }]);
+          }
         }
       }
 
@@ -1164,11 +1193,27 @@ export function DbProvider({ children }) {
       }
 
       // Badges
+      // v1.1.12 : réconciliation des dates (la plus ANCIENNE gagne) — cf.
+      // commentaire du mode mémoire ci-dessus.
       const localBadges = await db.getAllAsync('SELECT * FROM badge WHERE learner_id = ?', [canonicalId]);
       const localBadgeModules = new Set(localBadges.map(b => b.module_id));
       const svBadgeModules = new Set((sv.badges || []).map(b => b.module_id));
+      const svBadgeByModule = {};
+      for (const sb of sv.badges || []) svBadgeByModule[sb.module_id] = sb;
+      const localBadgeByModule = {};
+      localBadges.forEach(b => { localBadgeByModule[b.module_id] = b; });
       for (const sb of sv.badges || []) {
-        if (localBadgeModules.has(sb.module_id)) continue;
+        if (localBadgeModules.has(sb.module_id)) {
+          // v1.1.12 : module déjà badgé localement → réconcilier la date
+          const lb = localBadgeByModule[sb.module_id];
+          if (lb && sb.issued_at && lb.issued_at && sb.issued_at < lb.issued_at) {
+            await db.runAsync(
+              'UPDATE badge SET issued_at = ? WHERE id = ?',
+              [sb.issued_at, lb.id]
+            );
+          }
+          continue;
+        }
         await db.runAsync(
           `INSERT OR IGNORE INTO badge
            (id, learner_id, module_id, module_title, score, xp_total, badge_hash, qr_payload, blockchain_tx, issued_at, sync_status)
@@ -1185,6 +1230,17 @@ export function DbProvider({ children }) {
             module_title: lb.module_title, score: lb.score, xp_total: lb.xp_total,
             badge_hash: lb.badge_hash, qr_payload: lb.qr_payload, issued_at: lb.issued_at,
           }]);
+        } else {
+          // v1.1.12 : badge des DEUX côtés — si le LOCAL est plus ancien, le
+          // re-pousser pour que le serveur adopte la date la plus ancienne.
+          const sb = svBadgeByModule[lb.module_id];
+          if (lb.issued_at && sb?.issued_at && lb.issued_at < sb.issued_at) {
+            pushOps.push(['badge', 'INSERT', lb.id, {
+              learner_id: canonicalId, module_id: lb.module_id,
+              module_title: lb.module_title, score: lb.score, xp_total: lb.xp_total,
+              badge_hash: lb.badge_hash, qr_payload: lb.qr_payload, issued_at: lb.issued_at,
+            }]);
+          }
         }
       }
 

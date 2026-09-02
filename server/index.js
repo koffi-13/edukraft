@@ -201,6 +201,79 @@ const LEARNER_PROFILE_FIELDS = [
   'country', 'state', 'city', 'address', 'email', 'photo_url', 'bio', 'profession',
 ];
 
+/** v1.1.12 : RECOMPTAGE de l'XP total d'un learner depuis l'UNION des quiz
+ *  RÉUSSIS distincts (module, leçon) — max(xp_awarded) par clé.
+ *
+ *  PROBLÈME corrigé : tous les merges (push serveur, pull client, fusion
+ *  d'orphelins) fusionnent total_xp par MAX. Deux appareils gagnant chacun
+ *  des leçons DIFFÉRENTES en parallèle (web + mobile) perdaient l'XP du
+ *  « plus petit » : téléph. 100+50=150, tablette 100+40=140 → MAX(150,140)
+ *  = 150 alors que l'union réelle vaut 190. L'XP est UNIQUEMENT attribué à
+ *  la réussite d'un quiz (QuizScreen) : l'union des tentatives réussies
+ *  distinctes EST le total exact — idempotent (re-push d'une tentative
+ *  existante = même ligne, pas de doublon) et multi-appareils (les tentatives
+ *  des DEUX appareils coexistent).
+ *  Garde-fou : MAX avec la valeur existante — le recomptage ne peut jamais
+ *  RÉTROGRADER un total (historique antérieur aux tentatives conservées).
+ *  @returns {boolean} true si le total a été augmenté.
+ */
+function recomputeLearnerXp(learnerInternalId) {
+  try {
+    if (!learnerInternalId) return false;
+    const rows = db.prepare(`
+      SELECT module_id, lesson_index, MAX(xp_awarded) AS xp
+      FROM quiz_attempt
+      WHERE learner_id = ? AND passed = 1
+      GROUP BY module_id, lesson_index
+    `).all(learnerInternalId);
+    const unionXp = rows.reduce((sum, r) => sum + (r.xp || 0), 0);
+    const current = db.prepare('SELECT total_xp FROM learner WHERE id = ?').get(learnerInternalId);
+    if (!current) return false;
+    if (unionXp > (current.total_xp || 0)) {
+      db.prepare('UPDATE learner SET total_xp = ?, updated_at = ? WHERE id = ?')
+        .run(unionXp, new Date().toISOString(), learnerInternalId);
+      console.log(`[XP-RECOMPUTE] Learner ${learnerInternalId} : total_xp ${current.total_xp || 0} → ${unionXp} (union des quiz réussis distincts)`);
+      return true;
+    }
+    return false;
+  } catch (e) {
+    console.warn('[XP-RECOMPUTE] Erreur :', e.message);
+    return false;
+  }
+}
+
+/** v1.1.12 : dédoublonne les badges d'un learner PAR MODULE — en cas de
+ *  doublons (re-push historique non idempotent, fusion d'orphelins qui
+ *  repointe sans dédoublonner), on conserve la date d'émission la PLUS
+ *  ANCIENNE (première fois que le badge a réellement été gagné).
+ *  @returns {number} nombre de doublons supprimés.
+ */
+function dedupeLearnerBadges(learnerInternalId) {
+  try {
+    if (!learnerInternalId) return 0;
+    const badges = db.prepare(
+      'SELECT * FROM badge WHERE learner_id = ? ORDER BY issued_at ASC, created_at ASC'
+    ).all(learnerInternalId);
+    const seen = new Set();
+    let removed = 0;
+    for (const b of badges) {
+      if (seen.has(b.module_id)) {
+        db.prepare('DELETE FROM badge WHERE id = ?').run(b.id);
+        removed++;
+      } else {
+        seen.add(b.module_id);
+      }
+    }
+    if (removed > 0) {
+      console.log(`[BADGE-DEDUP] Learner ${learnerInternalId} : ${removed} doublon(s) de badge supprimé(s)`);
+    }
+    return removed;
+  } catch (e) {
+    console.warn('[BADGE-DEDUP] Erreur :', e.message);
+    return 0;
+  }
+}
+
 function findOrCreateLearner(clientId, payload) {
   let learner = db.prepare('SELECT * FROM learner WHERE client_id = ?').get(clientId);
   const now = new Date().toISOString();
@@ -265,14 +338,72 @@ function findOrCreateLearner(clientId, payload) {
 // Appelée sur le pull (/api/progress) ET sur le push sync (op learner avec
 // email) : les appareils se guérissent au prochain passage en ligne, sans
 // mise à jour de l'APK.
+// v1.1.12 : GARDE ANTI PING-PONG au niveau des APPELANTS — la fusion ne
+// fusionne QUE si le requester est la clé canonique du compte (voir
+// resolveCanonicalClientIdByEmail ci-dessous).
+
+/** v1.1.12 : résout la clé canonique d'un compte par son email.
+ *  La clé canonique EST `lrn_<user.id>` (celle que TOUTES les plateformes
+ *  dérivent du user.id renvoyé à la connexion) — elle est STABLE tant que
+ *  le compte existe (persistance GitHub). Retourne null si aucun compte
+ *  n'existe pour cet email (invités sans compte → pas de canonique).
+ */
+function resolveCanonicalClientIdByEmail(email) {
+  try {
+    const norm = String(email || '').toLowerCase().trim();
+    if (!norm) return null;
+    const u = db.prepare(
+      'SELECT id FROM user WHERE LOWER(TRIM(COALESCE(email, \'\'))) = ?'
+    ).get(norm);
+    return u ? `lrn_${u.id}` : null;
+  } catch (_) { return null; }
+}
+
+/** v1.1.12 : inverse de resolveCanonicalClientIdByEmail — retrouve l'email
+ *  du compte propriétaire d'une clé lrn_<user.id> (null si inconnue). */
+function resolveEmailByClientId(clientId) {
+  try {
+    if (typeof clientId !== 'string' || !clientId.startsWith('lrn_')) return null;
+    const userId = clientId.slice(4);
+    if (!userId) return null;
+    const u = db.prepare('SELECT email FROM user WHERE id = ?').get(userId);
+    return u?.email || null;
+  } catch (_) { return null; }
+}
+
 function mergeOrphanLearnerRows(canonicalClientId, email) {
   if (!canonicalClientId || !email) return 0;
-  const canonical = db.prepare('SELECT * FROM learner WHERE client_id = ?').get(canonicalClientId);
-  if (!canonical) return 0;
+  let canonical = db.prepare('SELECT * FROM learner WHERE client_id = ?').get(canonicalClientId);
   const norm = String(email).toLowerCase().trim();
   const orphans = db.prepare(
     'SELECT * FROM learner WHERE LOWER(TRIM(COALESCE(email, \'\'))) = ? AND client_id != ?'
   ).all(norm, canonicalClientId);
+  // v1.1.12 : ligne canonique ABSENTE mais orphelins présents — la créer
+  // depuis l'orphelin le plus riche (XP max) pour que la fusion puisse
+  // s'y dérouler. Avant, le pull de la clé canonique restait 404 alors que
+  // toutes les données vivaient sur les anciennes lignes (l'app gardait son
+  // état local mais un NOUVEL appareil ne voyait jamais rien : le compte
+  // semblait vide côté serveur).
+  if (!canonical) {
+    if (!orphans.length) return 0;
+    // Seed : l'orphelin le plus RICHE (XP max) fournit la base de la ligne
+    // canonique — ensuite la boucle de fusion ci-dessous y rapatrie TOUT le
+    // contenu de chaque orphelin (y compris le seed) et les supprime.
+    const richest = orphans.slice().sort((a, b) => (b.total_xp || 0) - (a.total_xp || 0))[0];
+    const newId = uuidv4();
+    const cols = [];
+    const vals = [];
+    for (const [k, v] of Object.entries(richest)) {
+      if (k === 'id') { cols.push('id'); vals.push(newId); }
+      else if (k === 'server_id') { cols.push('server_id'); vals.push(`srv_${uuidv4().slice(0, 8)}`); }
+      else if (k === 'client_id') { cols.push('client_id'); vals.push(canonicalClientId); }
+      else { cols.push(k); vals.push(v); }
+    }
+    db.prepare(`INSERT INTO learner (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`).run(...vals);
+    canonical = db.prepare('SELECT * FROM learner WHERE client_id = ?').get(canonicalClientId);
+    console.log(`[SYNC-MERGE] Ligne canonique ${canonicalClientId} créée depuis l'orphelin ${richest.client_id} (XP ${richest.total_xp || 0})`);
+  }
+  if (!canonical) return 0;
   let merged = 0;
   for (const orph of orphans) {
     try {
@@ -351,6 +482,13 @@ function mergeOrphanLearnerRows(canonicalClientId, email) {
       // 4. quiz_attempt / badge : repointés vers le canonique
       db.prepare('UPDATE quiz_attempt SET learner_id = ? WHERE learner_id = ?').run(canonical.id, orph.id);
       db.prepare('UPDATE badge SET learner_id = ? WHERE learner_id = ?').run(canonical.id, orph.id);
+      // v1.1.12 : dédoublonner les badges par module (un badge du même module
+      // pouvait exister des DEUX côtés avant la fusion → 2 lignes, 2 dates)
+      dedupeLearnerBadges(canonical.id);
+      // v1.1.12 : l'XP du canonique = MAX(actuel, union des quiz réussis
+      // distincts des DEUX lignes) — rapatrie l'XP « scindé » entre les
+      // incarnations (avant : MAX seul perdait l'XP de l'autre ligne).
+      recomputeLearnerXp(canonical.id);
 
       // 5. streak_log : fusion MAX par date d'activité
       const orphLogs = db.prepare('SELECT * FROM streak_log WHERE learner_id = ?').all(orph.id);
@@ -518,12 +656,26 @@ app.post('/api/sync', rateLimit(30, 60000), async (req, res) => {
             // canonique (guérison des comptes scindés par les anciens
             // effacements du disque Render — l'ancienne ligne détenait la
             // progression, la nouvelle est celle que le client pull).
+            // v1.1.12 : GARDE ANTI PING-PONG — on ne fusionne QUE si le
+            // requester EST la clé canonique du compte (lrn_<user.id>).
+            // Avant, un appareil à clé PÉRIMÉE (user.id d'une incarnation
+            // antérieure du serveur) qui poussait avec son email ASPIRAIT la
+            // ligne canonique dans sa propre clé (et la supprimait !) → le
+            // canonique 404 → l'autre appareil recrée/recycle → bascule
+            // INFINIE entre les deux clés. Désormais : un push périmé
+            // n'aspire rien ; seule la clé canonique fusionne (même direction
+            // que le pull) → convergence garantie.
             const emailForMerge = payload.email || learner.email;
             if (emailForMerge) {
-              try {
-                const n = mergeOrphanLearnerRows(clientId, emailForMerge);
-                if (n > 0) learnerServerId = db.prepare('SELECT id FROM learner WHERE client_id = ?').get(clientId)?.id || learnerServerId;
-              } catch (_) {}
+              const trueCanonical = resolveCanonicalClientIdByEmail(emailForMerge);
+              if (!trueCanonical || trueCanonical === clientId) {
+                try {
+                  const n = mergeOrphanLearnerRows(clientId, emailForMerge);
+                  if (n > 0) learnerServerId = db.prepare('SELECT id FROM learner WHERE client_id = ?').get(clientId)?.id || learnerServerId;
+                } catch (_) {}
+              } else {
+                console.log(`[SYNC-MERGE] Fusion refusée : ${clientId} n'est pas la clé canonique (${trueCanonical}) — anti ping-pong v1.1.12`);
+              }
             }
             // Gamification : sync des champs streak/freezes/best_streak si présents
             if (payload.streak_days !== undefined || payload.streak_freezes !== undefined
@@ -640,6 +792,19 @@ app.post('/api/sync', rateLimit(30, 60000), async (req, res) => {
               learnerServerId = l.id;
             }
 
+            // v1.1.12 : IDEMPOTENT par client_id (l'id de la tentative côté
+            // client) — un re-push (timeout client sur un Render endormi qui
+            // A commis, retry de la file) ne crée plus de ligne fantôme. Ces
+            // doublons gonflaient Σ quiz_attempt.xp_awarded vs total_xp
+            // (audit XP impossible) et faisaient re-minter des badges.
+            const existingAttempt = clientId
+              ? db.prepare('SELECT server_id FROM quiz_attempt WHERE client_id = ?').get(clientId)
+              : null;
+            if (existingAttempt) {
+              result.server_id = existingAttempt.server_id;
+              break;
+            }
+
             const srvId = `srv_${uuidv4().slice(0, 8)}`;
             db.prepare(`
               INSERT INTO quiz_attempt (id, server_id, client_id, learner_id, module_id, lesson_index, attempt_number, score, answers, xp_awarded, passed, completed_at, created_at)
@@ -665,6 +830,36 @@ app.post('/api/sync', rateLimit(30, 60000), async (req, res) => {
                 continue;
               }
               learnerServerId = l.id;
+            }
+
+            // v1.1.12 : IDEMPOTENT par (learner, module) — le badge est
+            // UNIQUE par module (comme module_progress l'est par client_id).
+            // Avant : INSERT inconditionnel → chaque re-push (retry, re-gain
+            // multi-appareils, fusion) créait une NOUVELLE ligne avec une
+            // autre date → « badges avec des dates différentes entre le web
+            // et le mobile » qui ne convergeaient JAMAIS. Désormais : la date
+            // d'émission la PLUS ANCIENNE gagne (première fois réellement
+            // gagnée), pas de re-mint (le tx existant est conservé).
+            const existingBadge = db.prepare(
+              'SELECT * FROM badge WHERE learner_id = ? AND module_id = ?'
+            ).get(learnerServerId, payload.module_id);
+            if (existingBadge) {
+              const incoming = payload.issued_at || now;
+              const earliest = incoming < existingBadge.issued_at ? incoming : existingBadge.issued_at;
+              db.prepare(`
+                UPDATE badge SET
+                  issued_at = ?,
+                  score     = MAX(COALESCE(score, 0), COALESCE(?, score)),
+                  xp_total  = MAX(COALESCE(xp_total, 0), COALESCE(?, xp_total))
+                WHERE id = ?
+              `).run(
+                earliest, payload.score ?? null, payload.xp_total ?? null, existingBadge.id
+              );
+              result.server_id = existingBadge.server_id;
+              result.blockchain_tx = existingBadge.blockchain_tx;
+              result.on_chain = !!existingBadge.blockchain_tx;
+              result.deduplicated = true;
+              break;
             }
 
             const srvId = `srv_${uuidv4().slice(0, 8)}`;
@@ -707,6 +902,13 @@ app.post('/api/sync', rateLimit(30, 60000), async (req, res) => {
           error: err.message,
         });
       }
+    }
+
+    // v1.1.12 : après application des ops, RECOMPTER l'XP du learner touché
+    // (union des quiz réussis distincts — rapatrie l'XP gagné en parallèle
+    // sur d'autres appareils, MAX seul le perdait).
+    if (learnerServerId) {
+      recomputeLearnerXp(learnerServerId);
     }
 
     const synced = results.filter(r => r.status === 'ok').length;
@@ -818,19 +1020,64 @@ app.post('/api/learners/:clientId/photo', (req, res) => {
  *  (inscription sur le web → connexion dans l'app APK, et vice versa). */
 app.get('/api/progress/:clientId', (req, res) => {
   let learner = db.prepare('SELECT * FROM learner WHERE client_id = ?').get(req.params.clientId);
-  if (!learner) return fail(res, 'Learner non trouvé', 404);
+  let mutatedInGet = false; // v1.1.12 : les mutations du GET doivent être répliquées (markDirty)
+
+  // v1.1.12 : la clé canonique n'a PAS encore de ligne (compte recréé sur
+  // disque éphémère, appareil jamais re-synchronisé depuis). AVANT : 404
+  // sec — le compte semblait VIDE côté serveur alors que toutes les données
+  // vivaient sur des lignes orphelines du même email. Désormais, si la clé
+  // demandée EST canonique (lrn_<user.id>) et que des orphelins existent,
+  // on SEED la ligne canonique depuis l'orphelin le plus riche puis on
+  // fusionne tout (dans mergeOrphanLearnerRows) — le pull renvoie enfin
+  // l'état complet du compte.
+  if (!learner) {
+    const emailForSeed = resolveEmailByClientId(req.params.clientId);
+    if (emailForSeed) {
+      try {
+        mergeOrphanLearnerRows(req.params.clientId, emailForSeed);
+        learner = db.prepare('SELECT * FROM learner WHERE client_id = ?').get(req.params.clientId) || null;
+        if (learner) mutatedInGet = true;
+      } catch (_) {}
+    }
+    if (!learner) return fail(res, 'Learner non trouvé', 404);
+  }
 
   // v1.1.10 : fusionner les learners orphelins du même email dans cette clé
   // canonique — guérit les comptes scindés par les anciens effacements du
   // disque Render (progression restée sur l'ancienne ligne) — PUIS relire
   // la ligne enrichie avant de construire la réponse.
+  // v1.1.12 : même GARDE ANTI PING-PONG que le push — un pull depuis une clé
+  // PÉRIMÉE ne doit pas aspirer la ligne canonique (bascule infinie).
   if (learner.email) {
-    try {
-      const merged = mergeOrphanLearnerRows(req.params.clientId, learner.email);
-      if (merged > 0) {
-        learner = db.prepare('SELECT * FROM learner WHERE client_id = ?').get(req.params.clientId) || learner;
-      }
-    } catch (_) {}
+    const trueCanonical = resolveCanonicalClientIdByEmail(learner.email);
+    if (!trueCanonical || trueCanonical === req.params.clientId) {
+      try {
+        const merged = mergeOrphanLearnerRows(req.params.clientId, learner.email);
+        if (merged > 0) {
+          mutatedInGet = true;
+          learner = db.prepare('SELECT * FROM learner WHERE client_id = ?').get(req.params.clientId) || learner;
+        }
+      } catch (_) {}
+    } else {
+      console.log(`[SYNC-MERGE] Fusion pull refusée : ${req.params.clientId} n'est pas la clé canonique (${trueCanonical}) — anti ping-pong v1.1.12`);
+    }
+  }
+
+  // v1.1.12 : recomptage XP (union des quiz réussis distincts) — la DB
+  // restait avec un total MAX inférieur à l'union réelle tant qu'aucun push
+  // ne survenait. Idempotent (ne fait rien si le total est déjà ≥ union).
+  if (recomputeLearnerXp(learner.id)) {
+    mutatedInGet = true;
+    learner = db.prepare('SELECT * FROM learner WHERE client_id = ?').get(req.params.clientId) || learner;
+  }
+  // v1.1.12 : dédoublonner les badges par module (doublons historiques)
+  if (dedupeLearnerBadges(learner.id) > 0) mutatedInGet = true;
+
+  // v1.1.12 : les mutations ci-dessus sont faites dans un GET — le middleware
+  // de suivi (POST/PUT/PATCH/DELETE) ne les voit PAS → markDirty explicite,
+  // sinon elles n'étaient jamais répliquées sur GitHub (perte au réveil).
+  if (mutatedInGet) {
+    try { replication.markDirty(`GET /api/progress/${req.params.clientId}`); } catch (_) {}
   }
 
   const progress = db.prepare('SELECT * FROM module_progress WHERE learner_id = ? ORDER BY updated_at DESC').all(learner.id);

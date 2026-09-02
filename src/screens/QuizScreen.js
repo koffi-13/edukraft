@@ -183,7 +183,13 @@ export default function QuizScreen({ route, navigation }) {
           status: (moduleCompleted || moduleAlreadyCompleted) ? 'completed' : 'in_progress',
           current_lesson: finalPassed ? Math.max(lessonIndex + 1, existingProgress?.current_lesson ?? 0) : lessonIndex,
           lessons_done: lessonsDone,
-          total_xp_earned: (module?.xp || 0),
+          // v1.1.12 : CUMULATIF — avant, la constante module.xp (total du
+          // module) était écrite dès le PREMIER quiz réussi (ex : 150 alors
+          // que 30 gagnés) : des données fausses en base, non réconciliables
+          // avec learner.total_xp (l'audit montrait 90 XP appris vs « 150 XP »
+          // affichés pour 3 leçons). Désormais : cumul existant + XP de CE
+          // quiz (0 si leçon déjà réussie → pas de double-comptage).
+          total_xp_earned: (existingProgress?.total_xp_earned || 0) + (alreadyPassedThisLesson ? 0 : xp),
           best_score: Math.max(finalScore, existingProgress?.best_score ?? 0),
           completed_at: (moduleCompleted || moduleAlreadyCompleted)
             ? (existingProgress?.completed_at || new Date().toISOString())

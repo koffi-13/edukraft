@@ -130,7 +130,60 @@ const GENDERS = [
   { value: 'F', label: 'Femme' },
 ];
 
+// v1.1.12 : compression RÉELLE de la photo — resize + re-encodage jpeg via
+// expo-image-manipulator. AVANT : le module n'était PAS dans package.json →
+// non autolinké dans l'APK → `ImageManipulator = null` → la branche
+// « Compresser » retombait sur un simple re-picker en qualité 0.3 SANS
+// resize → une photo d'appareil photo carrée restait quasi toujours > 250 Ko
+// → « Toujours trop volumineuse » → la photo n'était JAMAIS définissable.
+// Le module est désormais une dépendance explicite (voir package.json).
+
 const MAX_PHOTO_BYTES = 250000; // 250 Ko base64 (~190 Ko binaire)
+
+/**
+ * v1.1.12 : prépare une data URI photo ≤ MAX_PHOTO_BYTES.
+ * 1. base64 du picker déjà assez léger → direct ;
+ * 2. SINON compression systématique (resize 400px puis plus petit) — l'ancien
+ *    parcours demandait à l'utilisateur de choisir entre « Compresser » et
+ *    « Choisir une autre » via une Alert : friction inutile, et la branche
+ *    compression était morte dans l'APK (module absent) ;
+ * 3. dernier recours : lecture du fichier (file:// → base64).
+ * @returns {Promise<string|null>} data URI, ou null si impossible sous la limite.
+ */
+async function buildPhotoDataUri(asset) {
+  // 1. Base64 direct du picker (déjà compressé par quality) si acceptable
+  if (asset?.base64 && asset.base64.length <= MAX_PHOTO_BYTES) {
+    return `data:image/jpeg;base64,${asset.base64}`;
+  }
+
+  // 2. Compression réelle : resize (l'aspect carré vient de allowsEditing)
+  //    + re-encodage jpeg de plus en plus agressif jusqu'à passer sous la
+  //    limite. Un resize 400px jpeg 0.6 produit typiquement 20-80 Ko.
+  if (ImageManipulator && asset?.uri) {
+    let smallest = null;
+    for (const [width, compress] of [[400, 0.6], [320, 0.4], [240, 0.25]]) {
+      try {
+        const r = await ImageManipulator.manipulateAsync(
+          asset.uri,
+          [{ resize: { width } }],
+          { compress, format: 'jpeg', base64: true }
+        );
+        if (r?.base64) {
+          if (r.base64.length <= MAX_PHOTO_BYTES) {
+            return `data:image/jpeg;base64,${r.base64}`;
+          }
+          if (!smallest || r.base64.length < smallest.length) smallest = r.base64;
+        }
+      } catch (_) { /* taille suivante */ }
+    }
+    // Trop volumineuse même à 240px/0.25 (image extrême) → échec contrôlé
+    return null;
+  }
+
+  // 3. Pas de base64 ni de manipulator (rare) : lire le fichier local
+  if (asset?.uri) return await toDataUri(asset.uri);
+  return null;
+}
 
 export default function EditProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -150,8 +203,21 @@ export default function EditProfileScreen({ navigation }) {
   const lastPickedAssetRef = useRef(null);
 
   // ── Chargement initial du formulaire depuis le learner ──────────────────────
+  // v1.1.12 : BUG « la photo s'affiche en flash puis disparaît » — la dep de
+  // cet effet était l'OBJET learner, qui change de RÉFÉRENCE à chaque pull
+  // (restoreFromServer → setLearner(objet relu)), et les pulls sont FORCÉS à
+  // chaque retour au premier plan : sur Android, ouvrir le sélecteur de photos
+  // met l'app en arrière-plan → retour = AppState 'active' → pull immédiat →
+  // setLearner(nouvel objet) → CET effet réinitialisait TOUT le formulaire
+  // (photo comprise, hasChanges repassé à false) → la photo sélectionnée
+  // « flashait » puis disparaissait, SANS même l'alerte de non-enregistrement.
+  // Fix : n'initialiser le formulaire qu'une fois PAR COMPTE (learner.id) —
+  // les pulls du même compte ne touchent plus jamais l'édition en cours.
+  const formLearnerIdRef = useRef(null);
   useEffect(() => {
     if (!learner) return;
+    if (formLearnerIdRef.current === learner.id) return; // même compte : JAMAIS de reset pendant l'édition
+    formLearnerIdRef.current = learner.id;
     const initialForm = {
       first_name: learner.first_name || (learner.name || '').split(' ')[0] || '',
       last_name: learner.last_name || (learner.name || '').split(' ').slice(1).join(' ') || '',
@@ -174,7 +240,7 @@ export default function EditProfileScreen({ navigation }) {
     initialFormRef.current = { ...initialForm };
     setDateDisplay(isoToDisplay(initialForm.birth_date));
     setHasChanges(false);
-  }, [learner]);
+  }, [learner?.id]);
 
   // ── Détection des changements (hasChanges) ─────────────────────────────────
   useEffect(() => {
@@ -272,28 +338,32 @@ export default function EditProfileScreen({ navigation }) {
       // Mémoriser l'asset pour permettre la compression ultérieure
       lastPickedAssetRef.current = asset;
 
-      if (asset.base64) {
-        const base64Data = asset.base64;
-        // Si la photo est trop volumineuse (> 250 Ko), proposer de la compresser
-        if (base64Data.length > MAX_PHOTO_BYTES) {
+      // v1.1.12 : compression AUTOMATIQUE à la sélection (buildPhotoDataUri
+      // réduit par resize 400px si nécessaire — plus d'Alert « Photo
+      // volumineuse » : la photo est directement mise aux normes). Le
+      // formulaire n'est plus jamais écrasé par un pull concurrent (cf. effet
+      // d'init ci-dessus) : la photo sélectionnée RESTE affichée jusqu'à
+      // « Enregistrer ».
+      const dataUri = await buildPhotoDataUri(asset);
+      if (dataUri && dataUri.startsWith('data:')) {
+        if (dataUri.length > 1000000) {
+          // garde extrême : data URI lue depuis un fichier énorme, non
+          // compressible ici (manipulator indisponible) — on la refuse.
           Alert.alert(
-            'Photo volumineuse',
-            'Cette photo fait ' + Math.round(base64Data.length / 1024) + ' Ko. ' +
-            'Voulez-vous la compresser automatiquement (recommandé) ou en choisir une autre ?',
-            [
-              { text: 'Choisir une autre', style: 'cancel', onPress: () => pickPhoto() },
-              { text: 'Compresser', onPress: () => compressPickedPhoto() },
-            ]
+            'Photo trop volumineuse',
+            'Impossible de réduire cette photo assez. Veuillez en choisir une plus petite.'
           );
           return;
         }
-        setField('photo_url', `data:image/jpeg;base64,${base64Data}`);
-      } else if (asset.uri) {
-        // v1.1.11 : pas de base64 renvoyé (rare) — on LIT le fichier local et
-        // on le convertit en data URI (portable + syncable). Avant, un file://
-        // était stocké tel quel : la photo ne survivait ni à la réinstallation
-        // ni à la sync vers un autre appareil (« photo non conservée »).
-        setField('photo_url', await toDataUri(asset.uri));
+        setField('photo_url', dataUri);
+      } else if (dataUri) {
+        // fallback : URI non-data (blob web, etc.) — affichage local possible
+        setField('photo_url', dataUri);
+      } else {
+        Alert.alert(
+          'Photo trop volumineuse',
+          'Même après compression, cette photo dépasse la limite. Veuillez en choisir une autre.'
+        );
       }
     } catch (e) {
       Alert.alert('Erreur', 'Impossible de charger la photo: ' + (e?.message || e));
@@ -301,50 +371,23 @@ export default function EditProfileScreen({ navigation }) {
   };
 
   /**
-   * Compresse la photo déjà sélectionnée (lastPickedAssetRef).
-   * 1) Tente expo-image-manipulator sur l'URI déjà sélectionnée (sans relancer le picker).
-   * 2) Fallback : relance ImagePicker avec quality 0.3 (comportement historique).
+   * v1.1.12 : compresse la photo déjà sélectionnée (lastPickedAssetRef) —
+   * conservé pour compat, la compression est désormais AUTOMATIQUE à la
+   * sélection (buildPhotoDataUri).
    */
   const compressPickedPhoto = async () => {
     try {
-      let compressedBase64 = null;
-
-      // 1) Tenter expo-image-manipulator sur l'URI déjà sélectionnée
-      if (ImageManipulator && lastPickedAssetRef.current && lastPickedAssetRef.current.uri) {
-        const manipResult = await ImageManipulator.manipulateAsync(
-          lastPickedAssetRef.current.uri,
-          [{ resize: { width: 300 } }],
-          { compress: 0.3, format: 'jpeg', base64: true }
-        );
-        compressedBase64 = (manipResult && manipResult.base64) || null;
-      }
-
-      // 2) Fallback : relancer ImagePicker avec une qualité plus faible
-      if (!compressedBase64 && ImagePicker) {
-        const compressed = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: true,
-          aspect: [1, 1],
-          quality: 0.3,
-          base64: true,
-        });
-        if (!compressed.canceled && compressed.assets && compressed.assets[0] && compressed.assets[0].base64) {
-          compressedBase64 = compressed.assets[0].base64;
-          lastPickedAssetRef.current = compressed.assets[0];
-        }
-      }
-
-      if (!compressedBase64) return;
-
-      if (compressedBase64.length > MAX_PHOTO_BYTES) {
+      const dataUri = lastPickedAssetRef.current
+        ? await buildPhotoDataUri(lastPickedAssetRef.current)
+        : null;
+      if (!dataUri || !dataUri.startsWith('data:')) {
         Alert.alert(
-          'Toujours trop volumineuse',
-          'La photo compressée fait encore ' + Math.round(compressedBase64.length / 1024) +
-          ' Ko. Veuillez choisir une photo plus petite.'
+          'Compression impossible',
+          'La photo ne peut pas être réduite assez. Veuillez en choisir une autre.'
         );
         return;
       }
-      setField('photo_url', `data:image/jpeg;base64,${compressedBase64}`);
+      setField('photo_url', dataUri);
     } catch (e) {
       Alert.alert('Erreur', 'Compression impossible : ' + (e?.message || e));
     }

@@ -290,4 +290,15 @@ function getReplicationStatus() {
   };
 }
 
-module.exports = { restoreDbFromRemote, installDirtyTracking, attachDb, initDbReplication, flushNow, getReplicationStatus };
+/**
+ * v1.1.12 : marque la DB « sale » depuis une route GET (mutations faites
+ * dans un pull : fusion d'orphelins, recomptage XP). Le middleware
+ * installDirtyTracking ne voit que les POST/PUT/PATCH/DELETE — sans ceci,
+ * les mutations du GET /api/progress n'étaient jamais répliquées sur GitHub.
+ */
+function markDirty(reason) {
+  if (!enabled()) return;
+  scheduleFlush(reason || 'markDirty');
+}
+
+module.exports = { restoreDbFromRemote, installDirtyTracking, attachDb, initDbReplication, flushNow, getReplicationStatus, markDirty };

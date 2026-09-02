@@ -81,8 +81,34 @@ export function useSyncEngine() {
 
       console.log(`[Sync] ${queue.length} opération(s) en attente > envoi batch`);
 
+      // v1.1.12 : DÉDUPLICATION du batch — pour chaque (table, record_id) on
+      // ne garde que la DERNIÈRE valeur : les ops learner/module_progress/
+      // streak_log/daily_goal portent des LIGNES COMPLÈTES (les anciennes
+      // versions sont toujours surpassées). Avant, chaque pull re-enfilait
+      // une op learner AVEC LA PHOTO (250 Ko) : 8+ ops en file → un POST de
+      // plusieurs Mo → HTTP 413 (express limit 2mb) → `throw` AVANT tout
+      // traitement per-op → aucun retry incrémenté → la file restait bloquée
+      // À VIE : la photo (et tout ce qui suivait) ne partait jamais.
+      // NB : quiz_attempt porte un record_id unique par tentative → aucune
+      // déduplication de ces événements ; badge est stable par module → la
+      // dernière version gagne (le serveur upsert par learner+module).
+      const byKey = new Map();
+      for (const item of queue) {
+        byKey.set(`${item.table_name}|${item.record_id}`, item);
+      }
+      const deduped = [...byKey.values()];
+      // L'op learner passe en TÊTE du batch (elle crée la ligne serveur
+      // client_id=lrn_<user.id> + fusion d'orphelins dont dépendent les ops
+      // suivantes : module_progress, quiz, badges…).
+      const learnerOps = deduped.filter(i => i.table_name === 'learner');
+      const otherOps  = deduped.filter(i => i.table_name !== 'learner');
+      const sendItems = [...learnerOps, ...otherOps];
+      if (sendItems.length < queue.length) {
+        console.log(`[Sync] Batch dédupliqué : ${queue.length} → ${sendItems.length} op(s)`);
+      }
+
       // Préparer le batch
-      const operations = queue.map(item => ({
+      const operations = sendItems.map(item => ({
         table_name: item.table_name,
         operation:   item.operation,
         record_id:   item.record_id,
@@ -116,6 +142,22 @@ export function useSyncEngine() {
 
       if (!response.ok) {
         const text = await response.text().catch(() => '');
+        // v1.1.12 : une erreur HTTP (413 payload, 429, 5xx) incrémentait
+        // AUCUN retry (throw direct) → un batch déficient restait identique
+        // et échouait AD VITAM, bloquant toute la file. Désormais on
+        // incrémente les retries de chaque op : après SYNC_MAX_RETRIES la
+        // boucle per-op les abandonnera et la file repartira.
+        console.error(`[Sync] HTTP ${response.status} — retry des ${sendItems.length} op(s) : ${text.slice(0, 120)}`);
+        for (const item of sendItems) {
+          try {
+            if (item.retry_count >= ENV.SYNC_MAX_RETRIES) {
+              console.error(`[Sync] Abandon ${item.table_name}/${item.record_id} (HTTP ${response.status})`);
+              await db.removeFromQueue(item.id);
+            } else {
+              await db.incrementRetry(item.id, `HTTP ${response.status}`);
+            }
+          } catch (_) {}
+        }
         throw new Error(`HTTP ${response.status}: ${text.slice(0, 100)}`);
       }
 
@@ -129,8 +171,8 @@ export function useSyncEngine() {
       let processed = 0;
       const results = result.data?.results || [];
 
-      for (let i = 0; i < queue.length; i++) {
-        const item   = queue[i];
+      for (let i = 0; i < sendItems.length; i++) {
+        const item   = sendItems[i];
         const res    = results[i];
 
         if (!res || res.status === 'error') {
@@ -167,7 +209,7 @@ export function useSyncEngine() {
       setLastSync(now);
       setPendingCount(0);
       setLastError(null);
-      console.log(`[Sync] ${processed}/${queue.length} synchronisé(s)`);
+      console.log(`[Sync] ${processed}/${sendItems.length} synchronisé(s)`);
     } catch (err) {
       console.error('[Sync] Erreur:', err.message);
       setLastError(err.message);
