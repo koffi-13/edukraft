@@ -189,6 +189,16 @@ export function useSyncEngine() {
 
         // Sync réussie
         await db.removeFromQueue(item.id);
+        // v1.1.13 : purger AUSSI les versions ANTERIEURES de cette même clé
+        // (table, record_id, queued_at ≤ celle envoyée). La déduplication
+        // ci-dessus n'envoie que la dernière valeur — mais les doublons créés
+        // offline par plusieurs écritures du même enregistrement restaient
+        // dans sync_queue à tout jamais (zombies : jamais envoyés, jamais
+        // effacés, alors que GET_PENDING_QUEUE est LIMIT 50). Les rows PLUS
+        // RÉCENTS (écriture pendant le POST en vol) sont préservés.
+        if (db.removeQueueKey) {
+          try { await db.removeQueueKey(item.table_name, item.record_id, item.queued_at); } catch (_) {}
+        }
         processed++;
 
         // Si c'est un badge avec un tx hash blockchain, le stocker localement

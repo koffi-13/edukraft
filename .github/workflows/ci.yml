@@ -2,6 +2,10 @@
 #
 # Jobs :
 #   1. server-tests   : E2E backend (Express + SQLite) — test-e2e-selfcontained.js
+#                       + E2E OFFLINE-FIRST (v1.1.13) — test-offline-first.js :
+#                       prouve que les données se chargent SANS connexion
+#                       (cold boot SQLite) et que la reconnexion synchronise
+#                       sans compromettre photo/badges/XP/anti-ping-pong.
 #   2. contract-tests : Tests Hardhat du smart contract EduKraftBadge (ERC-721)
 #
 # Les deux jobs tournent en parallèle. Si l'un échoue, la PR est bloquée.
@@ -44,6 +48,14 @@ jobs:
           POLYGON_MOCK_MODE: 'true'
           PAYMENT_MOCK: 'true'
         run: node test-e2e-selfcontained.js
+
+      - name: Run offline-first regression tests (v1.1.13)
+        env:
+          JWT_SECRET: ci-offline-secret-fixed-for-edukraft
+          API_KEY: dev-key
+          POLYGON_MOCK_MODE: 'true'
+          PAYMENT_MOCK: 'true'
+        run: node test-offline-first.js
 
   contract-tests:
     name: Smart contract tests

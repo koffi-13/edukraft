@@ -44,6 +44,38 @@ export function createSyncRepository(db, store) {
     await db.runAsync(QUERIES.DELETE_FROM_QUEUE, [queueId]);
   }
 
+  /** v1.1.13 : supprime les ops d'une même clé (table, record_id) jusqu'à
+   *  `queued_at` INCLUS. Après une sync RÉUSSIE, la version envoyée est la
+   *  plus récente du moment de l'envoi : les versions antérieures (doublons
+   *  créés offline par plusieurs écritures du même enregistrement) sont
+   *  obsolètes. Avant ce correctif, la déduplication du batch ne les ENVOYAIT
+   *  jamais… mais ne les EFFAÇAIT jamais non plus : elles s'accumulaient en
+   *  zombies dans sync_queue (GET_PENDING_QUEUE est LIMIT 50 → à terme la
+   *  file se saturait d'entrées mortes).
+   *  NB : on ne touche JAMAIS aux rows plus récents que l'op envoyée — une
+   *  écriture survenue PENDANT le POST en vol doit rester en file (course
+   *  critique : sinon elle serait purgée sans jamais partir). */
+  async function removeAllForKey(tableName, recordId, queuedAtInclusive) {
+    if (isMemory()) {
+      store.syncQueue = store.syncQueue.filter(
+        s => !(s.table_name === tableName && s.record_id === recordId
+              && (queuedAtInclusive == null || String(s.queued_at) <= String(queuedAtInclusive)))
+      );
+      return;
+    }
+    if (queuedAtInclusive == null) {
+      await db.runAsync(
+        'DELETE FROM sync_queue WHERE table_name = ? AND record_id = ?',
+        [tableName, recordId]
+      );
+    } else {
+      await db.runAsync(
+        'DELETE FROM sync_queue WHERE table_name = ? AND record_id = ? AND queued_at <= ?',
+        [tableName, recordId, queuedAtInclusive]
+      );
+    }
+  }
+
   /** Incrémente le compteur de retry + enregistre l'erreur. */
   async function incrementRetry(queueId, errorMsg) {
     if (isMemory()) {
@@ -67,5 +99,5 @@ export function createSyncRepository(db, store) {
     await db.runAsync(QUERIES.SET_META, [key, String(value)]);
   }
 
-  return { enqueue, getPendingQueue, removeFromQueue, incrementRetry, getMeta, setMeta };
+  return { enqueue, getPendingQueue, removeFromQueue, removeAllForKey, incrementRetry, getMeta, setMeta };
 }

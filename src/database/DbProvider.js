@@ -1736,6 +1736,12 @@ export function DbProvider({ children }) {
     return getSyncRepo().removeFromQueue(queueId);
   }, [getSyncRepo]);
 
+  // v1.1.13 : purge des doublons obsolètes d'une même clé après sync réussie
+  // (rows ≤ queued_at de l'op envoyée — jamais les écritures plus récentes)
+  const removeQueueKey = useCallback(async (tableName, recordId, queuedAtInclusive) => {
+    return getSyncRepo().removeAllForKey(tableName, recordId, queuedAtInclusive);
+  }, [getSyncRepo]);
+
   const incrementRetry = useCallback(async (queueId, errorMsg) => {
     return getSyncRepo().incrementRetry(queueId, errorMsg);
   }, [getSyncRepo]);
@@ -1801,7 +1807,7 @@ export function DbProvider({ children }) {
     recordLessonCompleted, getGamificationState,
     getAchievements, getDailyGoal, setDailyGoal,
     // Sync internals
-    getPendingQueue, removeFromQueue, incrementRetry,
+    getPendingQueue, removeFromQueue, removeQueueKey, incrementRetry,
     updateBadgeTx, getSyncMeta, setSyncMeta, enqueue,
     // Utils
     resetAll,
