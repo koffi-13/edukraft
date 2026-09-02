@@ -234,6 +234,82 @@ function findUserByProvider(db, provider, providerUid) {
   ).get(provider, providerUid);
 }
 
+// ── v1.1.11 : AVATAR GOOGLE MATERIALIZÉ EN DATA URI (photo stable) ──────────
+//
+// PROBLÈME (« la photo de profil ne s'affiche pas / n'est pas conservée ») :
+//   1. Les URLs d'avatar Google (lh3.googleusercontent.com/a/ACg8oc…=s96-c)
+//      sont PÉRISSABLES : Google les fait tourner (changement de photo,
+//      révocation) et les anciennes meurent → l'app rend une <Image> vide
+//      (onError silencieux) au lieu de la photo.
+//   2. La connexion Google n'écrivait avatar_url qu'à la CRÉATION du compte :
+//      aucune mise à jour ensuite → l'URL stockée vieillit et meurt.
+//   3. Les lignes learner (compte + pull) portaient la même URL distante →
+//      chaque appareil héritait d'une photo cassée, sans guérison possible.
+//
+// SOLUTION :
+//   - À CHAQUE connexion Google : télécharger l'avatar (≈200 px, ≤ 120 Ko,
+//     timeout 4 s) et le stocker en DATA URI auto-contenue
+//     (data:image/…;base64,…) — toujours affichable, syncable, insensible à
+//     l'expiration. En cas d'échec de téléchargement : on garde l'URL brute.
+//   - Propager la data URI vers les lignes learner du compte (clé canonique
+//     ou même email) UNIQUEMENT si leur photo est vide ou une URL http
+//     distante — jamais si c'est une data URI (photo choisie par l'utilisateur
+//     dans l'app, prioritaire).
+
+const AVATAR_FETCH_TIMEOUT_MS = 4000;
+const AVATAR_MAX_BYTES = 120 * 1024; // 120 Ko binaire (base64 ≈ 160 Ko, très loin de la limite sync 2 Mo)
+
+/** …=s96-c → =s200-c (paramètre de taille Google) — meilleure qualité d'affichage.
+ *  Ne touche QUE les URLs googleusercontent (le suffixe =sNNN est spécifique Google). */
+function bumpAvatarSize(url, size = 200) {
+  if (typeof url !== 'string' || !url.startsWith('http')) return url;
+  if (!url.includes('googleusercontent.com')) return url;
+  const m = url.match(/^(.*=s)\d+(-[a-z]*)?$/i);
+  if (m) return `${m[1]}${size}${m[2] || ''}`;
+  return url.includes('=s') ? url : `${url}=s${size}-c`;
+}
+
+/** Télécharge l'avatar et le convertit en data URI (null si indisponible). */
+async function materializeAvatarDataUri(avatarUrl) {
+  if (typeof avatarUrl !== 'string' || !avatarUrl.startsWith('http')) return null;
+  const controller = new AbortController();
+  const tid = setTimeout(() => controller.abort(), AVATAR_FETCH_TIMEOUT_MS);
+  try {
+    const resp = await fetch(bumpAvatarSize(avatarUrl, 200), { signal: controller.signal });
+    if (!resp.ok) return null;
+    const contentType = (resp.headers.get('content-type') || '').split(';')[0].trim();
+    if (!contentType.startsWith('image/')) return null;
+    const buf = Buffer.from(await resp.arrayBuffer());
+    if (!buf.length || buf.length > AVATAR_MAX_BYTES) return null;
+    return `data:${contentType};base64,${buf.toString('base64')}`;
+  } catch (_) {
+    return null; // CDN injoignable/lent : fallback = garder l'URL brute
+  } finally {
+    clearTimeout(tid);
+  }
+}
+
+/** Remplace la photo des lignes learner du compte par la data URI fraîche. */
+function propagateAvatarToLearners(db, user, photoValue) {
+  if (!photoValue || typeof photoValue !== 'string' || !photoValue.startsWith('data:')) return 0;
+  try {
+    const now = new Date().toISOString();
+    const canonicalClientId = `lrn_${user.id}`;
+    const email = user.email ? String(user.email).toLowerCase().trim() : null;
+    const conditions = ['client_id = ?'];
+    const params = [photoValue, now, canonicalClientId];
+    if (email) { conditions.push("LOWER(TRIM(COALESCE(email, ''))) = ?"); params.push(email); }
+    const res = db.prepare(
+      `UPDATE learner SET photo_url = ?, updated_at = ?
+       WHERE (photo_url IS NULL OR photo_url = '' OR photo_url LIKE 'http%')
+         AND (${conditions.join(' OR ')})`
+    ).run(...params);
+    return res.changes || 0;
+  } catch (_) {
+    return 0;
+  }
+}
+
 function sanitizeUser(user) {
   if (!user) return null;
   const { password_hash, verification_code_hash, verification_expires_at,
@@ -711,6 +787,29 @@ function mountAuthRoutes(app, db) {
           emailVerified: profile.emailVerified,
         });
       }
+
+      // v1.1.11 : RAFRAÎCHIR L'AVATAR À CHAQUE CONNEXION GOOGLE —
+      // l'avatar est téléchargé et matérialisé en data URI stable (les URLs
+      // lh3.googleusercontent.com périment → « photo de profil qui ne
+      // s'affiche plus »). Puis propagé vers les lignes learner du compte
+      // dont la photo est vide ou une URL http distante périssable.
+      try {
+        const sourceUrl = profile.avatarUrl
+          || (String(user.avatar_url || '').startsWith('http') ? user.avatar_url : null);
+        if (sourceUrl) {
+          const dataUri = await materializeAvatarDataUri(sourceUrl);
+          const value = dataUri || sourceUrl; // data URI si possible, sinon URL brute
+          if (value !== user.avatar_url) {
+            db.prepare('UPDATE user SET avatar_url = ?, updated_at = ? WHERE id = ?')
+              .run(value, new Date().toISOString(), user.id);
+            user = findUserById(db, user.id);
+          }
+          if (dataUri) {
+            const n = propagateAvatarToLearners(db, user, dataUri);
+            if (n > 0) console.log(`[AUTH/google] Avatar matérialisé + propagé à ${n} ligne(s) learner (${user.email})`);
+          }
+        }
+      } catch (_) { /* best-effort : ne jamais bloquer la connexion */ }
 
       const authResponse = await buildAuthResponse(
         db, user, req.headers['user-agent']

@@ -1,5 +1,5 @@
 // src/screens/ProfileScreen.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -13,7 +13,7 @@ import { getRemoteVersion } from '../content/moduleRegistry';
 
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { db, learner, getAllBadges, resetAll, getPendingQueue, getSyncMeta } = useDb();
+  const { db, learner, updateProfile, getAllBadges, resetAll, getPendingQueue, getSyncMeta } = useDb();
   const {
     user, skipAuth, logout,
     // v1.1.9 : état de vérification d'email (carte de rappel)
@@ -21,6 +21,12 @@ export default function ProfileScreen({ navigation }) {
   } = useAuth();
   const [badges, setBadges] = useState([]);
   const [syncInfo, setSyncInfo] = useState({ pending: 0, lastSync: null });
+  // v1.1.11 : avatar robuste — si la photo échoue à charger (URL Google
+  // expirée, fichier local disparu…), on retombe sur l'initiale AU LIEU
+  // d'un cercle vide (l'ancien onError ne faisait RIEN alors que la photo
+  // était « présente » → avatar invisible = « la photo ne s'affiche pas »).
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const healedPhotoRef = useRef(null);
   // v1.1.7 : diagnostics de persistance (aide au support « écran Login en
   // boucle ») — état de chaque couche de stockage + clés présentes.
   const [diagOpen, setDiagOpen] = useState(false);
@@ -44,6 +50,33 @@ export default function ProfileScreen({ navigation }) {
       });
     } catch (_) {}
   }, [getPendingQueue, getSyncMeta]);
+
+  // v1.1.11 : réinitialiser l'état d'échec quand la photo change (nouvelle
+  // photo choisie, pull serveur, guérison) — l'Image est re-rendue.
+  useEffect(() => { setPhotoFailed(false); }, [learner?.photo_url]);
+
+  // v1.1.11 : AUTO-GUÉRISON d'une photo distante morte — si l'URL http ne
+  // charge plus (avatar Google expiré), on remplace la photo locale par
+  // l'avatar ACTUEL du compte (data URI matérialisée côté serveur depuis
+  // v1.1.11) ou par null si le compte n'en a pas. La correction est poussée
+  // au serveur via la file de sync → la photo « est conservée » durablement.
+  // Guard (healedPhotoRef) : une seule tentative par valeur de photo_url.
+  const healBrokenPhoto = useCallback(async () => {
+    const photoUrl = learner?.photo_url;
+    if (!photoUrl || !String(photoUrl).startsWith('http')) return;
+    if (healedPhotoRef.current === photoUrl) return;
+    healedPhotoRef.current = photoUrl;
+    try {
+      const accountAvatar = user?.avatar_url || null;
+      const replacement = (accountAvatar && String(accountAvatar).startsWith('data:')) ? accountAvatar : null;
+      if (replacement !== photoUrl && updateProfile) {
+        await updateProfile({ photo_url: replacement });
+        console.log('[Profile] Photo distante morte remplacée' + (replacement ? ' par l\'avatar du compte' : ' (retour à l\'initiale)'));
+      }
+    } catch (e) {
+      console.warn('[Profile] Guérison photo échouée :', e?.message || e);
+    }
+  }, [learner?.photo_url, user?.avatar_url, updateProfile]);
 
   // v1.1.7 : sonde l'état réel des couches de stockage (SQLite, AsyncStorage,
   // SecureStore/tokens, clés de session) + le catalogue distant.
@@ -188,17 +221,23 @@ export default function ProfileScreen({ navigation }) {
         {/* v1.1.9 : photo de profil AFFICHÉE quand elle existe (avant, seule
             l'initiale du prénom était rendue — « la photo n'est pas affichée
             dans Profil »). La photo est persistée (SQLite + snapshot + sync
-            serveur) et survit aux redémarrages. */}
+            serveur) et survit aux redémarrages.
+            v1.1.11 : si l'image échoue à charger (URL Google expirée…), on
+            retombe sur l'INITIALE (avant : cercle vide) + auto-guérison de la
+            photo distante morte (remplacée par l'avatar du compte). */}
         <View style={styles.avatar}>
-          {learner.photo_url ? (
+          {(learner.photo_url && !photoFailed) ? (
             <Image
               source={{ uri: learner.photo_url }}
               style={styles.avatarImage}
               defaultSource={undefined}
-              onError={() => {/* URI expirée (ex : avatar Google) → l'initiale reste visible */}}
+              onError={() => {
+                setPhotoFailed(true);
+                healBrokenPhoto();
+              }}
             />
           ) : null}
-          {!learner.photo_url ? (
+          {!(learner.photo_url && !photoFailed) ? (
             <Text style={styles.avatarInitial}>
               {(learner.name || '?').charAt(0).toUpperCase()}
             </Text>

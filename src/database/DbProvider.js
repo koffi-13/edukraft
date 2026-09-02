@@ -461,11 +461,25 @@ const PROFILE_FIELDS = [
   'country', 'state', 'city', 'address', 'email', 'photo_url', 'bio', 'profession',
 ];
 
+// v1.1.11 : une DATA URI (photo auto-contenue, toujours affichable) est
+// STABLE — une URL http distante (avatar Google lh3.googleusercontent.com…)
+// est PÉRISSABLE (rotation/expiration). Sans cette règle, une URL morte
+// LOCALE battait une data URI fraîche du serveur → « la photo de profil
+// n'est pas conservée ».
+const isDataUri = (v) => typeof v === 'string' && v.startsWith('data:');
+
 function mergeProfileFields(localLearner, serverLearner) {
   const merged = {};
   for (const f of PROFILE_FIELDS) {
     const lv = localLearner?.[f];
     const sv = serverLearner?.[f];
+    if (f === 'photo_url') {
+      // photo : data URI (locale ou serveur) > valeur locale remplie > serveur
+      if (isDataUri(lv)) merged[f] = lv;
+      else if (isDataUri(sv)) merged[f] = sv;
+      else merged[f] = (lv !== undefined && lv !== null && String(lv).trim() !== '') ? lv : (sv ?? null);
+      continue;
+    }
     merged[f] = (lv !== undefined && lv !== null && String(lv).trim() !== '') ? lv : (sv ?? null);
   }
   return merged;

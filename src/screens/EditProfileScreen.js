@@ -29,6 +29,24 @@ try { ImagePicker = require('expo-image-picker'); } catch (_) {}
 let ImageManipulator = null;
 try { ImageManipulator = require('expo-image-manipulator'); } catch (_) {}
 
+// v1.1.11 : lecture de fichier local en base64 (expo-file-system) — utilisée
+// quand le picker ne renvoie PAS de base64 (le fallback historique stockait
+// un file:// local : photo non syncable, perdue à la réinstallation).
+let FileSystem = null;
+try { FileSystem = require('expo-file-system'); } catch (_) {}
+
+/** Convertit une URI locale (file://…) en data URI base64 portable. */
+async function toDataUri(uri) {
+  try {
+    if (FileSystem && typeof uri === 'string' && uri.startsWith('file:')) {
+      const enc = (FileSystem.EncodingType && FileSystem.EncodingType.Base64) || 'base64';
+      const b64 = await FileSystem.readAsStringAsync(uri, { encoding: enc });
+      if (b64) return `data:image/jpeg;base64,${b64}`;
+    }
+  } catch (_) { /* lecture impossible : dernier recours URI brute */ }
+  return uri;
+}
+
 // ── Helpers : formatage de la date de naissance ───────────────────────────────
 // Affichage : "JJ / MM / AAAA" avec séparateurs auto-insérés.
 // Stockage  : "YYYY-MM-DD" (format backend).
@@ -122,6 +140,9 @@ export default function EditProfileScreen({ navigation }) {
   const [form, setForm] = useState({});
   const [dateDisplay, setDateDisplay] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
+  // v1.1.11 : échec de chargement de l'aperçu photo (URL distante morte) →
+  // retomber sur l'initiale ; réinitialisé quand la photo change.
+  const [photoPreviewFailed, setPhotoPreviewFailed] = useState(false);
 
   // Référence vers le formulaire initial (pour détecter les changements)
   const initialFormRef = useRef(null);
@@ -162,6 +183,9 @@ export default function EditProfileScreen({ navigation }) {
       JSON.stringify(form) !== JSON.stringify(initialFormRef.current)
     );
   }, [form]);
+
+  // v1.1.11 : nouvelle valeur de photo → nouvel essai d'affichage
+  useEffect(() => { setPhotoPreviewFailed(false); }, [form.photo_url]);
 
   const setField = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
 
@@ -265,8 +289,11 @@ export default function EditProfileScreen({ navigation }) {
         }
         setField('photo_url', `data:image/jpeg;base64,${base64Data}`);
       } else if (asset.uri) {
-        // Pas de base64 (web parfois) — on utilise directement l'URI
-        setField('photo_url', asset.uri);
+        // v1.1.11 : pas de base64 renvoyé (rare) — on LIT le fichier local et
+        // on le convertit en data URI (portable + syncable). Avant, un file://
+        // était stocké tel quel : la photo ne survivait ni à la réinstallation
+        // ni à la sync vers un autre appareil (« photo non conservée »).
+        setField('photo_url', await toDataUri(asset.uri));
       }
     } catch (e) {
       Alert.alert('Erreur', 'Impossible de charger la photo: ' + (e?.message || e));
@@ -344,8 +371,14 @@ export default function EditProfileScreen({ navigation }) {
         {/* Photo de profil */}
         <View style={styles.photoSection}>
           <TouchableOpacity onPress={pickPhoto} activeOpacity={0.85}>
-            {form.photo_url ? (
-              <Image source={{ uri: form.photo_url }} style={styles.photo} />
+            {(form.photo_url && !photoPreviewFailed) ? (
+              <Image
+                source={{ uri: form.photo_url }}
+                style={styles.photo}
+                // v1.1.11 : URL distante morte (avatar Google expiré) → on
+                // retombe sur l'initiale au lieu d'une case vide/brisée.
+                onError={() => setPhotoPreviewFailed(true)}
+              />
             ) : (
               <View style={[styles.photo, styles.photoPlaceholder]}>
                 <Text style={styles.photoPlaceholderText}>
