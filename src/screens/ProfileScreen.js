@@ -13,7 +13,7 @@ import { getRemoteVersion } from '../content/moduleRegistry';
 
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { db, learner, updateProfile, getAllBadges, resetAll, getPendingQueue, getSyncMeta } = useDb();
+  const { db, learner, updateProfile, getAllBadges, resetAll, getPendingQueue, getSyncMeta, dbInitError } = useDb();
   const {
     user, skipAuth, logout,
     // v1.1.9 : état de vérification d'email (carte de rappel)
@@ -96,10 +96,17 @@ export default function ProfileScreen({ navigation }) {
       sqlite: null, storage: false, keys: {}, session: 'inconnue',
       learnerId: learner?.id || null, serverId: learner?.server_id || null,
       snapshot: false, remoteCatalog: getRemoteVersion() || '—',
+      dbInitError: dbInitError || null, queue: null,
     };
     try {
       out.sqlite = !!db; // instance expo-sqlite vivante (mode mémoire sinon)
     } catch (_) {}
+    // v1.1.14 : nb d'ops en attente dans la file de sync (preuve que les
+    // écritures offline sont bien enregistrées et partiront au serveur)
+    try {
+      const q = await getPendingQueue();
+      out.queue = Array.isArray(q) ? q.length : 0;
+    } catch (_) { out.queue = null; }
     try {
       const [l, snap] = await Promise.all([
         persistentStorage.getItem('ek_learner'),
@@ -351,6 +358,12 @@ export default function ProfileScreen({ navigation }) {
         {diagOpen && diag && (
           <View style={styles.diagBox}>
             <Text style={styles.diagRow}>SQLite : {diag.sqlite ? '✓ actif' : '✗ indisponible (mode mémoire)'}</Text>
+            {/* v1.1.14 : POURQUOI SQLite est indisponible (ou a été reconstruit)
+                — la cause exacte remontée par DbProvider au démarrage. */}
+            {diag.dbInitError ? (
+              <Text style={styles.diagRow}>Détail SQLite : {diag.dbInitError}</Text>
+            ) : null}
+            <Text style={styles.diagRow}>File de sync : {diag.queue == null ? '—' : `${diag.queue} op(s) en attente`}</Text>
             <Text style={styles.diagRow}>Stockage persistant : {diag.storage ? '✓ opérationnel' : '✗ HS'}</Text>
             <Text style={styles.diagRow}>Session : {diag.session}</Text>
             <Text style={styles.diagRow}>Clé profil (ek_learner) : {diag.keys.ek_learner ? '✓ présente' : '✗ absente'}</Text>

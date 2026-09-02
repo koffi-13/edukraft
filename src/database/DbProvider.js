@@ -83,6 +83,29 @@ const KEYS = {
 
 const snapKey = (learnerId) => `ek_snap_${learnerId}`;
 
+// ── v1.1.14 : initialisation du schéma (réutilisable) ────────────────────
+// PRAGMA + création des tables + migrations idempotentes. Utilisée à CHAQUE
+// ouverture de base : au premier démarrage, par resetAll, et par la
+// reconstruction automatique après corruption (voir l'init du provider).
+async function initSchema(db) {
+  await db.execAsync(`
+    PRAGMA journal_mode = WAL;
+    PRAGMA foreign_keys = ON;
+  `);
+  const { CREATE_TABLES, INITIAL_SYNC_META, MIGRATE_LEARNER_V2, MIGRATE_LEARNER_V3 } = require('./schema');
+  await db.execAsync(CREATE_TABLES);
+  await db.execAsync(INITIAL_SYNC_META);
+  // Migration v1 > v2 : ajoute les colonnes gamification au learner
+  // (idempotent : chaque ALTER échoue silencieusement si la colonne existe)
+  for (const stmt of MIGRATE_LEARNER_V2) {
+    try { await db.execAsync(stmt); } catch (_) { /* colonne déjà là */ }
+  }
+  // Migration v1 > v1.1 : ajoute les colonnes du profil étendu au learner
+  for (const stmt of MIGRATE_LEARNER_V3) {
+    try { await db.execAsync(stmt); } catch (_) { /* colonne déjà là */ }
+  }
+}
+
 /** v1.1.8 : id du learner attendu pour la session stockée.
  *  - Compte authentifié (pas de déconnexion) → lrn_<user.id> (clé canonique
  *    partagée web + mobile, et embarquant l'ID utilisateur dans chaque table)
@@ -150,6 +173,12 @@ async function saveMemorySnapshot(store) {
       streakLogs: store.streakLogs,
       achievements: store.achievements,
       dailyGoal: store.dailyGoal,
+      // v1.1.14 : la FILE DE SYNC fait partie du snapshot — avant, les
+      // écritures faites en mode mémoire (web / base corrompue) étaient
+      // bien dans le learner… mais leurs ops sync n’étaient JAMAIS
+      // restaurées au redémarrage : rien ne repartait vers le serveur à la
+      // reconnexion (le pull écrasait ensuite le profil local).
+      syncQueue: store.syncQueue || [],
       savedAt: new Date().toISOString(),
     };
     const json = JSON.stringify(snapshot);
@@ -157,6 +186,21 @@ async function saveMemorySnapshot(store) {
     await persistentStorage.setItem(snapKey(store.learner.id), json);
     await persistentStorage.setItem(KEYS.SNAPSHOT, json);
     await persistentStorage.setItem(KEYS.ACTIVE_LEARNER, store.learner.id);
+  } catch (_) {}
+}
+
+// v1.1.14 : fusionne la file de sync d’un snapshot dans le store SANS
+// écraser les ops déjà présentes (switchActiveLearner préserve la file du
+// compte sortant — chaque op est attribuée à son compte par record_id).
+// Déduplication par id : une même op ne peut pas être dupliquée.
+function mergeSnapshotQueue(store, snap) {
+  try {
+    if (!Array.isArray(snap?.syncQueue) || snap.syncQueue.length === 0) return;
+    if (!Array.isArray(store.syncQueue)) store.syncQueue = [];
+    const existing = new Set(store.syncQueue.map(s => s.id));
+    for (const item of snap.syncQueue) {
+      if (item?.id && !existing.has(item.id)) store.syncQueue.push(item);
+    }
   } catch (_) {}
 }
 
@@ -175,6 +219,7 @@ async function loadMemorySnapshot(store, learnerId = null) {
           if (snap.streakLogs) store.streakLogs = snap.streakLogs;
           if (snap.achievements) store.achievements = snap.achievements;
           if (snap.dailyGoal) store.dailyGoal = snap.dailyGoal;
+          mergeSnapshotQueue(store, snap); // v1.1.14
           return true;
         }
       }
@@ -191,6 +236,7 @@ async function loadMemorySnapshot(store, learnerId = null) {
     if (snap.streakLogs) store.streakLogs = snap.streakLogs;
     if (snap.achievements) store.achievements = snap.achievements;
     if (snap.dailyGoal) store.dailyGoal = snap.dailyGoal;
+    mergeSnapshotQueue(store, snap); // v1.1.14
     return !!snap.learner;
   } catch (_) {
     return false;
@@ -295,6 +341,21 @@ async function restoreSnapshotToSqlite(db, snap) {
       );
     }
 
+    // Quiz attempts (v1.1.14 — l'historique des tentatives était ABSENT de
+    // la restauration : seuls learner/progressions/badges/streaks/objectif
+    // revenaient ; l'historique des quiz passés offline disparaissait)
+    for (const qa of (snap.quizAttempts || [])) {
+      await db.runAsync(
+        `INSERT OR IGNORE INTO quiz_attempt
+         (id, learner_id, module_id, lesson_index, attempt_number, score, answers, xp_awarded, passed, completed_at, sync_status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+        [qa.id ?? `${learnerId}_${qa.module_id}_${qa.lesson_index}_${qa.attempt_number ?? 1}`,
+         learnerId, qa.module_id, qa.lesson_index ?? 0, qa.attempt_number ?? 1,
+         qa.score ?? 0, qa.answers ?? '[]', qa.xp_awarded ?? 0, qa.passed ?? 0,
+         qa.completed_at ?? new Date().toISOString()]
+      );
+    }
+
     // Achievements
     for (const a of (snap.achievements || [])) {
       await db.runAsync(
@@ -328,6 +389,28 @@ async function restoreSnapshotToSqlite(db, snap) {
         [`goal_${learnerId}`, learnerId, snap.dailyGoal.goal_type,
          snap.dailyGoal.goal_target ?? 1, snap.dailyGoal.enabled ?? 1,
          snap.dailyGoal.updated_at ?? new Date().toISOString()]
+      );
+    }
+
+    // File de sync (v1.1.14 — CRITIQUE pour le mode offline) : les ops
+    // enregistrées pendant une session en mode mémoire (base corrompue,
+    // depuis reconstruite par la Phase A de l'init) vivent UNIQUEMENT dans
+    // le snapshot. Si on ne les réinsérait pas dans sync_queue, l'app étant
+    // désormais repassée en mode SQLite, le SyncEngine lirait la TABLE
+    // (vide) → les changements offline faits pendant la période « mode
+    // mémoire » ne partiraient JAMAIS vers le serveur. INSERT OR IGNORE :
+    // déduplication par id (une op déjà présente en table n'est pas
+    // dupliquée — utile aussi pour la guérison, où la file n'est jamais
+    // purgée).
+    for (const q of (snap.syncQueue || [])) {
+      if (!q?.id || !q?.table_name || !q?.record_id) continue;
+      await db.runAsync(
+        `INSERT OR IGNORE INTO sync_queue
+         (id, table_name, record_id, operation, payload, queued_at, retry_count, last_error)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [q.id, q.table_name, q.record_id, q.operation ?? 'UPDATE',
+         typeof q.payload === 'string' ? q.payload : JSON.stringify(q.payload ?? {}),
+         q.queued_at ?? new Date().toISOString(), q.retry_count ?? 0, q.last_error ?? null]
       );
     }
 
@@ -491,6 +574,10 @@ export function DbProvider({ children }) {
   const [learner, setLearner] = useState(null);
   const [ready, setReady]     = useState(false);
   const [error, setError]     = useState(null);
+  // v1.1.14 : cause exacte d'un fallback mémoire / d'une reconstruction —
+  // affichée dans « Diagnostics du stockage » (ProfileScreen) pour que
+  // l'utilisateur (et le support) voie POURQUOI SQLite serait indisponible.
+  const [dbInitError, setDbInitError] = useState(null);
   const storeRef              = useRef(memoryStore);
 
   // ── Synchroniser le learner actif dans le stockage persistant à chaque changement ──
@@ -520,43 +607,65 @@ export function DbProvider({ children }) {
     (async () => {
       try {
         let nativeDb = null;
+        let initErr  = null;
 
-        // Tentative d'ouverture SQLite native (Android/iOS)
+        // ── Phase A : ouverture SQLite + schéma — AVEC AUTO-RÉPARATION ──
+        // v1.1.14 : avant, le MOINDRE échec dans le bloc ci-dessous
+        // (fichier corrompu par un crash pendant une écriture — l'app a
+        // traversé ~9 mises à jour APK avec le MÊME fichier edukraft.db —
+        // WAL endommagé, etc.) faisait échouer le PREMIER PRAGMA → l'app
+        // retombait en « mode mémoire » À CHAQUE démarrage : le diagnostic
+        // affichait « SQLite ✗ indisponible (mode mémoire) » alors
+        // qu'expo-sqlite est bien embarqué dans l'APK, et toutes les
+        // écritures ne survivaient que par le snapshot AsyncStorage.
+        // Désormais :
+        //   1. base illisible → suppression + RECONSTRUCTION automatique
+        //      (les données sont intégralement restaurées depuis le snapshot
+        //      persistant par la Phase D ci-dessous) ;
+        //   2. setDb est posé IMMÉDIATEMENT après le schéma : la sélection du
+        //      learner et les restaurations (Phases B-D) sont best-effort et
+        //      ne peuvent PLUS rétrograder l'app en mode mémoire.
         try {
           const SQLite = require('expo-sqlite');
-          nativeDb = await SQLite.openDatabaseAsync('edukraft.db');
-          await nativeDb.execAsync(`
-            PRAGMA journal_mode = WAL;
-            PRAGMA foreign_keys = ON;
-          `);
-
-          // Création des tables
-          const { CREATE_TABLES, INITIAL_SYNC_META, MIGRATE_LEARNER_V2, MIGRATE_LEARNER_V3 } = require('./schema');
-          await nativeDb.execAsync(CREATE_TABLES);
-          await nativeDb.execAsync(INITIAL_SYNC_META);
-
-          // Migration v1 > v2 : ajoute les colonnes gamification au learner
-          // (idempotent : chaque ALTER échoue silencieusement si la colonne existe)
-          for (const stmt of MIGRATE_LEARNER_V2) {
-            try { await nativeDb.execAsync(stmt); } catch (_) { /* colonne déjà là */ }
-          }
-          // Migration v1 > v1.1 : ajoute les colonnes du profil étendu
-          for (const stmt of MIGRATE_LEARNER_V3) {
-            try { await nativeDb.execAsync(stmt); } catch (_) { /* colonne déjà là */ }
+          try {
+            nativeDb = await SQLite.openDatabaseAsync('edukraft.db');
+            await initSchema(nativeDb);
+          } catch (dbOpenErr) {
+            // Base corrompue/illisible → reconstruction complète (db + wal + shm)
+            initErr = `base reconstruite (origine : ${dbOpenErr?.message || dbOpenErr})`;
+            console.warn('[DB] Base illisible/corrompue — reconstruction automatique :', dbOpenErr?.message || dbOpenErr);
+            try { nativeDb?.closeAsync?.(); } catch (_) {}
+            nativeDb = null;
+            try {
+              await SQLite.deleteDatabaseAsync('edukraft.db'); // efface db + -wal + -shm
+            } catch (_) {}
+            nativeDb = await SQLite.openDatabaseAsync('edukraft.db');
+            await initSchema(nativeDb);
+            console.log('[DB] Base reconstruite — les données seront restaurées depuis le snapshot persistant');
           }
 
-          // ── v1.1.8 : SÉLECTION DU LEARNER PAR SESSION (isolation multi-comptes) ──
-          // Avant : « SELECT * FROM learner LIMIT 1 » chargeait le PREMIER
-          // learner de la table, quel que soit le compte connecté → après une
-          // déconnexion du compte A puis connexion au compte B, les données
-          // de A s'affichaient. Désormais chaque ligne de chaque table est
-          // liée à un utilisateur via son ID (lrn_<user.id>) et on ne charge
-          // QUE le learner de la session courante.
-          const storedAuth = await authService.getStoredAuth();
-          const expectedId = resolveSessionLearnerId(storedAuth);
+          // v1.1.14 : setDb TÔT — dès que SQLite + schéma sont opérationnels.
+          // Une erreur dans les phases suivantes ne doit JAMAIS faire
+          // retomber l'app en mode mémoire (les repos écriraient alors hors
+          // de SQLite alors que la base est saine).
+          setDb(nativeDb);
+
+          // ── Phase B : SÉLECTION DU LEARNER PAR SESSION (best-effort) ──
+          // v1.1.8 : isolation multi-comptes — Avant : « SELECT * FROM
+          // learner LIMIT 1 » chargeait le PREMIER learner de la table,
+          // quel que soit le compte connecté → après une déconnexion du
+          // compte A puis connexion au compte B, les données de A
+          // s'affichaient. Désormais chaque ligne de chaque table est liée
+          // à un utilisateur via son ID (lrn_<user.id>) et on ne charge QUE
+          // le learner de la session courante.
+          let storedAuth = null;
+          let expectedId = null;
           let row = null;
+          try {
+            storedAuth = await authService.getStoredAuth();
+            expectedId = resolveSessionLearnerId(storedAuth);
 
-          if (expectedId) {
+            if (expectedId) {
             // 1. Ligne canonique du compte (lrn_<user.id>)
             row = await nativeDb.getFirstAsync('SELECT * FROM learner WHERE id = ?', [expectedId]);
             // 2. Legacy : ligne liée par server_id (appareil v1.1.6-1.1.7)
@@ -588,6 +697,15 @@ export function DbProvider({ children }) {
               row = await nativeDb.getFirstAsync('SELECT * FROM learner ORDER BY created_at DESC LIMIT 1');
             }
           }
+          } catch (selErr) {
+            // v1.1.14 : best-effort — une relecture impossible (base
+            // endommagée en profondeur) NE FAIT PAS tomber l'app en mode
+            // mémoire (setDb est déjà posé) : on tente la restauration par
+            // snapshot ci-dessous, sinon ensureSessionLearner recréera le
+            // profil de secours. L'erreur est tracée pour le diagnostic.
+            console.warn('[DB] Sélection du learner impossible :', selErr?.message || selErr);
+            if (!initErr) initErr = `relecture impossible (${selErr?.message || selErr})`;
+          }
 
           if (row) {
             setLearner(row);
@@ -601,6 +719,41 @@ export function DbProvider({ children }) {
               await persistentStorage.setItem(KEYS.LEARNER, JSON.stringify(row));
               await persistentStorage.setItem(KEYS.ACTIVE_LEARNER, row.id);
             } catch (_) {}
+
+            // ── v1.1.14 : GUÉRISON « snapshot plus récent que SQLite » ──────
+            // Si l'app a fonctionné en mode mémoire (base corrompue à
+            // l'époque — reconstruite depuis par la Phase A), les données
+            // écrites pendant ces sessions ne vivent QUE dans le snapshot
+            // AsyncStorage : la ligne SQLite est plus ANCIENNE. On restaure
+            // alors le snapshot complet DANS SQLite (source la plus fraîche)
+            // — sinon les changements offline « disparaissaient » au boot
+            // suivant dès que SQLite redevenait accessible.
+            try {
+              const snapHealRaw = await persistentStorage.getItem(snapKey(row.id));
+              if (snapHealRaw) {
+                const snapHeal = JSON.parse(snapHealRaw);
+                const snapTime = snapHeal?.savedAt || snapHeal?.learner?.updated_at || null;
+                const rowTime  = row.updated_at || null;
+                if (snapTime && rowTime && Date.parse(snapTime) > Date.parse(rowTime)) {
+                  // Purger les lignes du learner (JAMAIS la file de sync —
+                  // les ops en attente doivent partir) puis tout restaurer.
+                  for (const tbl of ['module_progress', 'quiz_attempt', 'badge', 'achievement', 'streak_log', 'daily_goal']) {
+                    try { await nativeDb.runAsync(`DELETE FROM ${tbl} WHERE learner_id = ?`, [row.id]); } catch (_) {}
+                  }
+                  await restoreSnapshotToSqlite(nativeDb, snapHeal);
+                  const healed = await nativeDb.getFirstAsync('SELECT * FROM learner WHERE id = ?', [row.id]);
+                  if (healed) {
+                    row = healed;
+                    setLearner(healed);
+                    storeRef.current.learner = healed;
+                    try { await persistentStorage.setItem(KEYS.LEARNER, JSON.stringify(healed)); } catch (_) {}
+                    console.log('[DB] Snapshot plus récent que SQLite — données restaurées (guérison v1.1.14)');
+                  }
+                }
+              }
+            } catch (healErr) {
+              console.warn('[DB] Guérison snapshot impossible :', healErr?.message);
+            }
 
             // ── v1.1.10 : RÉPARATION des objectifs orphelins ──
             // Bug de closure v1.1.9 : l'objectif de l'Onboarding était écrit
@@ -697,11 +850,12 @@ export function DbProvider({ children }) {
             } catch (_) {}
           }
 
-          setDb(nativeDb);
-          console.log('[DB] SQLite natif initialisé');
+          // (setDb est déjà posé depuis la Phase A — v1.1.14)
+          console.log('[DB] SQLite natif initialisé' + (initErr ? ` — ${initErr}` : ''));
         } catch (sqliteErr) {
           // expo-sqlite non disponible (web, etc.) > fallback mémoire
-          console.log('[DB] SQLite non disponible, mode mémoire activé');
+          initErr = initErr || sqliteErr?.message || String(sqliteErr);
+          console.log('[DB] SQLite non disponible, mode mémoire activé :', initErr);
 
           // v1.1.3 : restaurer le SNAPSHOT COMPLET depuis le stockage
           // persistant (learner + progressions + badges + streaks + succès).
@@ -751,10 +905,12 @@ export function DbProvider({ children }) {
         // distants téléchargés lors d'une session précédente (hors ligne).
         try { await initRemoteModules(); } catch (_) {}
 
+        setDbInitError(initErr); // v1.1.14 : visible dans « Diagnostics du stockage »
         setReady(true);
       } catch (e) {
         console.error('[DB] Initialisation échouée :', e);
         setError(e.message);
+        setDbInitError(initErr || e?.message || null); // v1.1.14
         // v1.1.7 : même en erreur d'init, tenter le profil de secours
         try {
           await ensureSessionLearner(null, storeRef.current, setLearner, persistSnapshot);
@@ -1760,38 +1916,38 @@ export function DbProvider({ children }) {
 
   // ── Reset (utile pour déconnexion / tests) ────────────────────────────
   const resetAll = useCallback(async () => {
-    if (!db) {
-      storeRef.current.reset();
-      setLearner(null);
-      // v1.1.3 : purge aussi le stockage persistant (reset = tout effacer)
+    // v1.1.14 : « Réinitialiser » doit effacer AUSSI le snapshot SCOPÉ du
+    // learner actif (ek_snap_<id>) et le pointeur de session — avant, ces
+    // clés survivaient au reset : au boot suivant (mode mémoire), le profil
+    // « revenait d'entre les morts » et les données semblaient indestructibles.
+    const activeId = storeRef.current.learner?.id || null;
+    const purgePersistent = async () => {
       try {
         await persistentStorage.removeItem(KEYS.LEARNER);
         await persistentStorage.removeItem(KEYS.SNAPSHOT);
+        if (activeId) await persistentStorage.removeItem(snapKey(activeId));
+        await persistentStorage.removeItem(KEYS.ACTIVE_LEARNER);
       } catch (_) {}
+    };
+    if (!db) {
+      storeRef.current.reset();
+      setLearner(null);
+      await purgePersistent();
       return;
     }
-    // SQLite : supprimer et recréer la DB
+    // SQLite : supprimer et recréer la DB (schéma via initSchema v1.1.14)
     const SQLite = require('expo-sqlite');
     await SQLite.deleteDatabaseAsync('edukraft.db');
     const newDb = await SQLite.openDatabaseAsync('edukraft.db');
-    const { CREATE_TABLES, INITIAL_SYNC_META, MIGRATE_LEARNER_V2, MIGRATE_LEARNER_V3 } = require('./schema');
-    await newDb.execAsync(CREATE_TABLES);
-    await newDb.execAsync(INITIAL_SYNC_META);
-    for (const stmt of [...MIGRATE_LEARNER_V2, ...MIGRATE_LEARNER_V3]) {
-      try { await newDb.execAsync(stmt); } catch (_) {}
-    }
+    await initSchema(newDb);
     setDb(newDb);
     setLearner(null);
-    // v1.1.3 : purge aussi le stockage persistant (reset = tout effacer)
-    try {
-      await persistentStorage.removeItem(KEYS.LEARNER);
-      await persistentStorage.removeItem(KEYS.SNAPSHOT);
-    } catch (_) {}
+    await purgePersistent();
   }, [db]);
 
   // ── Context value ─────────────────────────────────────────────────────
   const value = {
-    db, ready, error,
+    db, ready, error, dbInitError,
     learner, setLearner,
     // Learner
     createLearner, addXP, updateProfile, getProfileCompletion, linkLearnerToAccount,
