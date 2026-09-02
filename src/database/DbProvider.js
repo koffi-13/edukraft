@@ -106,6 +106,40 @@ async function initSchema(db) {
   }
 }
 
+// ── v1.1.15 : LE correctif racine du « mode mémoire » permanent ─────────────
+// expo-sqlite@13.4.0 (SDK 50) : l'entrée PRINCIPALE exporte l'API LEGACY
+// (openDatabase / exec(queries, readOnly, callback)) — la nouvelle API async
+// (openDatabaseAsync, execAsync(source: string), runAsync, getFirstAsync,
+// getAllAsync, deleteDatabaseAsync) vit dans le SOUS-CHEMIN « next »
+// (package.json exports → ./build/next). Notre code a toujours appelé
+// openDatabaseAsync sur l'entrée principale → « undefined is not a function »
+// → fallback mémoire À CHAQUE démarrage depuis la v1 : SQLite n'a JAMAIS
+// fonctionné sur l'appareil (les données ne survivaient que par le snapshot
+// AsyncStorage + la sync). SDK 51+ fusionne les deux entrées : on essaie
+// « next » puis l'entrée principale, et on VÉRIFIE que openDatabaseAsync
+// existe réellement (fin des échecs silencieux).
+function loadSQLiteModule() {
+  const tried = [];
+  try {
+    const next = require('expo-sqlite/next');
+    if (next && typeof next.openDatabaseAsync === 'function') {
+      return { SQLite: next, entry: 'expo-sqlite/next' };
+    }
+    tried.push('« next » sans openDatabaseAsync');
+  } catch (e) { tried.push(`next: ${e?.message || e}`); }
+  try {
+    const main = require('expo-sqlite');
+    if (main && typeof main.openDatabaseAsync === 'function') {
+      return { SQLite: main, entry: 'expo-sqlite' };
+    }
+    if (main?.default && typeof main.default.openDatabaseAsync === 'function') {
+      return { SQLite: main.default, entry: 'expo-sqlite (default)' };
+    }
+    tried.push('entrée principale = API legacy (openDatabase seul)');
+  } catch (e) { tried.push(`main: ${e?.message || e}`); }
+  return { SQLite: null, entry: `API async introuvable — ${tried.join(' ; ')}` };
+}
+
 /** v1.1.8 : id du learner attendu pour la session stockée.
  *  - Compte authentifié (pas de déconnexion) → lrn_<user.id> (clé canonique
  *    partagée web + mobile, et embarquant l'ID utilisateur dans chaque table)
@@ -622,18 +656,32 @@ export function DbProvider({ children }) {
         //   1. base illisible → suppression + RECONSTRUCTION automatique
         //      (les données sont intégralement restaurées depuis le snapshot
         //      persistant par la Phase D ci-dessous) ;
-        //   2. setDb est posé IMMÉDIATEMENT après le schéma : la sélection du
+        // v1.1.14 : (…) 2. setDb est posé IMMÉDIATEMENT après le schéma : la sélection du
         //      learner et les restaurations (Phases B-D) sont best-effort et
         //      ne peuvent PLUS rétrograder l'app en mode mémoire.
+        // v1.1.15 : la cause RÉELLE du fallback permanent n'était pas une
+        // corruption mais l'API : expo-sqlite@13.4.0 (SDK 50) expose
+        // openDatabaseAsync UNIQUEMENT via le sous-chemin « expo-sqlite/next »
+        // (l'entrée principale = API legacy) → « undefined is not a function »
+        // à CHAQUE openDatabaseAsync depuis la v1. Voir loadSQLiteModule().
         try {
-          const SQLite = require('expo-sqlite');
+          const { SQLite, entry: sqliteEntry } = loadSQLiteModule();
+          if (!SQLite) {
+            throw new Error(`expo-sqlite : ${sqliteEntry}`);
+          }
           try {
             nativeDb = await SQLite.openDatabaseAsync('edukraft.db');
             await initSchema(nativeDb);
+            console.log('[DB] SQLite natif initialisé (API : ' + sqliteEntry + ')');
           } catch (dbOpenErr) {
             // Base corrompue/illisible → reconstruction complète (db + wal + shm)
-            initErr = `base reconstruite (origine : ${dbOpenErr?.message || dbOpenErr})`;
-            console.warn('[DB] Base illisible/corrompue — reconstruction automatique :', dbOpenErr?.message || dbOpenErr);
+            // Web : ExpoSQLiteNext jette « Unimplemented » → fallback mémoire
+            // normal (message diagnostique explicite au lieu de « reconstruite »).
+            const openMsg = dbOpenErr?.message || String(dbOpenErr);
+            initErr = /unimplemented/i.test(openMsg)
+              ? 'non disponible sur web (mode mémoire normal — snapshot AsyncStorage)'
+              : `base reconstruite (origine : ${openMsg})`;
+            console.warn('[DB] Ouverture impossible — reconstruction automatique :', openMsg);
             try { nativeDb?.closeAsync?.(); } catch (_) {}
             nativeDb = null;
             try {
@@ -641,7 +689,7 @@ export function DbProvider({ children }) {
             } catch (_) {}
             nativeDb = await SQLite.openDatabaseAsync('edukraft.db');
             await initSchema(nativeDb);
-            console.log('[DB] Base reconstruite — les données seront restaurées depuis le snapshot persistant');
+            console.log('[DB] Base reconstruite (API : ' + sqliteEntry + ') — les données seront restaurées depuis le snapshot persistant');
           }
 
           // v1.1.14 : setDb TÔT — dès que SQLite + schéma sont opérationnels.
@@ -1936,7 +1984,10 @@ export function DbProvider({ children }) {
       return;
     }
     // SQLite : supprimer et recréer la DB (schéma via initSchema v1.1.14)
-    const SQLite = require('expo-sqlite');
+    // v1.1.15 : loadSQLiteModule — même correctif d'API que la Phase A
+    // (resetAll appelait lui aussi openDatabaseAsync sur l'entrée legacy →
+    // « undefined is not a function » → reset impossible en mode natif).
+    const { SQLite } = loadSQLiteModule();
     await SQLite.deleteDatabaseAsync('edukraft.db');
     const newDb = await SQLite.openDatabaseAsync('edukraft.db');
     await initSchema(newDb);
