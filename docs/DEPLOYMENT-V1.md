@@ -533,3 +533,12 @@ Endpoints : `POST /api/auth/verify-email/request` (envoi du code, cooldown
 | `RESEND_API_KEY` ou `BREVO_API_KEY` | Envoi réel des emails de vérification | Recommandé |
 | `EMAIL_FROM` | Expéditeur des emails | Non (défaut resend.dev) |
 | `GOOGLE_CLIENT_ID` | Vérification des id_token Google | Recommandé |
+
+## 14. Persistance des données (v1.1.9) — STATUT : OPÉRATIONNEL
+
+La réplication SQLite → GitHub est **active en production** (vérifiée le 2026-09-02).
+
+- Variable Render : `GITHUB_DB_TOKEN` (token fine-grained GitHub, permission **Contents: Read and write**, repo `koffi-13/edukraft` uniquement)
+- Mécanisme : au démarrage, le serveur restaure `edukraft.db` depuis la release `db-backup` (asset `edukraft.db`) ; après chaque écriture (debounce ~4 s), un snapshot cohérent est uploadé (remplacement de l'asset)
+- Survie garantie aux : redéploiements, mises en veille/réveils du free tier, crash du conteneur
+- Vérification : `GET /api/admin/dump?admin_key=VOTRE_CLE` → `replication.enabled: true`, `uploadCount` croissant
