@@ -94,11 +94,22 @@ function getGamificationState(db, learnerId) {
   ).get(learnerId);
   if (!learner) return null;
 
-  // Today's log
-  const today = new Date().toISOString().slice(0, 10);
-  const todayLog = db.prepare(
-    'SELECT lessons_done, xp_earned, goal_met FROM streak_log WHERE learner_id = ? AND activity_date = ?'
-  ).get(learnerId, today) || { lessons_done: 0, xp_earned: 0, goal_met: 0 };
+  // v1.1.18 (Fix Bug C — timezone serveur) : ne plus recalculer "today" en UTC
+  // via `new Date().toISOString().slice(0,10)`. La notion de « aujourd'hui »
+  // est relative à la timezone du learner, et seul le CLIENT connaît sa
+  // timezone (le serveur n'a pas de champ timezone dans le profil). On lit
+  // donc le streak_log du jour via `activity_date = learner.last_active_date`
+  // (qui est une date locale YYYY-MM-DD envoyée par le client via
+  // streakService.todayLocalDate()). Si le learner n'a pas encore d'activité
+  // aujourd'hui (last_active_date est null ou date passée), todayLog = 0
+  // (aucune activité du jour en cours). Cela rend le serveur timezone-
+  // agnostique et cohérent avec le client.
+  const today = learner.last_active_date || null;
+  const todayLog = today
+    ? (db.prepare(
+        'SELECT lessons_done, xp_earned, goal_met FROM streak_log WHERE learner_id = ? AND activity_date = ?'
+      ).get(learnerId, today) || { lessons_done: 0, xp_earned: 0, goal_met: 0 })
+    : { lessons_done: 0, xp_earned: 0, goal_met: 0 };
 
   // Achievements débloqués
   const achievements = db.prepare(
@@ -191,6 +202,14 @@ function applySyncOperation(db, tableName, payload) {
         // v1.1.6 : sémantique MAX sur les compteurs (cohérente avec
         // findOrCreateLearner) — un appareil en retard ne peut plus rétrograder
         // les valeurs du compte (COALESCE seul écrasait streak_days=4 par 1).
+        // v1.1.18 (Fix Bug A — multi-device streak) : last_active_date et
+        // last_active_at passent aussi en MAX (et non plus last-write-wins).
+        // Avant, un appareil B syncait avec un last_active_date plus ancien que
+        // celui du serveur (posé par l'appareil A plus tôt dans la journée) et
+        // écrasait la valeur serveur → computeStreak côté B repartait de 1.
+        // On aligne sur l'orphan-merge (server/index.js:419) qui utilise déjà MAX.
+        // Pour les YYYY-MM-DD et ISO 8601, MAX() SQLite = comparaison
+        // lexicographique = comparaison chronologique.
         if (payload.learner_id || payload.id) {
           const lid = payload.learner_id || payload.id;
           db.prepare(`
@@ -198,9 +217,9 @@ function applySyncOperation(db, tableName, payload) {
               streak_days = MAX(streak_days, COALESCE(?, streak_days)),
               streak_freezes = MAX(streak_freezes, COALESCE(?, streak_freezes)),
               best_streak = MAX(best_streak, COALESCE(?, best_streak)),
-              last_active_date = COALESCE(?, last_active_date),
+              last_active_date = MAX(COALESCE(last_active_date, ''), COALESCE(?, '')),
               total_lessons_done = MAX(total_lessons_done, COALESCE(?, total_lessons_done)),
-              last_active_at = COALESCE(?, last_active_at),
+              last_active_at = MAX(COALESCE(last_active_at, ''), COALESCE(?, '')),
               updated_at = ?
             WHERE id = ?
           `).run(
@@ -212,6 +231,14 @@ function applySyncOperation(db, tableName, payload) {
             payload.last_active_at ?? null,
             t, lid
           );
+          // Re-normaliser les éventuelles valeurs '' laissées par MAX d'une
+          // colonne vide SQLite (un MAX('', '') retourne '' et non NULL).
+          db.prepare(`
+            UPDATE learner SET
+              last_active_date = NULLIF(last_active_date, ''),
+              last_active_at   = NULLIF(last_active_at, '')
+            WHERE id = ? AND (last_active_date = '' OR last_active_at = '')
+          `).run(lid);
           return { status: 'ok' };
         }
         return { status: 'error', error: 'learner_id manquant' };

@@ -1199,6 +1199,25 @@ export function DbProvider({ children }) {
         merged.best_streak        = Math.max(s.learner.best_streak || 0, svLearner.best_streak || 0);
         merged.streak_freezes     = Math.max(s.learner.streak_freezes ?? 2, svLearner.streak_freezes ?? 2);
         merged.total_lessons_done = Math.max(s.learner.total_lessons_done || 0, svLearner.total_lessons_done || 0);
+        // v1.1.18 (Fix Bug A — multi-device streak) : fusionner last_active_date
+        // par MAX des non-null. Avant, ce champ n'était PAS fusionné depuis le
+        // serveur → sur un 2ᵉ appareil fraîchement synchronisé, last_active_date
+        // restait null alors que streak_days valait N (MAX avec serveur). Au
+        // prochain quiz, streakService.computeStreak voyait lastActiveDate=null
+        // → retournait newStreak=1 (branche « 1ʳᵉ activité ») au lieu de N+1.
+        // Les YYYY-MM-DD se comparent lexicographiquement = chronologiquement.
+        const _ladLocal = s.learner.last_active_date || null;
+        const _ladServer = svLearner.last_active_date || null;
+        merged.last_active_date = (_ladLocal && _ladServer)
+          ? (_ladLocal > _ladServer ? _ladLocal : _ladServer)
+          : (_ladLocal || _ladServer || null);
+        merged.last_active_at = (() => {
+          // Même logique pour le timestamp ISO complet (utilisé pour tri, pas
+          // pour le calcul du streak — mais autant le garder cohérent).
+          const a = s.learner.last_active_at || null;
+          const b = svLearner.last_active_at || null;
+          return (a && b) ? (a > b ? a : b) : (a || b || null);
+        })();
         merged.phone   = s.learner.phone || svLearner.phone || null;
         merged.language = s.learner.language || svLearner.language || 'fr';
         // v1.1.8 : profil étendu — le serveur complète les champs locaux vides
@@ -1359,6 +1378,22 @@ export function DbProvider({ children }) {
         merged.best_streak        = Math.max(localLearner.best_streak || 0, svLearner.best_streak || 0);
         merged.streak_freezes     = Math.max(localLearner.streak_freezes ?? 2, svLearner.streak_freezes ?? 2);
         merged.total_lessons_done = Math.max(localLearner.total_lessons_done || 0, svLearner.total_lessons_done || 0);
+        // v1.1.18 (Fix Bug A — multi-device streak) : même logique que le chemin
+        // mémoire ci-dessus. Sans ce merge, un 2ᵉ appareil (localLearner avec
+        // last_active_date=null créé à l'inscription) voit son streak repartir
+        // de 1 au prochain quiz, malgré un streak_days=N fusionné depuis le
+        // serveur. On prend MAX des non-null (YYYY-MM-DD = comparaison
+        // lexicographique = comparaison chronologique).
+        const _ladLocal = localLearner.last_active_date || null;
+        const _ladServer = svLearner.last_active_date || null;
+        merged.last_active_date = (_ladLocal && _ladServer)
+          ? (_ladLocal > _ladServer ? _ladLocal : _ladServer)
+          : (_ladLocal || _ladServer || null);
+        merged.last_active_at = (() => {
+          const a = localLearner.last_active_at || null;
+          const b = svLearner.last_active_at || null;
+          return (a && b) ? (a > b ? a : b) : (a || b || null);
+        })();
         merged.phone   = localLearner.phone || svLearner.phone || null;
         merged.language = localLearner.language || svLearner.language || 'fr';
         // v1.1.8 : profil étendu — le serveur complète les champs locaux vides

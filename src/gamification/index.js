@@ -92,7 +92,17 @@ export async function recordLessonCompleted(ctx, payload) {
   if (!learner) throw new Error('recordLessonCompleted: learner requis');
 
   const today = todayLocalDate();
-  const lastActiveDate = learner.last_active_date || null;
+  // v1.1.18 (Fix Bug B — stale closure lastActiveDate) : lire last_active_date
+  // depuis le learner COURANT du store (storeRef.current.learner) plutôt que
+  // depuis le closure `learner` (valeur au moment de la création du callback).
+  // Scénario : SyncEngine.pull déclenche restoreFromServer → setLearner(final)
+  // juste avant que recordLessonCompleted ne s'exécute. Le closure `learner`
+  // est encore l'ancienne valeur avec last_active_date=null (ou périmée), alors
+  // que storeRef.current.learner a été mis à jour (depuis v1.1.16 via le
+  // wrapper setLearnerWithStore). On retombe sur le closure uniquement si
+  // getCurrentLearner n'est pas exposé ou retourne null (legacy).
+  const _currentLearnerForStreak = (ctx.getCurrentLearner && ctx.getCurrentLearner()) || learner;
+  const lastActiveDate = _currentLearnerForStreak.last_active_date || learner.last_active_date || null;
   const comebackAfterDays = lastActiveDate ? daysBetween(lastActiveDate, today) : 0;
 
   // ── 1. Calcul du streak ──────────────────────────────────────────────
