@@ -6,7 +6,17 @@
 #   2. Injecte le keystore STABLE versionné dans android-signing/
 #      (signature identique à chaque build -> mises à jour sans désinstallation)
 #   3. Compile l'APK release avec Gradle directement sur le runner
-#   4. Crée une GitHub Release avec l'APK en pièce jointe
+#   4. Attache l'APK à la GitHub Release existante pour ce tag.
+#      Si aucune release n'existe encore pour ce tag, en crée une avec
+#      le message du commit de tag comme body.
+#
+# v1.1.17 : le workflow NE CRÉE PLUS de release avec un body hardcodé.
+#   Avant, toutes les releases portaient le body stale « Nouveautés v1.1.9 »
+#   parce que `body:` était inline et écrasait le body détaillé mis à la main.
+#   Désormais, si la release existe déjà (créée via API ou par un bot avec un
+#   body détaillé), on se contente d'y attacher l'APK sans toucher au body.
+#   Si elle n'existe pas, on la crée en utilisant le message du commit de tag
+#   comme body (via `gh release create --notes-from-tag`).
 #
 # ✅ AUCUN secret requis (ni EXPO_TOKEN, ni keystore externe).
 #    Le keystore de test est versionné dans android-signing/ — à remplacer par
@@ -21,20 +31,20 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version (ex: v1.1.1)'
+        description: 'Version (ex: v1.1.17)'
         required: true
-        default: 'v1.1.1'
+        default: 'v1.1.17'
   push:
     tags:
       - 'v*'
 
-# Permissions nécessaires pour créer une GitHub Release
+# Permissions nécessaires pour attacher un asset à une GitHub Release
 permissions:
   contents: write
 
 jobs:
   build:
-    name: Build APK (Gradle direct) and Create Release
+    name: Build APK (Gradle direct) and Attach to Release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -113,51 +123,46 @@ jobs:
           path: edukraft-${{ steps.version.outputs.VERSION }}.apk
           retention-days: 30
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ steps.version.outputs.VERSION }}
-          name: EduKraft ${{ steps.version.outputs.VERSION }}
-          body: |
-            # EduKraft ${{ steps.version.outputs.VERSION }}
-
-            ## Installation
-            1. Téléchargez le fichier APK ci-dessous
-            2. Ouvrez-le sur votre téléphone Android
-            3. Autorisez "Sources inconnues" si demandé
-            4. Ouvrez EduKraft
-
-            ## Nouveautés v1.1.9
-            - **Connexion Email + Mot de passe réparée** (correctif majeur) :
-              le serveur perdait tous les comptes à chaque redémarrage Render
-              (disque éphémère du plan gratuit) — « l'inscription marche mais
-              pas la connexion ». La base du serveur est désormais sauvegardée
-              automatiquement (snapshot GitHub) et restaurée à chaque
-              démarrage : les comptes survivent aux redéploiements.
-            - **Vos données ne disparaissent plus après une reconnexion** :
-              si le serveur avait recréé votre compte (nouvel identifiant),
-              l'app reconnaissait à tort un « changement de compte » et
-              repartait d'un profil vide. Désormais, même email = même
-              compte : votre objectif du jour, votre photo de profil, vos
-              informations et votre XP suivent votre compte, et tout est
-              renvoyé au serveur pour vos autres appareils.
-            - **Photo de profil affichée** dans l'onglet Profil (et conservée
-              sur tous vos appareils) — avant, seule l'initiale du prénom
-              apparaissait.
-            - **Vérification d'email** : après une connexion ou une
-              inscription par email, un code à 6 chiffres vous est envoyé
-              pour sécuriser votre compte (non bloquant, « Plus tard »
-              possible). Les comptes Google sont considérés vérifiés
-              automatiquement.
-            - **Objectif du jour conservé** : le réglage (leçons/XP) survit
-              aux redémarrages, aux reconnexions et aux effacements serveur.
-            - **Connexion Google plus résistante** : l'app réessaie
-              automatiquement (jusqu'à ~100 s) pendant le réveil du serveur
-              Render — fini le retour silencieux à l'écran de connexion
-              « sans aucune activité » sur un téléphone qui se connecte pour
-              la première fois de la journée.
-          files: edukraft-${{ steps.version.outputs.VERSION }}.apk
-          draft: false
-          prerelease: false
+      # v1.1.17 : gestion idempotente de la release.
+      # - Si la release existe déjà (créée via API avec un body détaillé
+      #   par le bot d'audit), on se contente d'attacher l'APK via
+      #   `gh release upload --clobber` — le body EST PRÉSERVÉ.
+      # - Si la release n'existe pas encore, on la crée en utilisant le
+      #   message du commit de tag comme body (`--notes-from-tag`), avec
+      #   un en-tête « Installation » standard.
+      # Plus JAMAIS de body hardcodé qui écrase les notes détaillées.
+      - name: Attach APK to release (create if missing, preserve existing body)
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.VERSION }}
+          APK_FILE: edukraft-${{ steps.version.outputs.VERSION }}.apk
+        run: |
+          set -euo pipefail
+          echo "Recherche d'une release existante pour le tag $VERSION..."
+          if gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "✓ Release $VERSION existe déjà — attachement de l'APK sans modifier le body."
+            gh release upload "$VERSION" "$APK_FILE" --repo "$GITHUB_REPOSITORY" --clobber
+            echo "✓ APK attaché à la release existante $VERSION (body préservé)."
+          else
+            echo "✗ Release $VERSION introuvable — création avec notes depuis le tag."
+            # Construire un body avec un en-tête Installation + le message du commit de tag
+            TAG_COMMIT_MSG=$(git log -1 --pretty=%B HEAD)
+            {
+              echo "# EduKraft $VERSION"
+              echo ""
+              echo "## Installation"
+              echo "1. Téléchargez le fichier APK ci-dessous"
+              echo "2. Ouvrez-le sur votre téléphone Android"
+              echo '3. Autorisez "Sources inconnues" si demandé'
+              echo "4. Ouvrez EduKraft"
+              echo ""
+              echo "## Notes de version"
+              echo ""
+              echo "$TAG_COMMIT_MSG"
+            } > /tmp/release-body.md
+            gh release create "$VERSION" "$APK_FILE" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "EduKraft $VERSION" \
+              --notes-file /tmp/release-body.md
+            echo "✓ Release $VERSION créée avec notes depuis le commit de tag."
+          fi
