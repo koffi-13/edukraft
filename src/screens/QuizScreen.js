@@ -198,11 +198,24 @@ export default function QuizScreen({ route, navigation }) {
 
         // Émettre le badge UNIQUEMENT si module terminé ET pas déjà badgé
         if (moduleCompleted && module && !moduleAlreadyCompleted) {
+          // v1.1.16 (Fix Issue 3) : badge XP = XP RÉELLEMENT attribuée pour ce
+          // module (cumul des xp_awarded, bonus parfaits inclus), et non plus
+          // la constante statique module.xp (= Σ base XP sans les bonus). Avant,
+          // le badge certifiait « 220 XP obtenus » alors que l'utilisateur en
+          // avait gagné jusqu'à 280 (220 base + 6×10 bonus parfaits). On relit
+          // le module_progress après l'updateProgress ci-dessus (qui a cumulé
+          // total_xp_earned avec l'XP de ce quiz), et on retombe sur module.xp
+          // seulement si le cumul est absent (legacy).
+          const finalProgress = await getProgress(moduleId);
+          const badgeXpTotal = (typeof finalProgress?.total_xp_earned === 'number'
+            && finalProgress.total_xp_earned > 0)
+            ? finalProgress.total_xp_earned
+            : module.xp;
           await issueBadge({
             moduleId: module.id,
             moduleTitle: module.badge_title || module.title,
             score: finalScore,
-            xpTotal: module.xp,
+            xpTotal: badgeXpTotal,
           });
         }
 

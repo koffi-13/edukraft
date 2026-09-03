@@ -28,6 +28,19 @@ import ENV from '../config/env';
 
 // ── Transformation JSON riche > structure plate compatible Dashboard ─────
 function normalizeModule(json) {
+  // v1.1.16 (Fix Issue 3) : `meta.xp_reward` était une copie manuelle de
+  // Σ(lessons[].xp_per_lesson). Rien ne garantissait l'égalité, et surtout
+  // rien n'incluait les bonus « quiz parfait » (lessons[].quiz.xp_bonus_perfect).
+  // La carte du module affichait donc Σ(base) alors que l'attribution réelle
+  // vaut Σ(base + bonus_parfait). On calcule désormais la base depuis les
+  // leçons (source unique de vérité) et on expose aussi maxXP (base + bonus)
+  // pour que la carte affiche une plage honnête « base–max ».
+  const lessons = Array.isArray(json.lessons) ? json.lessons : [];
+  const computedBaseXp = lessons.reduce((s, l) => s + (l?.xp_per_lesson || 0), 0);
+  const computedMaxXp = lessons.reduce(
+    (s, l) => s + (l?.xp_per_lesson || 0) + (l?.quiz?.xp_bonus_perfect || 0),
+    0
+  );
   return {
     // Champs plate (utilisés par le Dashboard)
     id:          json.id,
@@ -35,7 +48,13 @@ function normalizeModule(json) {
     subtitle:    json.meta.subtitle,
     description: json.meta.description,
     duration:    json.meta.duration_min,
-    xp:          json.meta.xp_reward,
+    // xp = base (Σ xp_per_lesson). Si l'auteur JSON a mal renseigné
+    // meta.xp_reward, on conserve la valeur calculée (source de vérité).
+    xp:          computedBaseXp,
+    maxXP:       computedMaxXp,
+    // Conserve la valeur déclarée pour audit/debug (sert à détecter la
+    // divergence si un auteur modifie l'un et oubli l'autre).
+    declaredXp:  json.meta.xp_reward,
     color:       json.meta.color,
 
     // Champs étendus

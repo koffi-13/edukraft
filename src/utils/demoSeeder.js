@@ -127,10 +127,12 @@ export async function seedDemoData(db) {
     INSERT INTO module_progress
       (id, learner_id, module_id, status, current_lesson, lessons_done,
        total_xp_earned, best_score, started_at, completed_at, sync_status, updated_at)
-    VALUES (?, ?, ?, 'completed', 2, 3, 160, 0.92, ?, ?, 'pending', ?)
+    VALUES (?, ?, ?, 'completed', 2, 3, 175, 0.92, ?, ?, 'pending', ?)
   `, [cptProgressId, DEMO_LEARNER.id, cptId, _daysAgo(6), _daysAgo(4), now]);
 
   // 3 quiz Comptabilité — tous réussis
+  // v1.1.16 (Fix Issue 3) : total_xp_earned = Σ xp_awarded = 35+70+70 = 175
+  // (avant 160 = meta.xp_reward statique, ce qui était faux vs les attempts).
   const cptQuizzes = [
     { li: 0, score: 0.89, answers: [{ qId:'q0_0',selected:'b',correct:true},{qId:'q0_1',selected:'b',correct:true},{qId:'q0_2',selected:'c',correct:true}], xp: 35, daysAgo: 6 },
     { li: 1, score: 1.00, answers: [{ qId:'q1_0',selected:'c',correct:true},{qId:'q1_1',selected:'c',correct:true},{qId:'q1_2',selected:'b',correct:true}], xp: 70, daysAgo: 5 },
@@ -153,7 +155,7 @@ export async function seedDemoData(db) {
     moduleId:    cptId,
     moduleTitle: 'Certifié Comptabilité Artisanale',
     score:       0.92,
-    xpTotal:     160,
+    xpTotal:     175,
   });
 
   await db.db.runAsync(`

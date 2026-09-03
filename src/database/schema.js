@@ -251,11 +251,14 @@ export const QUERIES = {
                               (id, learner_id, module_id, status, current_lesson, lessons_done, total_xp_earned, best_score, started_at, completed_at, sync_status, updated_at)
                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
                               ON CONFLICT(id) DO UPDATE SET
-                                status=excluded.status, current_lesson=excluded.current_lesson,
-                                lessons_done=excluded.lessons_done, total_xp_earned=excluded.total_xp_earned,
-                                best_score=excluded.best_score, started_at=excluded.started_at,
-                                completed_at=excluded.completed_at,
-                                updated_at=excluded.updated_at, sync_status='pending'`,
+                                status = CASE WHEN module_progress.status = 'completed' THEN 'completed' ELSE excluded.status END,
+                                current_lesson = MAX(module_progress.current_lesson, excluded.current_lesson),
+                                lessons_done = MAX(module_progress.lessons_done, excluded.lessons_done),
+                                total_xp_earned = MAX(module_progress.total_xp_earned, excluded.total_xp_earned),
+                                best_score = MAX(module_progress.best_score, excluded.best_score),
+                                started_at = COALESCE(module_progress.started_at, excluded.started_at),
+                                completed_at = COALESCE(module_progress.completed_at, excluded.completed_at),
+                                updated_at = excluded.updated_at, sync_status='pending'`,
 
   // Quiz attempts
   INSERT_QUIZ_ATTEMPT:      `INSERT INTO quiz_attempt

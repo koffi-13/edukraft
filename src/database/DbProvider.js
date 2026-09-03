@@ -1906,9 +1906,21 @@ export function DbProvider({ children }) {
    */
   const recordLessonCompleted = useCallback(async (payload) => {
     const gamification = require('../gamification');
+    // v1.1.16 (Fix Issue 1) : synchroniser storeRef.current.learner avec le
+    // state React au moment du setLearner. Avant, recordLessonCompleted
+    // appelait setLearner(updatedLearner) sans toucher storeRef.current.learner,
+    // or getGamificationState (juste en dessous) lit prioritairement
+    // `storeRef.current.learner || learner` → l'écran « Progressions & succès »
+    // affichait un streak_days périmé (jour N+1 affichait N) jusqu'au prochain
+    // pull serveur. Toutes les autres mutations du learner dans DbProvider
+    // font `storeRef.current.learner = updated`, celle-ci était l'exception.
+    const setLearnerWithStore = (updated) => {
+      if (updated) storeRef.current.learner = updated;
+      setLearner(updated);
+    };
     const result = await gamification.recordLessonCompleted(
       {
-        learner, setLearner, enqueue,
+        learner, setLearner: setLearnerWithStore, enqueue,
         getCurrentLearner: () => storeRef.current.learner,
         runAsync, getFirst, getAllProgress,
         getAchievements, getDailyGoal,

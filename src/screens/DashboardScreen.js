@@ -218,9 +218,30 @@ export default function DashboardScreen({ navigation }) {
                   <Text style={styles.statText}>
                     ⏱ {module.duration} {t('lesson.read_time')}
                   </Text>
-                  <Text style={styles.statText}>
-                    ⭐ {module.xp} XP
-                  </Text>
+                  {/* v1.1.16 (Fix Issue 3) : XP affichée honnête.
+                      Avant, la carte affichait `module.xp` (= Σ base XP sans les
+                      bonus « quiz parfait »), mais l'attribution réelle après
+                      réussite du module valait Σ(base + bonus_parfait). L'user
+                      voyait « 220 XP » et gagnait jusqu'à 280 XP → divergence
+                      = Σ bonus parfaits. Désormais :
+                      - Module terminé → on affiche le XP réellement attribué
+                        (prog.total_xp_earned, cumulatif,bonus inclus).
+                      - Module en cours / non commencé → on affiche une plage
+                        « base–max » si des bonus existent, sinon juste base. */}
+                  {(() => {
+                    const baseXP = module.xp;
+                    const maxXP = module.maxXP ?? baseXP;
+                    const earned = prog?.total_xp_earned;
+                    let label;
+                    if (status === 'completed' && typeof earned === 'number' && earned > 0) {
+                      label = `⭐ ${earned} XP`;
+                    } else if (maxXP > baseXP) {
+                      label = `⭐ ${baseXP}–${maxXP} XP`;
+                    } else {
+                      label = `⭐ ${baseXP} XP`;
+                    }
+                    return <Text style={styles.statText}>{label}</Text>;
+                  })()}
                 </View>
 
                 {/* Progress bar */}

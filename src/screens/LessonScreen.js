@@ -16,7 +16,7 @@ import feedback from '../services/feedbackService';
 export default function LessonScreen({ route, navigation }) {
   const { moduleId, lessonIndex: li } = route.params || {};
   const insets = useSafeAreaInsets();
-  const { learner, updateProgress } = useDb();
+  const { learner, updateProgress, getProgress } = useDb();
 
   // Sections révélées progressivement (0 = intro visible, 1 = section 1, etc.)
   const [visibleSections, setVisibleSections] = useState(0);
@@ -35,14 +35,35 @@ export default function LessonScreen({ route, navigation }) {
   const isLast  = lessonIndex >= totalLessons - 1;
 
   // Marquer la progression au chargement
+  // v1.1.16 (Fix Issue 2) : ne JAMAIS rétrograder un module déjà terminé.
+  // Avant, ce useEffect se contentait d'écrire status:'in_progress' à chaque
+  // changement de learner/updateProgress — or sur l'écran Quiz de la dernière
+  // leçon, le SyncEngine.pull déclenchait un setLearner dans une task externe
+  // pendant handleFinish, ce qui re-fire ce useEffect. La garde JS de
+  // progressRepository.update (lignes 38-43) lit `existing` AVANT l'écriture :
+  // deux écritures concurrentes partant d'un existing='in_progress'
+  // passaient toutes les deux, et l'UPSERT SQLite écrasait 'completed' par
+  // 'in_progress' (race). Désormais on lit d'abord la progression ; si elle
+  // vaut 'completed' on n'écrit rien. La garde SQL (schema.UPSERT_PROGRESS)
+  // rend 'completed' collant au niveau atomique en plus de ce hardening.
   useEffect(() => {
-    if (module && learner) {
-      updateProgress(module.id, {
-        status: 'in_progress',
-        current_lesson: lessonIndex,
-      }).catch(e => console.warn('[Lesson] Progress update:', e));
-    }
-  }, [module?.id, lessonIndex, learner, updateProgress]);
+    if (!module || !learner) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const prog = getProgress ? await getProgress(module.id) : null;
+        if (cancelled) return;
+        if (prog?.status === 'completed') return; // ne jamais rétrograder
+        await updateProgress(module.id, {
+          status: 'in_progress',
+          current_lesson: lessonIndex,
+        });
+      } catch (e) {
+        console.warn('[Lesson] Progress update:', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [module?.id, lessonIndex, learner, updateProgress, getProgress]);
 
   const goNextLesson = () => {
     if (isLast) {
@@ -94,7 +115,17 @@ export default function LessonScreen({ route, navigation }) {
           <Text style={styles.headerTitle} numberOfLines={1}>{module.title}</Text>
           <Text style={styles.headerSub}>{t('lesson.question_of', { current: lessonIndex + 1, total: totalLessons })}</Text>
         </View>
-        <Text style={styles.xpChip}>+{lesson.xp_per_lesson} XP</Text>
+        <Text style={styles.xpChip}>
+          {/* v1.1.16 (Fix Issue 3) : révéler le bonus « quiz parfait » potentiel
+              sur le chip de la leçon. Avant, le chip affichait « +35 XP » alors
+              qu'un quiz parfait attribuait 45 XP (35 base + 10 bonus). L'user
+              découvrait le bonus uniquement sur l'écran de résultat du quiz. */}
+          +{lesson.xp_per_lesson}
+          {(lesson.quiz?.xp_bonus_perfect || 0) > 0
+            ? ` (+${lesson.quiz.xp_bonus_perfect} parfait)`
+            : ''}
+          {' '}XP
+        </Text>
       </View>
 
       {/* Progress bar fine */}
