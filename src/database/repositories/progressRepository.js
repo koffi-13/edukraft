@@ -7,20 +7,48 @@ export function createProgressRepository(db, store, enqueue) {
   const isMemory = () => !db;
   const { QUERIES } = require('../schema');
 
+  // v1.1.16 : DÉDOUBLONNAGE défensif par module. Des lignes dupliquées pour un
+  // même (learner, module) peuvent exister sur des appareils ayant traversé
+  // les bugs de renommage v1.1.8-1.1.15 (id ≠ mais même couple) : le Dashboard
+  // lisait alors la PREMIÈRE ligne arbitraire (« module terminé marqué En
+  // cours » alors qu'une ligne « completed » cohabitait). La MEILLEURE ligne
+  // gagne : statut le plus avancé, puis lessons_done, puis fraîcheur.
+  const RANK = { not_started: 0, in_progress: 1, completed: 2 };
+  function pickBestRow(a, b) {
+    if (!a) return b;
+    if (!b) return a;
+    const ra = RANK[a.status] ?? 0;
+    const rb = RANK[b.status] ?? 0;
+    if (ra !== rb) return ra > rb ? a : b;
+    if ((a.lessons_done || 0) !== (b.lessons_done || 0)) {
+      return (a.lessons_done || 0) > (b.lessons_done || 0) ? a : b;
+    }
+    return (a.updated_at || '') >= (b.updated_at || '') ? a : b;
+  }
+
   /** Récupère la progression d'un module. */
   async function get(learner, moduleId) {
     if (isMemory()) {
       return store.progress[moduleId] || null;
     }
-    return db.getFirstAsync(QUERIES.GET_MODULE_PROGRESS, [learner?.id, moduleId]);
+    const rows = await db.getAllAsync(
+      'SELECT * FROM module_progress WHERE learner_id = ? AND module_id = ?',
+      [learner?.id, moduleId]
+    );
+    return rows.reduce((best, r) => pickBestRow(best, r), null);
   }
 
-  /** Récupère toute la progression du learner. */
+  /** Récupère toute la progression du learner (UNE ligne par module). */
   async function getAll(learner) {
     if (isMemory()) {
       return Object.values(store.progress);
     }
-    return db.getAllAsync(QUERIES.GET_ALL_PROGRESS, [learner?.id]);
+    const rows = await db.getAllAsync(QUERIES.GET_ALL_PROGRESS, [learner?.id]);
+    const byModule = {};
+    for (const r of rows) {
+      byModule[r.module_id] = pickBestRow(byModule[r.module_id], r);
+    }
+    return Object.values(byModule);
   }
 
   /** Met à jour (ou crée) la progression d'un module. */

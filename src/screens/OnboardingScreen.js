@@ -8,6 +8,8 @@ import {
   ScrollView, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+// v1.1.16 : alerte multi-plateforme (Alert.alert = no-op sur web)
+import alertUser from '../utils/alert';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../theme';
 import { useDb }  from '../database/DbProvider';
 import { useAuth } from '../contexts/AuthContext';
@@ -34,7 +36,7 @@ export default function OnboardingScreen({ navigation }) {
 
   const handleStart = async () => {
     if (!name.trim()) {
-      Alert.alert('Champ requis', 'Merci d\'entrer ton prénom pour continuer.');
+      alertUser('Champ requis', 'Merci d\'entrer ton prénom pour continuer.');
       return;
     }
     setLoading(true);
@@ -62,7 +64,7 @@ export default function OnboardingScreen({ navigation }) {
         try { await setDailyGoal('lessons', 1); } catch (_) {}
       }
     } catch (e) {
-      Alert.alert('Erreur', 'Impossible de créer ton profil.\n\n' + (e.message || e));
+      alertUser('Erreur', 'Impossible de créer ton profil.\n\n' + (e.message || e));
     } finally {
       setLoading(false);
     }

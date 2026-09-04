@@ -223,6 +223,111 @@ async function saveMemorySnapshot(store) {
   } catch (_) {}
 }
 
+// ── v1.1.16 : snapshot ASSEMBLÉ DEPUIS SQLITE (correctif racine) ──────────
+// AVANT (v1.1.3→v1.1.15), le snapshot était TOUJOURS sérialisé depuis le
+// STORE MÉMOIRE (storeRef.current). Or en mode SQLite (app native), ce store
+// mémoire n'est qu'un MIROIR PARTIEL : seul `learner` y est maintenu à jour —
+// `progress`, `badges`, `streakLogs`, `achievements`, `dailyGoal` y restent
+// VIDES ou PÉRIMÉS (les repositories écrivent en SQLite, jamais en mémoire).
+// Résultat : chaque snapshot sauvé en mode SQLite était un « Frankenstein »
+// (learner frais + progressions obsolètes). La « guérison » v1.1.14 (purge +
+// restauration du snapshot au boot suivant) appliquait alors CET ÉTAT PÉRIMÉ
+// par-dessus une base SQLite saine → un module TERMINÉ redevenait « En cours »,
+// les badges/quizzes/streaks locaux disparaissaient, puis l'état (maintenant
+// rétrogradé) était re-poussé au serveur par la fusion → divergence PERMANENTE
+// entre web et mobile. Désormais, en mode SQLite le snapshot est construit en
+// LISANT la base réelle : le fallback hors-ligne reste exact, et la guérison
+// devient inoffensive.
+async function buildSqliteSnapshot(db, learnerId) {
+  if (!db || !learnerId) return null;
+  try {
+    const learner = await db.getFirstAsync('SELECT * FROM learner WHERE id = ?', [learnerId]);
+    if (!learner) return null;
+
+    const progressRows = await db.getAllAsync('SELECT * FROM module_progress WHERE learner_id = ?', [learnerId]);
+    const progress = {};
+    progressRows.forEach(p => { progress[p.module_id] = p; });
+
+    const badgeRows = await db.getAllAsync('SELECT * FROM badge WHERE learner_id = ?', [learnerId]);
+
+    // Limiter l'historique des tentatives (le snapshot doit rester léger :
+    // AsyncStorage/localStorage ≈ quelques Mo).
+    const quizAttempts = await db.getAllAsync(
+      'SELECT * FROM quiz_attempt WHERE learner_id = ? ORDER BY completed_at DESC LIMIT 200',
+      [learnerId]
+    );
+
+    const achRows = await db.getAllAsync(
+      'SELECT achievement_key, unlocked_at FROM achievement WHERE learner_id = ? ORDER BY unlocked_at ASC',
+      [learnerId]
+    );
+    const achievements = achRows.map(a => ({ achievement_key: a.achievement_key, unlocked_at: a.unlocked_at }));
+
+    const streakRows = await db.getAllAsync('SELECT * FROM streak_log WHERE learner_id = ?', [learnerId]);
+    const streakLogs = {};
+    streakRows.forEach(l => {
+      streakLogs[l.activity_date] = {
+        lessons_done: l.lessons_done, xp_earned: l.xp_earned,
+        streak_freeze_used: l.streak_freeze_used, goal_met: l.goal_met,
+        created_at: l.created_at, updated_at: l.updated_at,
+      };
+    });
+
+    const dailyGoalRow = await db.getFirstAsync('SELECT * FROM daily_goal WHERE learner_id = ?', [learnerId]);
+
+    const syncQueue = await db.getAllAsync('SELECT * FROM sync_queue ORDER BY queued_at ASC LIMIT 300');
+
+    return {
+      learner,
+      progress,
+      quizAttempts,
+      badges: badgeRows,
+      streakLogs,
+      achievements,
+      dailyGoal: dailyGoalRow ? {
+        goal_type: dailyGoalRow.goal_type, goal_target: dailyGoalRow.goal_target,
+        enabled: dailyGoalRow.enabled, updated_at: dailyGoalRow.updated_at,
+      } : null,
+      syncQueue,
+      savedAt: new Date().toISOString(),
+    };
+  } catch (e) {
+    console.warn('[DB] buildSqliteSnapshot échec :', e?.message);
+    return null;
+  }
+}
+
+/** v1.1.16 : persiste le snapshot complet — SQLite réel en mode natif,
+ *  store mémoire en mode web/fallback. Retourne le JSON sauvé (ou null). */
+async function persistSnapshotFor(store, db) {
+  try {
+    const learnerId = store?.learner?.id;
+    if (!learnerId) return null;
+    let json = null;
+    if (db) {
+      const snap = await buildSqliteSnapshot(db, learnerId);
+      if (snap) json = JSON.stringify(snap);
+    }
+    if (!json) {
+      // Mode mémoire (web / SQLite indisponible) : snapshot du store réel
+      if (!store.learner?.id) return null;
+      json = JSON.stringify({
+        learner: store.learner, progress: store.progress,
+        quizAttempts: store.quizAttempts, badges: store.badges,
+        streakLogs: store.streakLogs, achievements: store.achievements,
+        dailyGoal: store.dailyGoal, syncQueue: store.syncQueue || [],
+        savedAt: new Date().toISOString(),
+      });
+    }
+    await persistentStorage.setItem(snapKey(learnerId), json);
+    await persistentStorage.setItem(KEYS.SNAPSHOT, json);
+    await persistentStorage.setItem(KEYS.ACTIVE_LEARNER, learnerId);
+    return json;
+  } catch (_) {
+    return null;
+  }
+}
+
 // v1.1.14 : fusionne la file de sync d’un snapshot dans le store SANS
 // écraser les ops déjà présentes (switchActiveLearner préserve la file du
 // compte sortant — chaque op est attribuée à son compte par record_id).
@@ -461,26 +566,122 @@ async function restoreSnapshotToSqlite(db, snap) {
 // streaks, succès, objectif) + la file de sync vers un nouvel id. Utilisé :
 //   - à l'init (legacy server_id → id canonique du compte)
 //   - par adoptCanonicalLearnerId (invité → compte)
+// v1.1.16 : RENOMMAGE SANS ÉCHEC (anti-orphelin). Avant, un simple UPDATE
+// `id = newId || '_' || module_id` levait « UNIQUE constraint failed » dès
+// qu'une ligne cible existait déjà (le compte s'était déjà synchronisé sur
+// cet appareil, ou un précédent renommage partiel) → l'EXCEPTION remontait
+// au caller (adoptCanonicalLearnerId échoué) → les lignes du learner
+// restaient ORPHELINES sous l'ancien id : invisibles pour la fusion
+// (WHERE learner_id = canonicalId) et la progression « terminée » locale
+// redevenait « en cours » en reprenant l'état serveur. Désormais chaque
+// table est fusionnée ligne par ligne (MAX par champ — jamais de perte ni
+// de conflit de clé), et le renommage ne peut plus échouer partiellement.
 async function renameLearnerRowsSqlite(db, oldId, newId) {
   if (!db || !oldId || !newId || oldId === newId) return;
   const old = await db.getFirstAsync('SELECT * FROM learner WHERE id = ?', [oldId]);
   if (!old) return;
   await upsertLearnerRow(db, { ...old, id: newId });
-  await db.runAsync(
-    `UPDATE module_progress SET learner_id = ?, id = ? || '_' || module_id WHERE learner_id = ?`,
-    [newId, newId, oldId]
-  );
+
+  // module_progress : fusion par module (la cible existe déjà → MAX par champ,
+  // puis suppression de la source).
+  const oldProg = await db.getAllAsync('SELECT * FROM module_progress WHERE learner_id = ?', [oldId]);
+  for (const r of oldProg) {
+    const targetId = `${newId}_${r.module_id}`;
+    const existing = await db.getFirstAsync('SELECT * FROM module_progress WHERE id = ?', [targetId]);
+    if (existing) {
+      await db.runAsync(
+        `UPDATE module_progress SET
+           status = CASE WHEN ? = 'completed' OR status = 'completed' THEN 'completed' ELSE status END,
+           current_lesson  = MAX(current_lesson, COALESCE(?, current_lesson)),
+           lessons_done    = MAX(lessons_done, COALESCE(?, lessons_done)),
+           total_xp_earned = MAX(total_xp_earned, COALESCE(?, total_xp_earned)),
+           best_score      = MAX(best_score, COALESCE(?, best_score)),
+           started_at      = COALESCE(started_at, ?),
+           completed_at    = COALESCE(completed_at, ?),
+           updated_at      = MAX(updated_at, ?)
+         WHERE id = ?`,
+        [r.status, r.current_lesson, r.lessons_done, r.total_xp_earned,
+         r.best_score, r.started_at, r.completed_at, r.updated_at, targetId]
+      );
+      await db.runAsync('DELETE FROM module_progress WHERE id = ?', [r.id]);
+    } else {
+      await db.runAsync(
+        'UPDATE module_progress SET learner_id = ?, id = ? WHERE id = ?',
+        [newId, targetId, r.id]
+      );
+    }
+  }
+
+  // quiz_attempt / badge : pas de contrainte d'unicité sur learner → simple
+  // repointage (jamais de conflit).
   await db.runAsync('UPDATE quiz_attempt SET learner_id = ? WHERE learner_id = ?', [newId, oldId]);
   await db.runAsync('UPDATE badge SET learner_id = ? WHERE learner_id = ?', [newId, oldId]);
-  await db.runAsync(
-    `UPDATE streak_log SET learner_id = ?, id = ? || '_' || activity_date WHERE learner_id = ?`,
-    [newId, newId, oldId]
-  );
-  await db.runAsync(
-    `UPDATE achievement SET learner_id = ?, id = ? || '_' || achievement_key WHERE learner_id = ?`,
-    [newId, newId, oldId]
-  );
-  await db.runAsync('UPDATE daily_goal SET learner_id = ?, id = ? WHERE learner_id = ?', [newId, `goal_${newId}`, oldId]);
+
+  // streak_log : UNIQUE(learner_id, activity_date) → fusion par date.
+  const oldLogs = await db.getAllAsync('SELECT * FROM streak_log WHERE learner_id = ?', [oldId]);
+  for (const r of oldLogs) {
+    const targetId = `${newId}_${r.activity_date}`;
+    const existing = await db.getFirstAsync(
+      'SELECT * FROM streak_log WHERE learner_id = ? AND activity_date = ?', [newId, r.activity_date]
+    );
+    if (existing) {
+      await db.runAsync(
+        `UPDATE streak_log SET
+           lessons_done = MAX(lessons_done, ?), xp_earned = MAX(xp_earned, ?),
+           streak_freeze_used = MAX(streak_freeze_used, ?), goal_met = MAX(goal_met, ?),
+           updated_at = MAX(updated_at, ?)
+         WHERE id = ?`,
+        [r.lessons_done, r.xp_earned, r.streak_freeze_used, r.goal_met, r.updated_at, existing.id]
+      );
+      await db.runAsync('DELETE FROM streak_log WHERE id = ?', [r.id]);
+    } else {
+      await db.runAsync(
+        'UPDATE streak_log SET learner_id = ?, id = ? WHERE id = ?',
+        [newId, targetId, r.id]
+      );
+    }
+  }
+
+  // achievement : UNIQUE(learner_id, achievement_key) → fusion par clé.
+  const oldAch = await db.getAllAsync('SELECT * FROM achievement WHERE learner_id = ?', [oldId]);
+  for (const r of oldAch) {
+    const existing = await db.getFirstAsync(
+      'SELECT * FROM achievement WHERE learner_id = ? AND achievement_key = ?', [newId, r.achievement_key]
+    );
+    if (existing) {
+      await db.runAsync(
+        'UPDATE achievement SET unlocked_at = MIN(unlocked_at, ?) WHERE id = ?',
+        [r.unlocked_at, existing.id]
+      );
+      await db.runAsync('DELETE FROM achievement WHERE id = ?', [r.id]);
+    } else {
+      await db.runAsync(
+        'UPDATE achievement SET learner_id = ?, id = ? WHERE id = ?',
+        [newId, `${newId}_${r.achievement_key}`, r.id]
+      );
+    }
+  }
+
+  // daily_goal : UNIQUE(learner_id) → garder la version la plus récente.
+  const oldGoal = await db.getFirstAsync('SELECT * FROM daily_goal WHERE learner_id = ?', [oldId]);
+  if (oldGoal) {
+    const existingGoal = await db.getFirstAsync('SELECT * FROM daily_goal WHERE learner_id = ?', [newId]);
+    if (existingGoal) {
+      if ((oldGoal.updated_at || '') > (existingGoal.updated_at || '')) {
+        await db.runAsync(
+          'UPDATE daily_goal SET goal_type = ?, goal_target = ?, enabled = ?, updated_at = ? WHERE id = ?',
+          [oldGoal.goal_type, oldGoal.goal_target, oldGoal.enabled ?? 1, oldGoal.updated_at, existingGoal.id]
+        );
+      }
+      await db.runAsync('DELETE FROM daily_goal WHERE id = ?', [oldGoal.id]);
+    } else {
+      await db.runAsync(
+        'UPDATE daily_goal SET learner_id = ?, id = ? WHERE id = ?',
+        [newId, `goal_${newId}`, oldGoal.id]
+      );
+    }
+  }
+
   await db.runAsync('DELETE FROM learner WHERE id = ?', [oldId]);
 
   // File de sync : réécrire record_id + payload des opérations en attente
@@ -632,9 +833,14 @@ export function DbProvider({ children }) {
   // jamais re-sauvegardées. persistSnapshot est maintenant appelé après
   // CHAQUE mutation publique (createLearner, updateProgress, saveQuizAttempt,
   // issueBadge, addXP, recordLessonCompleted, setDailyGoal, updateProfile).
+  // v1.1.16 : en mode SQLite, le snapshot est ASSEMBLÉ DEPUIS LA BASE RÉELLE
+  // (buildSqliteSnapshot) — avant, il sérialisait le store mémoire dont les
+  // progressions restaient vides/périmées en mode natif : la guérison du boot
+  // appliquait alors cet état périmé PAR-DESSUS SQLite (« module terminé
+  // marqué En cours », badges/quizzes perdus, photo de profil perdues).
   const persistSnapshot = useCallback(() => {
-    saveMemorySnapshot(storeRef.current);
-  }, []);
+    return persistSnapshotFor(storeRef.current, db).catch(() => {});
+  }, [db]);
 
   // ── Initialisation ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -782,21 +988,143 @@ export function DbProvider({ children }) {
                 const snapHeal = JSON.parse(snapHealRaw);
                 const snapTime = snapHeal?.savedAt || snapHeal?.learner?.updated_at || null;
                 const rowTime  = row.updated_at || null;
-                if (snapTime && rowTime && Date.parse(snapTime) > Date.parse(rowTime)) {
-                  // Purger les lignes du learner (JAMAIS la file de sync —
-                  // les ops en attente doivent partir) puis tout restaurer.
-                  for (const tbl of ['module_progress', 'quiz_attempt', 'badge', 'achievement', 'streak_log', 'daily_goal']) {
-                    try { await nativeDb.runAsync(`DELETE FROM ${tbl} WHERE learner_id = ?`, [row.id]); } catch (_) {}
+                // v1.1.16 : GUARD CRITIQUE — un snapshot SANS progressions est un
+                // artefact v1.1.15 (store mémoire Frankenstein, cf. buildSqliteSnapshot).
+                // Il ne doit JAMAIS pouvoir purger des lignes SQLite existantes.
+                const snapProgressCount = Object.keys(snapHeal?.progress || {}).length;
+                const sqliteProgressCount = (await nativeDb.getFirstAsync(
+                  'SELECT COUNT(*) as cnt FROM module_progress WHERE learner_id = ?', [row.id]
+                ))?.cnt || 0;
+                if (snapTime && rowTime && Date.parse(snapTime) > Date.parse(rowTime)
+                    && !(snapProgressCount === 0 && sqliteProgressCount > 0)) {
+                  // v1.1.16 : GUÉRISON CHIRURGICALE — avant, TOUTES les lignes du
+                  // learner étaient PURGÉES puis restaurées depuis le snapshot :
+                  // si celui-ci était PARTIEL (artefact v1.1.15), des modules
+                  // terminés en SQLite étaient DÉTRUITS et remplacés par l'état
+                  // antérieur (« module terminé marqué En cours »). Désormais on
+                  // ne remplace une ligne locale QUE si la version du snapshot
+                  // est STRICTEMENT plus récente (updated_at par module) ; la
+                  // file de sync n'est jamais touchée (les ops doivent partir).
+                  let healedSomething = false;
+
+                  // module_progress : version du snapshot plus récente OU
+                  // ligne locale absente → remplacer/insérer.
+                  const localProgRows = await nativeDb.getAllAsync(
+                    'SELECT * FROM module_progress WHERE learner_id = ?', [row.id]
+                  );
+                  const localProgByModule = {};
+                  localProgRows.forEach(p => { localProgByModule[p.module_id] = p; });
+                  for (const [moduleId, sp] of Object.entries(snapHeal?.progress || {})) {
+                    const lp = localProgByModule[moduleId];
+                    const spTime = Date.parse(sp.updated_at || sp.started_at || snapTime || '') || 0;
+                    const lpTime = Date.parse(lp?.updated_at || '') || 0;
+                    const statusRank = { not_started: 0, in_progress: 1, completed: 2 };
+                    const lpIsBetter = lp
+                      && (statusRank[lp.status] ?? 0) >= (statusRank[sp.status] ?? 0)
+                      && (lp.lessons_done || 0) >= (sp.lessons_done || 0)
+                      && lpTime >= spTime;
+                    if (lp && lpIsBetter) continue; // la ligne locale est au moins aussi bonne
+                    const id = lp?.id ?? `${row.id}_${moduleId}`;
+                    await nativeDb.runAsync(
+                      `INSERT INTO module_progress
+                       (id, learner_id, module_id, status, current_lesson, lessons_done, total_xp_earned, best_score, started_at, completed_at, sync_status, updated_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+                       ON CONFLICT(id) DO UPDATE SET
+                         status=excluded.status, current_lesson=MAX(module_progress.current_lesson, excluded.current_lesson),
+                         lessons_done=MAX(module_progress.lessons_done, excluded.lessons_done),
+                         total_xp_earned=MAX(module_progress.total_xp_earned, excluded.total_xp_earned),
+                         best_score=MAX(module_progress.best_score, excluded.best_score),
+                         started_at=COALESCE(module_progress.started_at, excluded.started_at),
+                         completed_at=COALESCE(module_progress.completed_at, excluded.completed_at),
+                         updated_at=excluded.updated_at`,
+                      [id, row.id, moduleId, sp.status ?? 'in_progress',
+                       sp.current_lesson ?? 0, sp.lessons_done ?? 0,
+                       sp.total_xp_earned ?? 0, sp.best_score ?? 0,
+                       sp.started_at ?? null, sp.completed_at ?? null,
+                       sp.updated_at ?? new Date().toISOString()]
+                    );
+                    healedSomething = true;
                   }
-                  await restoreSnapshotToSqlite(nativeDb, snapHeal);
+
+                  // quiz_attempt / achievement / badge / streak_log / sync_queue :
+                  // restauration NON destructive (INSERT OR IGNORE — idempotente,
+                  // les lignes locales plus récentes sont conservées).
+                  for (const qa of (snapHeal?.quizAttempts || [])) {
+                    await nativeDb.runAsync(
+                      `INSERT OR IGNORE INTO quiz_attempt
+                       (id, learner_id, module_id, lesson_index, attempt_number, score, answers, xp_awarded, passed, completed_at, sync_status)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+                      [qa.id, row.id, qa.module_id, qa.lesson_index ?? 0,
+                       qa.attempt_number ?? 1, qa.score ?? 0, qa.answers ?? '[]',
+                       qa.xp_awarded ?? 0, qa.passed ?? 0, qa.completed_at ?? new Date().toISOString()]
+                    );
+                  }
+                  for (const a of (snapHeal?.achievements || [])) {
+                    if (!a?.achievement_key) continue;
+                    await nativeDb.runAsync(
+                      `INSERT OR IGNORE INTO achievement (id, learner_id, achievement_key, unlocked_at, sync_status)
+                       VALUES (?, ?, ?, ?, 'pending')`,
+                      [`${row.id}_${a.achievement_key}`, row.id, a.achievement_key, a.unlocked_at ?? new Date().toISOString()]
+                    );
+                  }
+                  for (const b of (snapHeal?.badges || [])) {
+                    if (!b?.module_id) continue;
+                    await nativeDb.runAsync(
+                      `INSERT OR IGNORE INTO badge
+                       (id, learner_id, module_id, module_title, score, xp_total, badge_hash, qr_payload, blockchain_tx, issued_at, sync_status)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+                      [b.id, row.id, b.module_id, b.module_title ?? '', b.score ?? 0,
+                       b.xp_total ?? 0, b.badge_hash ?? '', b.qr_payload ?? '',
+                       b.blockchain_tx ?? null, b.issued_at ?? new Date().toISOString()]
+                    );
+                  }
+                  for (const [date, log] of Object.entries(snapHeal?.streakLogs || {})) {
+                    await nativeDb.runAsync(
+                      `INSERT OR IGNORE INTO streak_log
+                       (id, learner_id, activity_date, lessons_done, xp_earned, streak_freeze_used, goal_met, created_at, updated_at, sync_status)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+                      [`${row.id}_${date}`, row.id, date,
+                       log.lessons_done ?? 0, log.xp_earned ?? 0, log.streak_freeze_used ?? 0,
+                       log.goal_met ?? 0, log.created_at ?? date, log.updated_at ?? date]
+                    );
+                  }
+                  if (snapHeal?.dailyGoal?.goal_type) {
+                    await nativeDb.runAsync(
+                      `INSERT INTO daily_goal (id, learner_id, goal_type, goal_target, enabled, updated_at, sync_status)
+                       VALUES (?, ?, ?, ?, ?, ?, 'pending')
+                       ON CONFLICT(learner_id) DO UPDATE SET
+                         goal_type = excluded.goal_type, goal_target = excluded.goal_target,
+                         enabled = excluded.enabled, updated_at = excluded.updated_at`,
+                      [`goal_${row.id}`, row.id, snapHeal.dailyGoal.goal_type,
+                       snapHeal.dailyGoal.goal_target ?? 1, snapHeal.dailyGoal.enabled ?? 1,
+                       snapHeal.dailyGoal.updated_at ?? new Date().toISOString()]
+                    );
+                  }
+                  for (const q of (snapHeal?.syncQueue || [])) {
+                    if (!q?.id || !q?.table_name || !q?.record_id) continue;
+                    await nativeDb.runAsync(
+                      `INSERT OR IGNORE INTO sync_queue
+                       (id, table_name, record_id, operation, payload, queued_at, retry_count, last_error)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                      [q.id, q.table_name, q.record_id, q.operation ?? 'UPDATE',
+                       typeof q.payload === 'string' ? q.payload : JSON.stringify(q.payload ?? {}),
+                       q.queued_at ?? new Date().toISOString(), q.retry_count ?? 0, q.last_error ?? null]
+                    );
+                  }
+
+                  // Learner : upsert MAX (jamais de rétrogradation).
+                  if (snapHeal?.learner) {
+                    await upsertLearnerRow(nativeDb, snapHeal.learner);
+                  }
                   const healed = await nativeDb.getFirstAsync('SELECT * FROM learner WHERE id = ?', [row.id]);
                   if (healed) {
                     row = healed;
                     setLearner(healed);
                     storeRef.current.learner = healed;
                     try { await persistentStorage.setItem(KEYS.LEARNER, JSON.stringify(healed)); } catch (_) {}
-                    console.log('[DB] Snapshot plus récent que SQLite — données restaurées (guérison v1.1.14)');
                   }
+                  console.log('[DB] Guérison snapshot CHIRURGICALE appliquée v1.1.16'
+                    + (healedSomething ? ' (progressions mises à jour)' : ' (aucune régression possible)'));
                 }
               }
             } catch (healErr) {
@@ -1186,6 +1514,44 @@ export function DbProvider({ children }) {
     const { QUERIES } = require('./schema');
     const pushOps = []; // ops à enfiler APRÈS l'op learner (ordre important)
 
+    // ── v1.1.16 : INVARIANT « badge ⇒ module terminé » ──
+    // Un badge n'est émis QUE lorsque le module est complété (QuizScreen :
+    // moduleCompleted = quiz final réussi). Des états divergents (snapshot
+    // Frankenstein v1.1.15, ops module_progress perdues, purge de guérison)
+    // pouvaient laisser une ligne « in_progress » pour un module BADGÉ →
+    // « module terminé marqué En cours ». On force la convergence : tout
+    // module badgé (côté serveur OU local) est « completed » avec la date du
+    // badge comme completed_at de secours.
+    const badgedModules = new Map(); // module_id → issued_at
+    const registerBadge = (b) => {
+      if (!b?.module_id) return;
+      const at = b.issued_at || null;
+      const prev = badgedModules.get(b.module_id);
+      if (!prev || (at && at < prev)) badgedModules.set(b.module_id, at || prev);
+    };
+    (sv.badges || []).forEach(registerBadge);
+    let localBadgesForInvariant = [];
+    try {
+      if (db) {
+        localBadgesForInvariant = await db.getAllAsync('SELECT module_id, issued_at FROM badge WHERE learner_id = ?', [canonicalId]);
+      } else {
+        localBadgesForInvariant = (storeRef.current.badges || []);
+      }
+    } catch (_) {}
+    localBadgesForInvariant.forEach(registerBadge);
+    const badgeInvariant = (merged, moduleId) => {
+      if (badgedModules.size === 0 || !badgedModules.has(moduleId)) return merged;
+      if (merged.status === 'completed') {
+        if (!merged.completed_at) merged.completed_at = badgedModules.get(moduleId) || now;
+        return merged;
+      }
+      return {
+        ...merged,
+        status: 'completed',
+        completed_at: merged.completed_at || badgedModules.get(moduleId) || now,
+      };
+    };
+
     if (!db) {
       // ── Mode mémoire (web) ──
       const s = storeRef.current;
@@ -1225,8 +1591,13 @@ export function DbProvider({ children }) {
           completed_at:    lp?.completed_at || sp.completed_at || null,
           updated_at: now,
         };
-        s.progress[moduleId] = merged;
-        if (lp) pushOps.push(['module_progress', 'UPDATE', merged.id, merged]);
+        // v1.1.16 : module badgé ⇒ terminé (jamais « En cours »)
+        const mergedWithInvariant = badgeInvariant(merged, moduleId);
+        if (mergedWithInvariant !== merged) {
+          console.log(`[DB] v1.1.16 : module ${moduleId} badgé mais « ${merged.status} » → rétabli « completed »`);
+        }
+        s.progress[moduleId] = mergedWithInvariant;
+        if (lp) pushOps.push(['module_progress', 'UPDATE', mergedWithInvariant.id, mergedWithInvariant]);
       }
 
       // Badges : importer ceux du serveur absents localement
@@ -1370,12 +1741,23 @@ export function DbProvider({ children }) {
       // Progressions (MAX par module)
       const svProgress = reduceServerProgressRows(sv.progress || []);
       const localRows = await db.getAllAsync('SELECT * FROM module_progress WHERE learner_id = ?', [canonicalId]);
+      // v1.1.16 : dédoublonnage défensif (lignes historiques dupliquées par les
+      // renommages v1.1.8-1.1.15) — la MEILLEURE ligne locale gagne.
       const localByModule = {};
-      localRows.forEach(p => { localByModule[p.module_id] = p; });
+      const dupRank = { not_started: 0, in_progress: 1, completed: 2 };
+      const dupBetter = (a, b) => {
+        const ra = dupRank[a.status] ?? 0, rb = dupRank[b.status] ?? 0;
+        if (ra !== rb) return ra > rb ? a : b;
+        if ((a.lessons_done || 0) !== (b.lessons_done || 0)) return (a.lessons_done || 0) > (b.lessons_done || 0) ? a : b;
+        return (a.updated_at || '') >= (b.updated_at || '') ? a : b;
+      };
+      localRows.forEach(p => {
+        localByModule[p.module_id] = localByModule[p.module_id] ? dupBetter(localByModule[p.module_id], p) : p;
+      });
       const rank = { not_started: 0, in_progress: 1, completed: 2 };
       for (const [moduleId, sp] of Object.entries(svProgress)) {
         const lp = localByModule[moduleId];
-        const merged = {
+        let merged = {
           id: lp?.id ?? `${canonicalId}_${moduleId}`,
           learner_id: canonicalId,
           module_id: moduleId,
@@ -1388,6 +1770,12 @@ export function DbProvider({ children }) {
           completed_at:    lp?.completed_at || sp.completed_at || null,
           updated_at: now,
         };
+        // v1.1.16 : module badgé ⇒ terminé (jamais « En cours »)
+        const mergedWithInvariant = badgeInvariant(merged, moduleId);
+        if (mergedWithInvariant !== merged) {
+          console.log(`[DB] v1.1.16 : module ${moduleId} badgé mais « ${merged.status} » → rétabli « completed »`);
+        }
+        merged = mergedWithInvariant;
         await db.runAsync(QUERIES.UPSERT_PROGRESS, [
           merged.id, merged.learner_id, merged.module_id, merged.status,
           merged.current_lesson, merged.lessons_done, merged.total_xp_earned,
@@ -1563,8 +1951,22 @@ export function DbProvider({ children }) {
   const switchActiveLearner = useCallback(async (canonicalId, serverUser, sv) => {
     // 1. Snapshotter le learner sortant SOUS SA PROPRE clé (mode mémoire) :
     //    ses données resteront restaurables quand ce compte se reconnectera.
+    // v1.1.16 : en mode SQLite, le snapshot du sortant est assemblé DEPUIS LA
+    // BASE (buildSqliteSnapshot) — l'ancien saveMemorySnapshot sérialisait le
+    // store mémoire (progressions vides en mode natif) : au retour du compte
+    // sur le web, ses progressions étaient réintroduites VIDES.
     if (storeRef.current.learner && storeRef.current.learner.id !== canonicalId) {
-      await saveMemorySnapshot(storeRef.current); // clé ek_snap_<ancien id>
+      if (db) {
+        try {
+          const outSnap = await buildSqliteSnapshot(db, storeRef.current.learner.id);
+          if (outSnap) {
+            const json = JSON.stringify(outSnap);
+            await persistentStorage.setItem(snapKey(storeRef.current.learner.id), json);
+          }
+        } catch (_) {}
+      } else {
+        await saveMemorySnapshot(storeRef.current); // clé ek_snap_<ancien id>
+      }
     }
     // 2. Vider le store mémoire (les collections appartiennent à l'ancien
     //    compte — en SQLite les lignes restent en base, scopées par learner_id)
@@ -1996,6 +2398,39 @@ export function DbProvider({ children }) {
     await purgePersistent();
   }, [db]);
 
+  // ── v1.1.16 : DÉTACHER le learner actif (déconnexion) ──────────────────
+  // Correctif du bug « après déconnexion, les données de l'utilisateur
+  // apparaissent toujours » : « Continuer sans compte » (skip) supprimait le
+  // flag sessionEnded et le gating rouvrait le Dashboard AVEC le profil et
+  // les progressions du compte DÉCONNECTÉ — et cet état survit au
+  // rechargement (skipAuth + learner persistés). Désormais, après une
+  // déconnexion, un « Continuer sans compte » DÉTACHE le learner du compte :
+  //   - l'état React passe à null (→ Onboarding pour un NOUVEAU profil invité)
+  //   - les pointeurs globaux (ek_learner, ek_memory_snapshot,
+  //     ek_active_learner_id) sont effacés — plus aucune résurrection au boot
+  //   - les DONNÉES DU COMPTE sont INTACTES : lignes SQLite (scopées par
+  //     learner_id = lrn_<user.id>) et snapshot scopé (ek_snap_<id>) — elles
+  //     seront intégralement restaurées à la RECONNEXION au compte.
+  //   - la file de sync est préservée (chaque op est attribuée à SON compte
+  //     par record_id : les ops en attente partiront vers le bon compte).
+  const detachActiveLearner = useCallback(async () => {
+    const activeId = storeRef.current.learner?.id || null;
+    // Préserver la file (attribution par record_id — cf. switchActiveLearner)
+    const outgoingQueue = (storeRef.current.syncQueue || []).slice();
+    storeRef.current.reset();
+    storeRef.current.syncQueue = outgoingQueue;
+    setLearner(null);
+    try {
+      await persistentStorage.removeItem(KEYS.LEARNER);
+      await persistentStorage.removeItem(KEYS.SNAPSHOT);
+      await persistentStorage.removeItem(KEYS.ACTIVE_LEARNER);
+      // NB : ek_snap_<activeId> (snapshot scopé) est CONSERVÉ — c'est lui qui
+      // restaure les données du compte à la reconnexion (web/mode mémoire).
+    } catch (_) {}
+    console.log('[DB] v1.1.16 : learner actif détaché (données du compte conservées pour la reconnexion)'
+      + (activeId ? ` — ${activeId}` : ''));
+  }, []);
+
   // ── Context value ─────────────────────────────────────────────────────
   const value = {
     db, ready, error, dbInitError,
@@ -2004,6 +2439,9 @@ export function DbProvider({ children }) {
     createLearner, addXP, updateProfile, getProfileCompletion, linkLearnerToAccount,
     // v1.1.6 : restauration multi-appareils (appelée après chaque login)
     restoreFromServer,
+    // v1.1.16 : détache le learner actif (après déconnexion + « Continuer
+    // sans compte ») — les données du compte restent restorables.
+    detachActiveLearner,
     // Progress
     getProgress, getAllProgress, updateProgress,
     // Quiz

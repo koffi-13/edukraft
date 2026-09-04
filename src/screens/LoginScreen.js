@@ -16,6 +16,8 @@ import {
   ScrollView, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+// v1.1.16 : alerte multi-plateforme (Alert.alert = no-op sur web)
+import alertUser from '../utils/alert';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../theme';
 import { t } from '../i18n';
 import { useAuth } from '../contexts/AuthContext';
@@ -88,7 +90,7 @@ const PHONE_OTP_ENABLED = process.env.EXPO_PUBLIC_PHONE_OTP_ENABLED !== 'false';
 export default function LoginScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { login, loginGoogle, loginApple, loginFacebook, loginPhone, skip, error, clearError } = useAuth();
-  const { learner, linkLearnerToAccount, restoreFromServer } = useDb();
+  const { learner, linkLearnerToAccount, restoreFromServer, detachActiveLearner } = useDb();
 
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
@@ -143,7 +145,7 @@ export default function LoginScreen({ navigation }) {
         loginGoogle(idToken).then((data) => {
           afterAuthSuccess(data);
         }).catch(e => {
-          Alert.alert(t('auth.oauth_error'), e.message);
+          alertUser(t('auth.oauth_error'), e.message);
         }).finally(() => setOauthLoading(null));
       }
     }
@@ -161,7 +163,7 @@ export default function LoginScreen({ navigation }) {
   // ── Email / password ────────────────────────────────────────────────────
   const handleEmailLogin = async () => {
     if (!email.trim() || !password) {
-      Alert.alert(t('auth.error_email_required'), t('auth.error_password_required'));
+      alertUser(t('auth.error_email_required'), t('auth.error_password_required'));
       return;
     }
     setLoading(true);
@@ -174,7 +176,7 @@ export default function LoginScreen({ navigation }) {
       const msg = e.message || '';
       // Message plus clair pour les erreurs réseau
       if (msg.includes('Network') || msg.includes('fetch') || msg.includes('Failed')) {
-        Alert.alert(
+        alertUser(
           'Serveur indisponible',
           'Impossible de joindre le serveur.\n\n' +
           'Vérifiez votre connexion internet.\n' +
@@ -182,7 +184,7 @@ export default function LoginScreen({ navigation }) {
           'Vérifiez votre connexion internet et réessayez.',
         );
       } else {
-        Alert.alert(t('auth.error_invalid_credentials'), msg);
+        alertUser(t('auth.error_invalid_credentials'), msg);
       }
     } finally {
       setLoading(false);
@@ -192,7 +194,7 @@ export default function LoginScreen({ navigation }) {
   // ── Google OAuth (approche impérative) ───────────────────────────────────
   const handleGoogle = async () => {
     if (!GOOGLE_CLIENT_ID) {
-      Alert.alert('Google', 'OAuth Google non configuré. Ajoutez EXPO_PUBLIC_GOOGLE_CLIENT_ID.');
+      alertUser('Google', 'OAuth Google non configuré. Ajoutez EXPO_PUBLIC_GOOGLE_CLIENT_ID.');
       return;
     }
     setOauthLoading('google');
@@ -224,7 +226,7 @@ export default function LoginScreen({ navigation }) {
       // Natif : relais backend + state = returnUrl (la page relais renvoie
       // les tokens vers NATIVE_RETURN_URL : scheme APK ou URL Expo Go en dev)
       if (!WebBrowser) {
-        Alert.alert('Google', 'WebBrowser non disponible.');
+        alertUser('Google', 'WebBrowser non disponible.');
         setOauthLoading(null);
         return;
       }
@@ -262,7 +264,7 @@ export default function LoginScreen({ navigation }) {
       const data = await loginGoogle(params.id_token);
       await afterAuthSuccess(data);
     } catch (e) {
-      Alert.alert(t('auth.oauth_error'), e.message);
+      alertUser(t('auth.oauth_error'), e.message);
     } finally {
       setOauthLoading(null);
     }
@@ -271,7 +273,7 @@ export default function LoginScreen({ navigation }) {
   // ── Facebook OAuth (approche impérative) ─────────────────────────────────
   const handleFacebook = async () => {
     if (!FACEBOOK_APP_ID || !WebBrowser) {
-      Alert.alert('Facebook', 'OAuth Facebook non configuré. Ajoutez EXPO_PUBLIC_FACEBOOK_APP_ID.');
+      alertUser('Facebook', 'OAuth Facebook non configuré. Ajoutez EXPO_PUBLIC_FACEBOOK_APP_ID.');
       return;
     }
     setOauthLoading('facebook');
@@ -303,7 +305,7 @@ export default function LoginScreen({ navigation }) {
       const data = await loginFacebook(params.access_token);
       await afterAuthSuccess(data);
     } catch (e) {
-      Alert.alert(t('auth.oauth_error'), e.message);
+      alertUser(t('auth.oauth_error'), e.message);
     } finally {
       setOauthLoading(null);
     }
@@ -312,7 +314,7 @@ export default function LoginScreen({ navigation }) {
   // ── Apple Sign-In (iOS uniquement) ───────────────────────────────────────
   const handleApple = async () => {
     if (!AppleAuthentication) {
-      Alert.alert('Apple Sign-In', 'Disponible uniquement sur iOS.');
+      alertUser('Apple Sign-In', 'Disponible uniquement sur iOS.');
       return;
     }
     setOauthLoading('apple');
@@ -335,7 +337,7 @@ export default function LoginScreen({ navigation }) {
       await afterAuthSuccess(data);
     } catch (e) {
       if (e.code !== 'ERR_CANCELED') {
-        Alert.alert(t('auth.oauth_error'), e.message);
+        alertUser(t('auth.oauth_error'), e.message);
       }
     } finally {
       setOauthLoading(null);
@@ -346,7 +348,7 @@ export default function LoginScreen({ navigation }) {
   const handleSendCode = async () => {
     const cleaned = phone.replace(/[\s+()-]/g, '');
     if (!/^\d{8,15}$/.test(cleaned)) {
-      Alert.alert(t('auth.error_phone_invalid'), t('auth.phone_placeholder'));
+      alertUser(t('auth.error_phone_invalid'), t('auth.phone_placeholder'));
       return;
     }
     setOtpLoading(true);
@@ -354,11 +356,11 @@ export default function LoginScreen({ navigation }) {
       const data = await loginPhone({ phone: cleaned, action: 'send' });
       setOtpStep('code');
       if (data.devCode) setDevCode(data.devCode);
-      Alert.alert(t('auth.code_sent'), data.devCode
+      alertUser(t('auth.code_sent'), data.devCode
         ? `Code de test : ${data.devCode}`
         : t('auth.code_sent'));
     } catch (e) {
-      Alert.alert(t('auth.otp_send_error'), e.message);
+      alertUser(t('auth.otp_send_error'), e.message);
     } finally {
       setOtpLoading(false);
     }
@@ -366,7 +368,7 @@ export default function LoginScreen({ navigation }) {
 
   const handleVerifyCode = async () => {
     if (otpCode.length !== 6) {
-      Alert.alert(t('auth.error_code_invalid'), t('auth.code_placeholder'));
+      alertUser(t('auth.error_code_invalid'), t('auth.code_placeholder'));
       return;
     }
     setOtpLoading(true);
@@ -377,7 +379,7 @@ export default function LoginScreen({ navigation }) {
       // sinon Onboarding pré-rempli avec le téléphone
       await afterAuthSuccess(data);
     } catch (e) {
-      Alert.alert(t('auth.otp_verify_error'), e.message);
+      alertUser(t('auth.otp_verify_error'), e.message);
     } finally {
       setOtpLoading(false);
     }
@@ -387,13 +389,28 @@ export default function LoginScreen({ navigation }) {
   // v1.1.3 : « Continuer sans compte » REPREND la session locale si elle
   // existe (learner + progressions déjà sur l'appareil) — skip() retire le
   // flag sessionEnded → le gating bascule directement vers le Dashboard.
+  // v1.1.16 : CORRECTIF « après déconnexion, les données de l'utilisateur
+  // apparaissent toujours (app + web) ». Si le learner actif appartient à
+  // un COMPTE (server_id), « Continuer sans compte » ne doit PLUS le
+  // ressusciter : on DÉTACHE le profil (données du compte conservées en
+  // SQLite / snapshot scopé, restaurées à la reconnexion) et on passe par
+  // l'Onboarding pour créer un NOUVEAU profil invité. Seul un VRAI invité
+  // (server_id NULL) peut reprendre sa session locale via ce bouton.
   const handleSkip = async () => {
+    const belongsToLoggedOutAccount = !!learner?.server_id;
     try { await skip(); } catch (e) { console.warn('[Login] skip error:', e.message); }
-    // Premier lancement (aucun learner) → Onboarding pour créer le profil
-    if (!learner) {
+    if (!learner || belongsToLoggedOutAccount) {
+      if (belongsToLoggedOutAccount && detachActiveLearner) {
+        try { await detachActiveLearner(); } catch (e) {
+          console.warn('[Login] detachActiveLearner error:', e?.message || e);
+        }
+      }
+      // Premier lancement (aucun learner) OU compte déconnecté détaché
+      // → Onboarding pour créer le profil.
       navigation?.navigate('Onboarding');
     }
-    // Sinon : rien à faire — le gating affiche le Dashboard automatiquement
+    // Sinon (vrai invité) : rien à faire — le gating affiche le Dashboard
+    // automatiquement avec SA session locale.
   };
 
   return (

@@ -17,6 +17,8 @@ import {
   ScrollView, Platform, Image, Alert, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+// v1.1.16 : alerte multi-plateforme (Alert.alert = no-op sur web)
+import alertUser from '../utils/alert';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../theme';
 import { useDb } from '../database/DbProvider';
 import { useAuth } from '../contexts/AuthContext';
@@ -275,7 +277,7 @@ export default function EditProfileScreen({ navigation }) {
       goBack();
       return;
     }
-    Alert.alert(
+    alertUser(
       'Modifications non enregistrées',
       'Voulez-vous enregistrer vos modifications avant de quitter ?',
       [
@@ -303,7 +305,7 @@ export default function EditProfileScreen({ navigation }) {
       await updateProfile(form);
       return true;
     } catch (e) {
-      Alert.alert('Erreur', 'Impossible de sauvegarder: ' + (e?.message || e));
+      alertUser('Erreur', 'Impossible de sauvegarder: ' + (e?.message || e));
       return false;
     } finally {
       setSaving(false);
@@ -313,7 +315,7 @@ export default function EditProfileScreen({ navigation }) {
   const handleSave = async () => {
     const ok = await saveProfile();
     if (ok) {
-      Alert.alert('Profil mis à jour', 'Vos informations ont été enregistrées.', [
+      alertUser('Profil mis à jour', 'Vos informations ont été enregistrées.', [
         { text: 'OK', onPress: () => goBack() },
       ]);
     }
@@ -322,7 +324,7 @@ export default function EditProfileScreen({ navigation }) {
   // ── Sélection & compression de la photo ────────────────────────────────────
   const pickPhoto = async () => {
     if (!ImagePicker) {
-      Alert.alert('Photo', 'Sélection de photo non disponible sur cette plateforme.');
+      alertUser('Photo', 'Sélection de photo non disponible sur cette plateforme.');
       return;
     }
     try {
@@ -349,7 +351,7 @@ export default function EditProfileScreen({ navigation }) {
         if (dataUri.length > 1000000) {
           // garde extrême : data URI lue depuis un fichier énorme, non
           // compressible ici (manipulator indisponible) — on la refuse.
-          Alert.alert(
+          alertUser(
             'Photo trop volumineuse',
             'Impossible de réduire cette photo assez. Veuillez en choisir une plus petite.'
           );
@@ -360,13 +362,13 @@ export default function EditProfileScreen({ navigation }) {
         // fallback : URI non-data (blob web, etc.) — affichage local possible
         setField('photo_url', dataUri);
       } else {
-        Alert.alert(
+        alertUser(
           'Photo trop volumineuse',
           'Même après compression, cette photo dépasse la limite. Veuillez en choisir une autre.'
         );
       }
     } catch (e) {
-      Alert.alert('Erreur', 'Impossible de charger la photo: ' + (e?.message || e));
+      alertUser('Erreur', 'Impossible de charger la photo: ' + (e?.message || e));
     }
   };
 
@@ -381,7 +383,7 @@ export default function EditProfileScreen({ navigation }) {
         ? await buildPhotoDataUri(lastPickedAssetRef.current)
         : null;
       if (!dataUri || !dataUri.startsWith('data:')) {
-        Alert.alert(
+        alertUser(
           'Compression impossible',
           'La photo ne peut pas être réduite assez. Veuillez en choisir une autre.'
         );
@@ -389,7 +391,7 @@ export default function EditProfileScreen({ navigation }) {
       }
       setField('photo_url', dataUri);
     } catch (e) {
-      Alert.alert('Erreur', 'Compression impossible : ' + (e?.message || e));
+      alertUser('Erreur', 'Compression impossible : ' + (e?.message || e));
     }
   };
 

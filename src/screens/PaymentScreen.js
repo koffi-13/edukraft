@@ -11,6 +11,8 @@ import {
   TextInput, Alert, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+// v1.1.16 : alerte multi-plateforme (Alert.alert = no-op sur web)
+import alertUser from '../utils/alert';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../theme';
 import { useDb } from '../database/DbProvider';
 import { t } from '../i18n';
@@ -129,16 +131,16 @@ export default function PaymentScreen({ route, navigation }) {
   const handlePay = async () => {
     // Validations
     if (!selectedProduct) {
-      Alert.alert(t('payment.error_no_provider'), t('payment.select_product'));
+      alertUser(t('payment.error_no_provider'), t('payment.select_product'));
       return;
     }
     if (!selectedProvider) {
-      Alert.alert(t('payment.error_no_provider'), t('payment.choose_provider'));
+      alertUser(t('payment.error_no_provider'), t('payment.choose_provider'));
       return;
     }
     const cleanPhone = phoneNumber.replace(/\s/g, '');
     if (!/^22[0-9]{8}$/.test(cleanPhone)) {
-      Alert.alert(t('payment.error_invalid_phone'), t('payment.phone_placeholder'));
+      alertUser(t('payment.error_invalid_phone'), t('payment.phone_placeholder'));
       return;
     }
 
@@ -171,9 +173,9 @@ export default function PaymentScreen({ route, navigation }) {
       setLoading(false);
       const msg = err.message || '';
       if (msg.includes('network') || msg.includes('fetch')) {
-        Alert.alert(t('payment.error_network'), msg);
+        alertUser(t('payment.error_network'), msg);
       } else {
-        Alert.alert(t('payment.error_server'), msg);
+        alertUser(t('payment.error_server'), msg);
       }
     }
   };

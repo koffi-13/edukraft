@@ -10,6 +10,10 @@ import { t } from '../i18n';
 import persistentStorage from '../utils/persistentStorage';
 import * as authService from '../services/authService';
 import { getRemoteVersion } from '../content/moduleRegistry';
+// v1.1.16 : alerte multi-plateforme — Alert.alert est un NO-OP sur
+// react-native-web : « Se déconnecter » / « Réinitialiser » ne faisaient
+// RIEN sur le web (bug « déconnexion impossible sur le web »).
+import alertUser from '../utils/alert';
 
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -138,7 +142,7 @@ export default function ProfileScreen({ navigation }) {
   }, [learner, loadBadges, loadSyncInfo]);
 
   const handleReset = () => {
-    Alert.alert(
+    alertUser(
       'Réinitialiser',
       'Toutes tes données seront effacées. Cette action est irréversible.',
       [
@@ -166,7 +170,7 @@ export default function ProfileScreen({ navigation }) {
   //     locales ET serveur sont conservées.
   const handleLogout = () => {
     if (!user) {
-      Alert.alert(
+      alertUser(
         'Crée ton compte pour te déconnecter',
         'Tes données (progression, badges, XP) sont enregistrées uniquement sur ce téléphone.\n\nCrée un compte : elles seront sauvegardées en ligne et restaurées automatiquement à ta prochaine connexion, même sur un autre appareil.',
         [
@@ -179,7 +183,7 @@ export default function ProfileScreen({ navigation }) {
       );
       return;
     }
-    Alert.alert(
+    alertUser(
       t('auth.logout_button'),
       t('auth.logout_confirm'),
       [
@@ -409,7 +413,7 @@ export default function ProfileScreen({ navigation }) {
                 key={badge.id}
                 style={[styles.badgeItem, Shadow.card]}
                 activeOpacity={0.85}
-                onPress={() => Alert.alert(
+                onPress={() => alertUser(
                   badge.module_title,
                   'Score : ' + Math.round(badge.score * 100) + '%\n' +
                   'XP : ' + badge.xp_total + '\n' +
