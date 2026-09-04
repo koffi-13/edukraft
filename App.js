@@ -48,6 +48,15 @@ import { DbProvider } from './src/database/DbProvider';
 import { AuthProvider } from './src/contexts/AuthContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import { Colors } from './src/theme';
+// v1.1.21 (Phase 3) : error reporting + analytics pluggables. No-op si
+// EXPO_PUBLIC_SENTRY_DSN / EXPO_PUBLIC_ANALYTICS_PROVIDER ne sont pas
+// configurés — aucun impact sur l'app tant que l'utilisateur ne branche
+// pas ses clés. Voir src/services/errorReporting.js et analytics.js.
+import * as errorReporting from './src/services/errorReporting';
+import * as analytics from './src/services/analytics';
+// Init au plus tôt : capture les crashes globaux avant tout autre code.
+errorReporting.init();
+analytics.init();
 
 // Composant interne qui active le SyncEngine une fois la DB prête
 function SyncActivator() {
@@ -58,6 +67,7 @@ function SyncActivator() {
     useSyncEngine(); // active la sync en arrière-plan
   } catch (e) {
     console.warn('[App] SyncEngine non disponible:', e.message);
+    errorReporting.captureException(e, { tags: { module: 'App', source: 'SyncActivator' } });
   }
   return null;
 }

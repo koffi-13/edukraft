@@ -12,6 +12,8 @@ import { useDb } from '../database/DbProvider';
 import { getModuleById, getLessonById } from '../content/moduleRegistry';
 import { t } from '../i18n';
 import feedback from '../services/feedbackService';
+// v1.1.21 (Phase 3) : analytics — lesson_started pour mesurer le drop-off.
+import { track } from '../services/analytics';
 
 export default function LessonScreen({ route, navigation }) {
   const { moduleId, lessonIndex: li } = route.params || {};
@@ -46,8 +48,11 @@ export default function LessonScreen({ route, navigation }) {
   // 'in_progress' (race). Désormais on lit d'abord la progression ; si elle
   // vaut 'completed' on n'écrit rien. La garde SQL (schema.UPSERT_PROGRESS)
   // rend 'completed' collant au niveau atomique en plus de ce hardening.
+  // v1.1.21 (Phase 3) : analytics — lesson_started pour mesurer le drop-off.
   useEffect(() => {
     if (!module || !learner) return;
+    // v1.1.21 : track lesson_started (distinct des re-visites)
+    track('lesson_started', { module_id: module.id, lesson_index: lessonIndex, total_lessons: totalLessons });
     let cancelled = false;
     (async () => {
       try {
@@ -63,7 +68,7 @@ export default function LessonScreen({ route, navigation }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [module?.id, lessonIndex, learner, updateProgress, getProgress]);
+  }, [module?.id, lessonIndex, learner, updateProgress, getProgress, totalLessons]);
 
   const goNextLesson = () => {
     if (isLast) {

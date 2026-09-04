@@ -26,6 +26,11 @@ import persistentStorage from '../utils/persistentStorage';
 import ENV from '../config/env';
 import * as authService from '../services/authService';
 import { initRemoteModules } from '../content/moduleRegistry';
+// v1.1.21 (Phase 3) : error reporting + analytics — associer les events
+// au learner courant pour pouvoir filtrer par user dans Sentry/PostHog.
+import * as errorReporting from '../services/errorReporting';
+import * as analytics from '../services/analytics';
+import { getLevel } from '../theme';
 
 const DbContext = createContext(null);
 
@@ -623,6 +628,27 @@ export function DbProvider({ children }) {
     if (learner) {
       persistentStorage.setItem(KEYS.LEARNER, JSON.stringify(learner)).catch(() => {});
       persistentStorage.setItem(KEYS.ACTIVE_LEARNER, learner.id).catch(() => {});
+      // v1.1.21 (Phase 3) : associer le learner aux events Sentry/PostHog
+      // pour filtrer par user dans les dashboards d'observabilité.
+      try {
+        errorReporting.setUser({
+          id: learner.id,
+          email: learner.email,
+          username: learner.display_name || learner.name,
+        });
+        analytics.identify({
+          id: learner.id,
+          email: learner.email,
+          server_id: learner.server_id,
+          display_name: learner.display_name || learner.name,
+          streak_days: learner.streak_days,
+          total_xp: learner.total_xp,
+          level: getLevel(learner.total_xp || 0),
+        });
+      } catch (_) {} // best-effort
+    } else {
+      errorReporting.clearUser();
+      analytics.reset();
     }
   }, [learner]);
 

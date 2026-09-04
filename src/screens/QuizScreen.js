@@ -8,6 +8,9 @@ import { Colors, Typography, Spacing, Radius, Shadow, getLevel } from '../theme'
 import { useDb } from '../database/DbProvider';
 import { getModuleById, getLessonById, getQuizForLesson } from '../content/moduleRegistry';
 import { t } from '../i18n';
+// v1.1.21 (Phase 3) : analytics pour mesurer complétion/drop-off/streak.
+import { track } from '../services/analytics';
+import { captureException } from '../services/errorReporting';
 import CelebrationModal from '../components/CelebrationModal';
 import feedback from '../services/feedbackService';
 
@@ -280,11 +283,41 @@ export default function QuizScreen({ route, navigation }) {
             score: finalScore,
             xpTotal: badgeXpTotal,
           });
+          // v1.1.21 (Phase 3) : analytics — module terminé + badge émis
+          track('module_completed', {
+            module_id: module.id,
+            module_title: module.title,
+            lessons_done: lessonsDone,
+            total_lessons: totalLessons,
+            total_xp_earned: badgeXpTotal,
+            score: finalScore,
+            perfect: perfect,
+            badge_issued: true,
+          });
+        } else if (moduleCompleted && moduleAlreadyCompleted) {
+          // Module déjà complété (re-passé pour révision) — pas de badge,
+          // mais on track pour mesurer la rétention.
+          track('module_completed', {
+            module_id: module.id,
+            lessons_done: lessonsDone,
+            score: finalScore,
+            badge_issued: false,
+            re_run: true,
+          });
         }
 
         // ── Gamification : enregistrer la leçon complétée ──────────────
         // UNIQUEMENT si c'est une NOUVELLE leçon réussie (pas de double XP/streak).
         if (finalPassed && !alreadyPassedThisLesson && recordLessonCompleted) {
+          // v1.1.21 (Phase 3) : analytics — lesson terminée (drop-off)
+          track('lesson_completed', {
+            module_id: moduleId,
+            lesson_index: lessonIndex,
+            score: finalScore,
+            xp,
+            perfect,
+            is_last_lesson: isLastLesson,
+          });
           try {
             const gResult = await recordLessonCompleted({
               xpEarned: xp,
@@ -293,6 +326,24 @@ export default function QuizScreen({ route, navigation }) {
               score: finalScore,
               passed: finalPassed,
             });
+            // v1.1.21 : analytics — streak augmenté
+            if (gResult?.streak?.current && gResult.streak.current > 1) {
+              track('streak_increased', {
+                streak_days: gResult.streak.current,
+                best_streak: gResult.streak.best,
+                last_active_date: gResult.lastActiveDate,
+              });
+            }
+            // v1.1.21 : analytics — achievements débloqués
+            if (gResult?.newAchievements?.length > 0) {
+              for (const ach of gResult.newAchievements) {
+                track('achievement_unlocked', {
+                  key: ach.key,
+                  title: ach.title,
+                  category: ach.category,
+                });
+              }
+            }
             // Célébration discrète — seulement s'il y a quelque chose de notable
             if (gResult && (gResult.newAchievements?.length > 0 || gResult.goalMet || xp > 0)) {
               setCelebration({
@@ -312,10 +363,18 @@ export default function QuizScreen({ route, navigation }) {
             }
           } catch (gErr) {
             console.warn('[Quiz] Gamification error (non-fatal):', gErr.message);
+            captureException(gErr, {
+              tags: { module: 'QuizScreen', op: 'recordLessonCompleted' },
+              extra: { moduleId, lessonIndex },
+            });
           }
         }
       } catch (e) {
         console.error('[Quiz] Erreur sauvegarde:', e);
+        captureException(e, {
+          tags: { module: 'QuizScreen', op: 'handleFinish' },
+          extra: { moduleId, lessonIndex, score: finalScore },
+        });
       }
     }
 

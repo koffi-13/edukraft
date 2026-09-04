@@ -27,6 +27,10 @@ import { useDb } from './DbProvider';
 import ENV from '../config/env';
 import * as authService from '../services/authService';
 import { refreshRemoteModules } from '../content/moduleRegistry';
+// v1.1.21 (Phase 3) : error reporting + analytics pour les sync failures
+// silencieuses (qui ne faisaient que console.warn avant).
+import { captureException, captureMessage, breadcrumb } from '../services/errorReporting';
+import { track } from '../services/analytics';
 
 const PULL_INTERVAL_MS = 5 * 60 * 1000; // pull serveur toutes les 5 min
 const OFFLINE_POLL_MS  = 5 * 1000;      // poll réseau rapide quand offline
@@ -38,6 +42,8 @@ export function useSyncEngine() {
   const isSyncingRef  = useRef(false);
   const lastPullRef   = useRef(0);
   const wasOnlineRef  = useRef(true);
+  // v1.1.21 : timestamp de début de sync pour mesurer la durée (analytics).
+  const syncStartRef  = useRef(0);
   const [syncState, setSyncState] = useState('idle'); // idle | syncing | error
   const [lastSync, setLastSync]   = useState(null);
   const [lastPull, setLastPull]   = useState(null);
@@ -47,6 +53,7 @@ export function useSyncEngine() {
   const sync = useCallback(async () => {
     if (isSyncingRef.current) return;
     isSyncingRef.current = true;
+    syncStartRef.current = Date.now();
     setSyncState('syncing');
 
     try {
@@ -147,24 +154,45 @@ export function useSyncEngine() {
         // et échouait AD VITAM, bloquant toute la file. Désormais on
         // incrémente les retries de chaque op : après SYNC_MAX_RETRIES la
         // boucle per-op les abandonnera et la file repartira.
+        const httpErr = new Error(`HTTP ${response.status}: ${text.slice(0, 100)}`);
         console.error(`[Sync] HTTP ${response.status} — retry des ${sendItems.length} op(s) : ${text.slice(0, 120)}`);
+        captureException(httpErr, {
+          tags: { module: 'syncEngine', op: 'push', http_status: String(response.status) },
+          extra: { ops_count: sendItems.length, body_preview: text.slice(0, 200) },
+        });
         for (const item of sendItems) {
           try {
             if (item.retry_count >= ENV.SYNC_MAX_RETRIES) {
               console.error(`[Sync] Abandon ${item.table_name}/${item.record_id} (HTTP ${response.status})`);
+              captureMessage(`Sync abandon: ${item.table_name}/${item.record_id} (HTTP ${response.status})`, {
+                level: 'warning',
+                tags: { module: 'syncEngine', op: 'push', table: item.table_name, abandoned: 'yes' },
+                extra: { record_id: item.record_id, http_status: response.status },
+              });
               await db.removeFromQueue(item.id);
             } else {
               await db.incrementRetry(item.id, `HTTP ${response.status}`);
+              breadcrumb(`Retry ${item.table_name}/${item.record_id} (HTTP ${response.status})`, {
+                category: 'sync', level: 'warning',
+                data: { record_id: item.record_id, retry_count: item.retry_count },
+              });
             }
           } catch (_) {}
         }
-        throw new Error(`HTTP ${response.status}: ${text.slice(0, 100)}`);
+        track('sync_push', { ops_count: sendItems.length, success: false, http_status: response.status, error: httpErr.message });
+        throw httpErr;
       }
 
       const result = await response.json();
 
       if (!result.success) {
-        throw new Error(result.error || 'Erreur serveur inconnue');
+        const srvErr = new Error(result.error || 'Erreur serveur inconnue');
+        captureException(srvErr, {
+          tags: { module: 'syncEngine', op: 'push' },
+          extra: { ops_count: sendItems.length },
+        });
+        track('sync_push', { ops_count: sendItems.length, success: false, error: srvErr.message });
+        throw srvErr;
       }
 
       // Traiter les résultats
@@ -179,9 +207,18 @@ export function useSyncEngine() {
           const errMsg = res?.error || 'Erreur inconnue';
           if (item.retry_count >= ENV.SYNC_MAX_RETRIES) {
             console.error(`[Sync] Abandon ${item.table_name}/${item.record_id}: ${errMsg}`);
+            captureMessage(`Sync abandon: ${item.table_name}/${item.record_id}`, {
+              level: 'warning',
+              tags: { module: 'syncEngine', op: 'push', table: item.table_name, abandoned: 'yes' },
+              extra: { record_id: item.record_id, error: errMsg },
+            });
             await db.removeFromQueue(item.id);
           } else {
             console.warn(`[Sync] Retry ${item.table_name}/${item.record_id}: ${errMsg}`);
+            breadcrumb(`Retry ${item.table_name}/${item.record_id}: ${errMsg}`, {
+              category: 'sync', level: 'warning',
+              data: { record_id: item.record_id, error: errMsg },
+            });
             await db.incrementRetry(item.id, errMsg);
           }
           continue;
@@ -220,8 +257,14 @@ export function useSyncEngine() {
       setPendingCount(0);
       setLastError(null);
       console.log(`[Sync] ${processed}/${sendItems.length} synchronisé(s)`);
+      track('sync_push', { ops_count: sendItems.length, success: true, processed, duration_ms: Date.now() - syncStartRef.current });
     } catch (err) {
       console.error('[Sync] Erreur:', err.message);
+      captureException(err, {
+        tags: { module: 'syncEngine', op: 'push' },
+        extra: { phase: 'push' },
+      });
+      track('sync_push', { success: false, error: err.message, duration_ms: Date.now() - syncStartRef.current });
       setLastError(err.message);
       setSyncState('error');
     } finally {
@@ -241,6 +284,7 @@ export function useSyncEngine() {
     const nowMs = Date.now();
     if (!force && nowMs - lastPullRef.current < PULL_INTERVAL_MS) return;
     lastPullRef.current = nowMs;
+    const pullStart = Date.now();
 
     // 1. État du compte (progressions multi-appareils)
     try {
@@ -248,16 +292,22 @@ export function useSyncEngine() {
       if (stored?.user && stored.accessToken && !stored.sessionEnded && db.restoreFromServer) {
         await db.restoreFromServer(stored.user);
         setLastPull(new Date().toISOString());
+        track('sync_pull', { success: true, duration_ms: Date.now() - pullStart });
       }
     } catch (e) {
       // best-effort : le pull suivant retentera
       console.log('[Sync] Pull compte différé :', e.message);
+      captureException(e, { tags: { module: 'syncEngine', op: 'pull' }, extra: { phase: 'restore' } });
+      track('sync_pull', { success: false, error: e.message, duration_ms: Date.now() - pullStart });
     }
 
     // 2. Catalogue de cours distant (nouveaux cours publiés sur le serveur)
     try {
       await refreshRemoteModules();
-    } catch (_) {}
+    } catch (e) {
+      // v1.1.21 : capturer silencieusement (avant : catch (_) ignoré)
+      captureException(e, { tags: { module: 'syncEngine', op: 'pull', phase: 'catalog' }, level: 'warning' });
+    }
   }, [db]);
 
   // Refs toujours à jour (les timers appellent les dernières versions)
