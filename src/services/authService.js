@@ -426,6 +426,37 @@ export async function me() {
   throw new AuthenticationError(data.error || 'Utilisateur introuvable');
 }
 
+// v1.1.20 (Fix photo regression) : re-télécharge l'avatar du compte côté
+// serveur et le matérialise en data URI stable (les URLs
+// lh3.googleusercontent.com périment). Le serveur propage ensuite la
+// data URI vers toutes les lignes learner du compte dont la photo_url
+// est vide ou une URL http. À appeler quand healBrokenPhoto détecte une
+// photo morte et que le user.avatar_url local est aussi une URL http.
+// Best-effort : ne lève jamais d'exception (retourne null si échec).
+export async function refreshAvatar() {
+  try {
+    const response = await authFetch(`${AUTH_BASE}/api/auth/refresh-avatar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    const data = await parseResponse(response);
+    if (data.success && data.data?.user) {
+      // Persister le user actualisé (avatar_url = data URI si refreshed=true).
+      await store.setItem(KEYS.USER, JSON.stringify(data.data.user));
+      return {
+        user: data.data.user,
+        refreshed: !!data.data.refreshed,
+        propagatedTo: data.data.propagatedTo || 0,
+      };
+    }
+    return null;
+  } catch (e) {
+    console.warn('[authService] refreshAvatar error:', e?.message || e);
+    return null;
+  }
+}
+
 // ── v1.1.9 : VÉRIFICATION D'EMAIL ───────────────────────────────────────────
 
 /** Demande l'envoi d'un code de vérification à l'email du compte connecté.

@@ -15,7 +15,7 @@ export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { db, learner, updateProfile, getAllBadges, resetAll, getPendingQueue, getSyncMeta, dbInitError } = useDb();
   const {
-    user, skipAuth, logout,
+    user, skipAuth, logout, refreshUser,
     // v1.1.9 : état de vérification d'email (carte de rappel)
     needsEmailVerification, reopenEmailVerification,
   } = useAuth();
@@ -27,6 +27,11 @@ export default function ProfileScreen({ navigation }) {
   // était « présente » → avatar invisible = « la photo ne s'affiche pas »).
   const [photoFailed, setPhotoFailed] = useState(false);
   const healedPhotoRef = useRef(null);
+  // v1.1.20 (Fix photo regression) : garde anti-boucle pour refreshUser —
+  // une seule tentative de rafraîchissement serveur par valeur de photo_url
+  // morte. Sans ça, un échec serveur (Render endormi, réseau KO) entraînerait
+  // un retry à chaque re-render du ProfileScreen.
+  const avatarRefreshAttemptedRef = useRef(false);
   // v1.1.7 : diagnostics de persistance (aide au support « écran Login en
   // boucle ») — état de chaque couche de stockage + clés présentes.
   const [diagOpen, setDiagOpen] = useState(false);
@@ -67,14 +72,43 @@ export default function ProfileScreen({ navigation }) {
   // null… boucle INFINIE, jamais de photo. Désormais on ne remplace QUE si
   // un avatar data URI du compte est disponible ; sinon on garde l'URL (et
   // on affiche l'initiale) — le flip-flop est impossible.
-  // Guard (healedPhotoRef) : une seule tentative par valeur de photo_url.
+  // v1.1.20 (Fix photo regression) : NOUVELLE DÉFENSE — si l'avatar du compte
+  // local (user.avatar_url) est AUSSI une URL http (ou null), c'est qu'il
+  // n'a jamais été matérialisé en data URI depuis le serveur. On appelle
+  // refreshUser() (GET /api/auth/me) pour récupérer l'avatar serveur
+  // actualisé. Si le serveur a désormais une data URI (parce qu'une autre
+  // session a déclenché la matérialisation v1.1.11+, ou qu'un backfill
+  // serveur a été appliqué), on remplace la photo locale ET l'avatar du
+  // compte. Sinon, on retombe sur l'initiale (comportement v1.1.12).
+  // Garde anti-boucle : une seule tentative de refreshUser par session
+  // ProfileScreen (avatarRefreshAttemptedRef) pour ne pas spammer le serveur
+  // à chaque re-render si l'avatar reste mort.
   const healBrokenPhoto = useCallback(async () => {
     const photoUrl = learner?.photo_url;
     if (!photoUrl || !String(photoUrl).startsWith('http')) return;
     if (healedPhotoRef.current === photoUrl) return;
     healedPhotoRef.current = photoUrl;
     try {
-      const accountAvatar = user?.avatar_url || null;
+      let accountAvatar = user?.avatar_url || null;
+      // v1.1.20 : si l'avatar local du compte est aussi une URL http (ou
+      // null), c'est qu'il n'a jamais été matérialisé en data URI. On
+      // appelle authService.refreshAvatar() (POST /api/auth/refresh-avatar)
+      // qui re-télécharge l'avatar côté serveur et le matérialise en data
+      // URI stable, puis propage vers les learners. Best-effort : une
+      // seule tentative par session ProfileScreen (avatarRefreshAttemptedRef).
+      if ((!accountAvatar || String(accountAvatar).startsWith('http'))
+          && !avatarRefreshAttemptedRef.current) {
+        avatarRefreshAttemptedRef.current = true;
+        try {
+          const result = await authService.refreshAvatar();
+          if (result?.user?.avatar_url) {
+            accountAvatar = result.user.avatar_url;
+            console.log(`[Profile] Avatar serveur rafraîchi (refreshed=${result.refreshed}, propagated=${result.propagatedTo})`);
+          }
+        } catch (e) {
+          console.warn('[Profile] refreshAvatar échoué :', e?.message || e);
+        }
+      }
       const replacement = (accountAvatar && String(accountAvatar).startsWith('data:')) ? accountAvatar : null;
       if (replacement && replacement !== photoUrl && updateProfile) {
         await updateProfile({ photo_url: replacement });

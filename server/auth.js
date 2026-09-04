@@ -1155,6 +1155,53 @@ function mountAuthRoutes(app, db) {
     res.json({ success: true, data: { user: sanitizeUser(req.user) } });
   });
 
+  // ── POST /api/auth/refresh-avatar (v1.1.20 — Fix photo regression) ──────
+  // Re-télécharge l'avatar du compte et le matérialise en data URI stable,
+  // puis propage la data URI vers les lignes learner du compte dont la
+  // photo_url est vide ou une URL http périssable. Conçu pour guérir les
+  // users pré-v1.1.11 dont l'avatar Google (lh3.googleusercontent.com) a
+  // expiré SANS nécessiter de reconnexion Google.
+  // Best-effort : ne bloque jamais l'app. Retourne le user actualisé.
+  app.post('/api/auth/refresh-avatar', requireAuth(db), async (req, res) => {
+    try {
+      let user = req.user;
+      // v1.1.20 : si l'avatar courant est déjà une data URI, rien à faire.
+      if (user.avatar_url && String(user.avatar_url).startsWith('data:')) {
+        return res.json({ success: true, data: { user: sanitizeUser(user), refreshed: false } });
+      }
+      // Récupérer l'URL source (avatar_url http, sinon rien à télécharger).
+      const sourceUrl = (user.avatar_url && String(user.avatar_url).startsWith('http'))
+        ? user.avatar_url
+        : null;
+      if (!sourceUrl) {
+        // Pas d'URL source : aucune matérialisation possible.
+        return res.json({ success: true, data: { user: sanitizeUser(user), refreshed: false } });
+      }
+      // Télécharger et convertir en data URI.
+      const dataUri = await materializeAvatarDataUri(sourceUrl);
+      if (!dataUri) {
+        // CDN injoignable ou image invalide : on garde l'URL brute, l'app
+        // client affichera l'initiale (fallback v1.1.11).
+        return res.json({ success: true, data: { user: sanitizeUser(user), refreshed: false } });
+      }
+      // Mettre à jour user.avatar_url avec la data URI.
+      const now = new Date().toISOString();
+      db.prepare('UPDATE user SET avatar_url = ?, updated_at = ? WHERE id = ?')
+        .run(dataUri, now, user.id);
+      user = findUserById(db, user.id);
+      // Propager vers les learners du compte (photo_url http ou vide).
+      const n = propagateAvatarToLearners(db, user, dataUri);
+      if (n > 0) {
+        console.log(`[AUTH/refresh-avatar] Avatar matérialisé + propagé à ${n} ligne(s) learner (${user.email})`);
+      }
+      return res.json({ success: true, data: { user: sanitizeUser(user), refreshed: true, propagatedTo: n } });
+    } catch (err) {
+      console.error('[AUTH/refresh-avatar]', err.message);
+      // Best-effort : ne jamais bloquer l'app.
+      return res.json({ success: true, data: { user: sanitizeUser(req.user), refreshed: false } });
+    }
+  });
+
   // ── POST /api/auth/refresh ───────────────────────────────────────────────
   app.post('/api/auth/refresh', async (req, res) => {
     try {
