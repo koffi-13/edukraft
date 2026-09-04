@@ -30,8 +30,6 @@
       "subtitle": "Le catalogue WhatsApp Business comme vitrine",
       "duration_min": 1,
       "xp_per_lesson": 25,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Au Togo, des milliers de commerçantes et d'artisans vendent chaque jour sans boutique physique — uniquement avec leur téléphone. Une couturière à Adidogomé, un vendeur de chaussures au marché d'Adawlato, un menuisier à Bè : tous peuvent transformer WhatsApp en véritable boutique.\n\nL'astuce ? Utiliser WhatsApp Business (et non WhatsApp classique) pour construire un catalogue de produits visible par chaque client qui ouvre ta conversation. C'est gratuit, c'est rapide, et ça change tout.\n\nCe module commence par les bases et t'emmène jusqu'à la livraison et la gestion des litiges. À la fin, tu sauras vendre, encaisser et livrer comme un pro.",
         "sections": [
@@ -102,8 +100,6 @@
       "subtitle": "Photos qui vendent, description qui convainc",
       "duration_min": 1,
       "xp_per_lesson": 30,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Facebook Marketplace est devenu un marché géant à Lomé. Chaque jour, des milliers de Togolais y cherchent vêtements, téléphones, meubles, électroménager. C'est gratuit et local — tes annonces touchent les gens de ta ville.\n\nMais attention : 90 % des annonces sont mal faites. Photos floues, description vide, prix absent. Si tu apprends à faire une annonce propre, tu te démarques immédiatement de la masse et tu vends 3 fois plus vite.",
         "sections": [
@@ -174,8 +170,6 @@
       "subtitle": "Demande d'argent, confirmation, sécurité",
       "duration_min": 1,
       "xp_per_lesson": 30,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Au Togo, l'argent mobile règne. T-Money (Togocom) et Flooz (Moov Africa) sont les deux opérateurs. Savoir demander un paiement, vérifier qu'il est bien reçu et sécuriser ton compte sont des compétences aussi importantes que savoir vendre.\n\nBeaucoup de vendeurs en ligne se font arnaquer : faux SMS de paiement, client qui dit 'j'ai envoyé' alors que rien n'est arrivé. Avec la méthode ci-dessous, tu ne seras plus jamais piégé.",
         "sections": [
@@ -246,8 +240,6 @@
       "subtitle": "Suivi clients, relances, tableur gratuit",
       "duration_min": 1,
       "xp_per_lesson": 30,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Quand tu vends 2 ou 3 produits par semaine, tout se passe dans ta tête. Mais dès que les commandes dépassent 10 par semaine, la mémoire devient un cauchemar : qui a payé ? qui attend quoi ? ai-je encore cette robe en stock ?\n\nLa solution n'est pas un logiciel compliqué. C'est un simple tableur gratuit sur ton téléphone (Google Sheets) ou même les Notes de ton téléphone. Avec 5 minutes d'organisation par jour, tu ne perds plus jamais une commande.",
         "sections": [
@@ -318,8 +310,6 @@
       "subtitle": "Livreurs moto, coûts, délais, retours",
       "duration_min": 1,
       "xp_per_lesson": 35,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "La livraison est souvent ce qui fait gagner ou perdre une vente en ligne. Un client à Tokoin qui hésite ? Si tu proposes une livraison à 1 000 FCFA dans l'heure, il commande. Si tu dis 'viens chercher', il abandonne.\n\nÀ Lomé, les zemidjan (motos-taxis) font d'excellents livreurs pour les petits colis. Pour les régions (Kara, Sokodé, Atakpamé), les compagnies de bus transportent tes colis contre un forfait. Ce lesson te donne les coûts réels et les bons réflexes.",
         "sections": [
@@ -390,8 +380,6 @@
       "subtitle": "Réflexes sécurité, preuves, médiation",
       "duration_min": 1,
       "xp_per_lesson": 30,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Le commerce en ligne attire 95 % de clients honnêtes — mais aussi 5 % d'arnaqueurs. Un seul faux pas peut te coûter un mois de bénéfice. Les arnaques les plus courantes au Togo : faux SMS de paiement, commande urgente avec demande de remise de monnaie, faux livreur qui encaisse et disparaît.\n\nCe lesson te donne les réflexes qui te protègent : reconnaître un signal d'alarme, garder des preuves de chaque transaction, et gérer un litige sans perdre le client ni ton sang-froid.",
         "sections": [

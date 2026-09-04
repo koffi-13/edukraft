@@ -30,8 +30,6 @@
       "subtitle": "Marges, exemples togolais (manioc, soja)",
       "duration_min": 1,
       "xp_per_lesson": 30,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Au Togo, un kilo de manioc frais se vend 100 à 150 FCFA au marché. Le même kilo, transformé en gari, atteint 700 à 900 FCFA. La transformation agroalimentaire, c'est l'art de prendre ta production brute et de la convertir en produit fini que le client achète plus cher.\n\nC'est aussi une stratégie de résilience : un produit transformé se conserve des mois, se transporte loin et se vend hors saison. Le programme FSRP (Projet de Résilience des Systèmes Alimentaires) soutient justement les groupements féminins et les jeunes ruraux qui transforment.\n\nCe module te donne les bases concrètes pour passer du producteur au transformateur : hygiène, recettes, conditionnement, vente, conservation. Six leçons courtes, des exemples togolais, des calculs en FCFA.",
         "sections": [
@@ -102,8 +100,6 @@
       "subtitle": "Bonnes pratiques, étiquetage",
       "duration_min": 1,
       "xp_per_lesson": 35,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Une mauvaise hygiène peut détruire en une semaine la réputation construite pendant des mois. Au Togo, l'ANASE (Agence Nationale de Sécurité Sanitaire des Aliments) encadre les producteurs : les sanctions vont du retrait du produit à la fermeture de l'atelier.\n\nHeureusement, les règles de base sont simples et accessibles : eau propre, mains propres, ustensiles propres, locaux propres. Cette leçon te donne les fondamentaux et l'étiquetage conforme.",
         "sections": [
@@ -174,8 +170,6 @@
       "subtitle": "Process, matériel, calcul des coûts",
       "duration_min": 2,
       "xp_per_lesson": 35,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Ces trois recettes sont les plus accessibles au Togo : matières premières locales, équipement minimal, marché garanti. Le gari et l'attiéké partent du manioc ; le jus s'appuie sur les fruits de saison (bissap, gingembre, mangue).\n\nPour chaque recette : liste du matériel, étapes, calcul du coût de revient et prix de vente conseillé. Tu pourras adapter les quantités à ta production.",
         "sections": [
@@ -246,8 +240,6 @@
       "subtitle": "Emballages locaux, étiquette conforme",
       "duration_min": 1,
       "xp_per_lesson": 30,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Au marché d'Adawlato comme dans les supermarchés de Lomé, le client achète d'abord avec les yeux. Un bon gari dans un sachet sale et sans étiquette se vendra moins cher qu'un gari moyen en sachet propre, étiqueté, avec un nom de marque.\n\nLe conditionnement, ce n'est pas du luxe : c'est de la protection (hygiène, fraîcheur), de l'information (étiquette conforme) et du marketing (design). Cette leçon t'aide à choisir les bons emballages au Togo et à construire une étiquette qui se conforme et qui vend.",
         "sections": [
@@ -318,8 +310,6 @@
       "subtitle": "Prix, négociation, fidélisation",
       "duration_min": 1,
       "xp_per_lesson": 30,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Produire est une chose, vendre en est une autre. Au Togo, les marchés d'Adawlato (Lomé), Kpalimé, Sokodé, Kara et Dapaong concentrent l'essentiel des achats alimentaires. Les supermarchés (Prix Import, Leader Price) ouvrent leurs rayons aux produits locaux bien conditionnés.\n\nLe circuit court, c'est vendre directement au consommateur final ou avec un seul intermédiaire. Ta marge est plus élevée, mais tu dois gérer toi-même la relation client. Cette leçon te donne les canaux, les prix et les techniques de fidélisation.",
         "sections": [
@@ -390,8 +380,6 @@
       "subtitle": "Séchage, fermentation, stockage",
       "duration_min": 1,
       "xp_per_lesson": 30,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Au Togo, près de 30 % des productions agricoles sont perdues entre la récolte et la vente. Pour le manioc, la mangue, la tomate, ces pertes peuvent ruiner une saison entière de travail. La transformation et la bonne conservation sont la réponse.\n\nTrois techniques simples et accessibles peuvent réduire tes pertes de 80 % : le séchage solaire, la fermentation contrôlée et le stockage étanche. Cette leçon te montre comment les mettre en œuvre avec du matériel local.",
         "sections": [

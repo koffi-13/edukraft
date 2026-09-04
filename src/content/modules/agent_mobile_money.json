@@ -30,8 +30,6 @@
       "subtitle": "Conditions, agrément, matériel requis",
       "duration_min": 1,
       "xp_per_lesson": 25,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Au Togo, le mobile money est devenu le premier moyen de transfert d'argent devant les espèces. T-Money (Togocom) et Flooz (Moov Africa) sont les deux opérateurs agréés par la BCEAO et l'ARCEP Togo. Ensemble, ils couvrent plus de 4 millions de comptes actifs dans le pays.\n\nDevenir agent, c'est proposer ces services depuis ta boutique : dépôt, retrait, transfert, paiement de factures. Tu touches une commission sur chaque opération tout en attirant du trafic vers ton commerce. C'est un vrai partenariat commercial, encadré par la réglementation BCEAO.",
         "sections": [
@@ -102,8 +100,6 @@
       "subtitle": "Process, plafonds, sécurité",
       "duration_min": 2,
       "xp_per_lesson": 30,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Chaque jour, des dizaines de clients viendront chez toi pour déposer, retirer ou transférer de l'argent. Maîtriser ces trois opérations, c'est l'essentiel du métier d'agent. Une erreur de saisie ou un manque de vigilance peut te coûter cher — voire ton agrément.\n\nAu Togo, les plafonds sont encadrés par la BCEAO : 200 000 FCFA/jour pour un compte non-KYC, et jusqu'à 2 000 000 FCFA par transaction (10 000 000 FCFA/mois) pour un client full-KYC. Connaître ces règles protège ton activité.",
         "sections": [
@@ -174,8 +170,6 @@
       "subtitle": "Solde, approvisionnement, écarts",
       "duration_min": 1,
       "xp_per_lesson": 30,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Le nerf de la guerre pour un agent mobile money, c'est l'équilibre entre tes espèces et ton solde e-money (le float). Trop d'espèces, pas assez d'e-money : tu refuses les dépôts. Trop d'e-money, plus d'espèces : tu refuses les retraits. Les deux cas te font perdre des commissions et des clients.\n\nUn bon agent vérifie sa caisse au moins 3 fois par jour et approvisionne son point avant la panne. La rigueur dans la caisse, c'est ce qui sépare un agent rentable d'un agent en faillite.",
         "sections": [
@@ -246,8 +240,6 @@
       "subtitle": "KYC, signalement, réflexes sécurité",
       "duration_min": 1,
       "xp_per_lesson": 25,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "En tant qu'agent mobile money, tu es le maillon clé de la chaîne financière. La BCEAO et le CENTIF (Cellule Nationale de Traitement des Informations Financières) imposent à tous les agents des obligations strictes : connaître le client (KYC), détecter les transactions suspectes, et signaler toute opération douteuse.\n\nUn agent qui ferme les yeux peut perdre son agrément, être poursuivi pénalement, et mettre en danger tout le système de finance inclusive. La vigilance n'est pas une option — c'est la loi.",
         "sections": [
@@ -318,8 +310,6 @@
       "subtitle": "Patience, procédures, escalade",
       "duration_min": 1,
       "xp_per_lesson": 25,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Un agent mobile money vit sur la confiance de ses clients. Une transaction échouée, un SMS qui n'arrive pas, un litige sur un montant — ces situations arrivent quotidiennement. Ta capacité à les gérer calmement et professionnellement distingue un bon agent d'un mauvais.\n\nAu Togo, la patience et le respect sont des valeurs culturelles fortes : un client bien traité reviendra et recommandera ton point à 10 personnes. Un client mal traité partira chez le concurrent et en parlera à 50.",
         "sections": [
@@ -390,8 +380,6 @@
       "subtitle": "Calcul marge, croissance, stratégies",
       "duration_min": 1,
       "xp_per_lesson": 25,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Devenir agent mobile money ne suffit pas : il faut rendre ton point rentable. Les commissions varient selon l'opérateur, le type d'opération et le volume mensuel. Connaître ta structure de revenus te permet de piloter ton activité et de te développer.\n\nUn bon agent au Togo peut générer entre 50 000 et 300 000 FCFA de commission nette par mois, selon la zone (marché vs. quartier résidentiel), le volume traité et la diversité des services proposés.",
         "sections": [

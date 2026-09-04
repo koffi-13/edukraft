@@ -29,8 +29,6 @@
       "subtitle": "Les 3 colonnes qui sauvent une entreprise",
       "duration_min": 2,
       "xp_per_lesson": 35,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Beaucoup d'artisans et de commerçants au Togo travaillent dur toute la semaine, mais ne savent pas à la fin si leur activité est réellement rentable. L'argent rentre, l'argent sort, et le solde reste flou.\n\nLa comptabilité artisanale, c'est simplement noter trois choses dans un cahier ou une application : ce qui rentre (recettes), ce qui sort (dépenses), et ce qui reste (bénéfice). C'est tout.",
         "sections": [
@@ -101,8 +99,6 @@
       "subtitle": "Combien dois-je vendre pour ne pas perdre d'argent ?",
       "duration_min": 2,
       "xp_per_lesson": 55,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Fixer le bon prix est le défi numéro 1 des artisans et commerçants au Togo. Trop bas : tu travailles à perte sans le savoir. Trop haut : tu perds des clients. La solution est de calculer ton seuil de rentabilité avant de fixer ton prix.",
         "sections": [
@@ -173,8 +169,6 @@
       "subtitle": "Suivre l'argent réel sur ton téléphone",
       "duration_min": 2,
       "xp_per_lesson": 70,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Au Togo, la grande majorité des transactions artisanales passent par le Mobile Money (T-Money, Flooz) ou les espèces. La trésorerie, c'est la gestion de ces flux réels d'argent — pas du bénéfice théorique, mais du cash disponible maintenant.\n\nUn artisan peut être rentable sur le papier et manquer de liquidités pour acheter ses matières premières. C'est le piège de la trésorerie.",
         "sections": [

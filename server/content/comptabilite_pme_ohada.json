@@ -30,8 +30,6 @@
       "subtitle": "Le plan comptable OHADA simplifié",
       "duration_min": 2,
       "xp_per_lesson": 35,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Si tu tiens déjà un cahier de recettes et dépenses, tu fais de la comptabilité de caisse. C'est utile pour savoir combien tu as en poche, mais ça ne suffit pas pour l'OTR (Office Togolais des Recettes) ni pour une banque qui te demande un bilan.\n\nLe SYSCOHADA est le système comptable commun à 17 pays d'Afrique, dont le Togo. Il organise tes écritures dans un plan comptable précis, avec des classes de comptes numérotés. La bonne nouvelle : tu n'as pas besoin d'être expert-comptable pour l'utiliser — juste de comprendre la logique.",
         "sections": [
@@ -102,8 +100,6 @@
       "subtitle": "Enregistrements et justificatifs",
       "duration_min": 1,
       "xp_per_lesson": 35,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Le journal est le livre où tu enregistres chaque opération dans l'ordre chronologique. En SYSCOHADA, tu tiens au minimum deux journaux : le journal de banque et le journal de caisse. Si tu utilises T-Money ou Flooz pour ton activité, ça compte comme de la caisse (ou un sous-compte de trésorerie).\n\nLa règle d'or : aucune écriture sans justificatif. Chaque ligne doit avoir une facture, un reçu ou un ticket derrière.",
         "sections": [
@@ -174,8 +170,6 @@
       "subtitle": "Mentions obligatoires et calcul des taxes Togo",
       "duration_min": 1,
       "xp_per_lesson": 40,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Une facture ce n'est pas juste un papier avec un montant. Au Togo, une facture conforme doit contenir des mentions obligatoires et inclure les taxes (TVA, TSS, TIM). Si ta facture n'est pas conforme, l'OTR peut la refuser et ton client ne peut pas la déduire.\n\nLa bonne nouvelle : une fois que tu connais les mentions et le calcul des taxes, tu peux créer un modèle sur ton téléphone et le réutiliser à chaque vente.",
         "sections": [
@@ -246,8 +240,6 @@
       "subtitle": "OTR en ligne, échéances, pénalités",
       "duration_min": 1,
       "xp_per_lesson": 40,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "La déclaration fiscale, c'est dire à l'OTR combien tu as vendu et combien de taxes tu dois. Au Togo, la TVA se déclare chaque mois, avant le 15 du mois suivant. Un retard = pénalités. Mais l'OTR a mis en place une plateforme en ligne qui simplifie tout.\n\nSi tu déclares en retard ou te trompes, les pénalités peuvent atteindre 100% de l'impôt dû. Mieux vaut être rigoureux.",
         "sections": [
@@ -318,8 +310,6 @@
       "subtitle": "Compte de résultat et bilan simplifié",
       "duration_min": 2,
       "xp_per_lesson": 40,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "La clôture annuelle, c'est faire le point sur ton année : combien tu as gagné, combien tu as dépensé, ce que tu possèdes, ce que tu dois. C'est obligatoire au Togo (avant le 31 mars) et c'est aussi ton outil de pilotage.\n\nDeux documents clés : le compte de résultat (qui montre si tu es bénéficiaire ou en perte) et le bilan (qui montre ton patrimoine d'entreprise). Tu peux les faire simplifiés si tu es une PME.",
         "sections": [
@@ -390,8 +380,6 @@
       "subtitle": "Ratios de base, trésorerie, marge",
       "duration_min": 1,
       "xp_per_lesson": 30,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Tenir une comptabilité sert à produire des chiffres — mais si tu ne les lis pas, tu rates l'essentiel. Trois indicateurs simples te disent si ton entreprise va bien : ta marge, ta trésorerie, et tes délais de paiement. Pas besoin d'être financier pour les comprendre.\n\nCes ratios, calculés chaque mois, t'alertent avant les problèmes. Un compte de résultat annuel arrive trop tard pour réagir — un ratio mensuel te donne 12 chances de corriger le tir.",
         "sections": [

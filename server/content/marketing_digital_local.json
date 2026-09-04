@@ -30,8 +30,6 @@
       "subtitle": "Comprendre le comportement digital local",
       "duration_min": 2,
       "xp_per_lesson": 30,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Aujourd'hui au Togo, plus de 7 personnes sur 10 cherchent un commerçant ou un artisan via WhatsApp ou Facebook avant de se déplacer. Si tu n'es pas visible en ligne, tu perds ces clients — même si tu es excellent dans ton métier.\n\nLe marketing digital local, c'est utiliser ton téléphone pour faire connaître ton activité aux gens de ton quartier et de ta ville.",
         "sections": [
@@ -102,8 +100,6 @@
       "subtitle": "Transforme ton numéro en vitrine professionnelle",
       "duration_min": 2,
       "xp_per_lesson": 50,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "WhatsApp Business est gratuit et déjà installé sur la plupart des téléphones au Togo. En 30 minutes, tu peux transformer ton simple numéro de téléphone en véritable vitrine commerciale avec un catalogue de produits, une description de ton activité et des réponses automatiques.",
         "sections": [
@@ -174,8 +170,6 @@
       "subtitle": "La méthode AIDA adaptée aux PME togolaises",
       "duration_min": 2,
       "xp_per_lesson": 70,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Publier, c'est bien. Publier pour vendre, c'est mieux. La méthode AIDA (Attention, Intérêt, Désir, Action) est utilisée par les meilleurs vendeurs du monde. Adaptée à Facebook et WhatsApp, elle transforme une simple photo en message qui convainc.",
         "sections": [

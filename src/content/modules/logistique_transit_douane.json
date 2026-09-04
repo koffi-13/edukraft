@@ -30,8 +30,6 @@
       "subtitle": "Rôle, acteurs, flux de conteneurs",
       "duration_min": 2,
       "xp_per_lesson": 30,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Le Port de Lomé est le 2e port en profondeur d'Afrique de l'Ouest et le seul port en eau profonde naturelle de la région. Il accueille chaque année des milliers de navires et expédie des marchandises vers le Burkina Faso, le Mali, le Niger et au-delà. Comprendre son fonctionnement, c'est comprendre pourquoi le Togo est une porte d'entrée stratégique pour tout le commerce sous-régional.\n\nPour un importateur ou un transitaire togolais, le Port de Lomé n'est pas qu'une infrastructure : c'est un écosystème d'acteurs (Port Autonome de Lomé, OTR, transitaires, consignataires, manutentionnaires) dont il faut connaître les rôles pour faire circuler ses marchandises rapidement et à moindre coût.",
         "sections": [
@@ -102,8 +100,6 @@
       "subtitle": "D15, facture commerciale, connaissement (BL)",
       "duration_min": 2,
       "xp_per_lesson": 35,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Toute marchandise qui entre au Togo doit être justifiée par un ensemble de documents précis. Un seul document manquant ou erroné peut bloquer ta marchandise en douane pendant des semaines et générer des frais de surestaries élevés.\n\nMaîtriser ces documents, c'est gagner du temps, éviter les pénalités de l'OTR et garder la confiance de tes clients importateurs. Les trois documents incontournables sont la D15 (déclaration en douane), la facture commerciale et le connaissement (Bill of Lading).",
         "sections": [
@@ -174,8 +170,6 @@
       "subtitle": "Taux Togo, exemptions CEDEAO, SKU",
       "duration_min": 2,
       "xp_per_lesson": 35,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Au Togo, le coût douanier d'une importation dépasse souvent 30 % de la valeur CIF de la marchandise. Savoir le calculer avant l'arrivée du conteneur permet d'éviter les mauvaises surprises financières et de comparer honnêtement plusieurs fournisseurs.\n\nLa base de calcul n'est pas le prix d'achat, mais la valeur CIF (Coût + Assurance + Fret) à laquelle s'appliquent plusieurs taxes : droit de douane (DD), redevance informatique (RI), TVA, et taxes de consommation comme le PC (Prélèvement Communautaire) et le CSL (Contribution à la Sécurité Logistique).",
         "sections": [
@@ -246,8 +240,6 @@
       "subtitle": "Prix, services, pièges à éviter",
       "duration_min": 2,
       "xp_per_lesson": 35,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Le transitaire est le pilier de ton opération d'importation. Il prépare tes documents, dépose la D15, paie les taxes en ton nom, et fait sortir ton conteneur du port. Choisir le mauvais transitaire peut te coûter des semaines de retard, des frais cachés et parfois même la confiscation de ta marchandise.\n\nAu Togo, environ 200 commissionnaires en douane sont agréés par l'OTR. Tous ne se valent pas : certains sont spécialisés (vrac, conteneurs, produits périssables), d'autres sont généralistes. La négociation porte sur le prix mais aussi sur les services inclus et la transparence des frais.",
         "sections": [
@@ -318,8 +310,6 @@
       "subtitle": "Tracking, incidents, réclamations",
       "duration_min": 2,
       "xp_per_lesson": 35,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Une expédition import n'est pas terminée tant que la marchandise n'est pas physiquement livrée et vérifiée. Suivre chaque étape — du navire à l'entrepôt — permet d'anticiper les retards, de réagir vite aux incidents (conteneur bloqué, avarie, vol partiel) et de protéger tes droits en cas de réclamation.\n\nAu Togo, les outils numériques (suivi terminal LCT/Togo Terminal, tracking armateur, notifications OTR) permettent aujourd'hui un suivi quasi en temps réel. Encore faut-il savoir où regarder et quels documents conserver pour prouver une réclamation.",
         "sections": [
@@ -390,8 +380,6 @@
       "subtitle": "Zones franches, conditions, coûts",
       "duration_min": 2,
       "xp_per_lesson": 30,
-      "min_quiz_score": 0.67,
-
       "content": {
         "intro": "Une fois dédouanée, ta marchandise doit être stockée. Le choix du lieu de stockage à Lomé a un impact direct sur tes coûts, ta flexibilité et tes obligations fiscales. Le Togo dispose de plusieurs options : zones franches industrielles (ZFIL), plateforme sèche d'Adétikopé (PDA), entrepôts sous douane, et entrepôts privés ordinaires.\n\nPour un importateur, comprendre les avantages fiscaux des zones franches et les conditions d'accès peut transformer une simple opération de stockage en véritable levier de compétitivité. Mais ces avantages ont des contreparties strictes qu'il faut respecter pour ne pas perdre le statut.",
         "sections": [

@@ -35,12 +35,25 @@ function normalizeModule(json) {
   // vaut Σ(base + bonus_parfait). On calcule désormais la base depuis les
   // leçons (source unique de vérité) et on expose aussi maxXP (base + bonus)
   // pour que la carte affiche une plage honnête « base–max ».
+  // v1.1.19 (Phase 2 — Fix 2.C) : validation declaredXp === xp à l'init.
+  // Si un auteur modifie xp_per_lesson d'une leçon et oublie de mettre à jour
+  // meta.xp_reward, la carte affichait un chiffre différent de l'attribution
+  // réelle sans qu'aucun signal n'alerte. On log un warning en dev pour
+  // détecter la divergence dès le chargement (visible en console Metro).
   const lessons = Array.isArray(json.lessons) ? json.lessons : [];
   const computedBaseXp = lessons.reduce((s, l) => s + (l?.xp_per_lesson || 0), 0);
   const computedMaxXp = lessons.reduce(
     (s, l) => s + (l?.xp_per_lesson || 0) + (l?.quiz?.xp_bonus_perfect || 0),
     0
   );
+  const declaredXp = json.meta?.xp_reward;
+  if (typeof declaredXp === 'number' && Math.abs(declaredXp - computedBaseXp) > 0.001) {
+    console.warn(
+      `[Content] ${json.id}: meta.xp_reward (${declaredXp}) ≠ Σ(xp_per_lesson) (${computedBaseXp}) ` +
+      `— la carte affichera la base calculée (${computedBaseXp}), pas la valeur déclarée. ` +
+      `Mettez à jour meta.xp_reward dans le JSON pour qu'il corresponde à la somme.`
+    );
+  }
   return {
     // Champs plate (utilisés par le Dashboard)
     id:          json.id,
@@ -54,7 +67,7 @@ function normalizeModule(json) {
     maxXP:       computedMaxXp,
     // Conserve la valeur déclarée pour audit/debug (sert à détecter la
     // divergence si un auteur modifie l'un et oubli l'autre).
-    declaredXp:  json.meta.xp_reward,
+    declaredXp:  declaredXp,
     color:       json.meta.color,
 
     // Champs étendus

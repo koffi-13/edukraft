@@ -144,7 +144,6 @@ edukraft-mvp/
       "index":         0,
       "title":         "Titre leçon",
       "xp_per_lesson": 50,
-      "min_quiz_score": 0.67,
       "content": {
         "intro":    "Texte d'introduction...",
         "sections": [
@@ -169,9 +168,26 @@ edukraft-mvp/
         ]
       }
     }
-  ]
+  ],
+  "completion_criteria": {
+    "all_lessons_passed":  true,
+    "min_total_score":     0.67,
+    "issues_badge":        true,
+    "xp_completion_bonus": 0
+  }
 }
 ```
+
+### Champs de `completion_criteria` (v1.1.19 — pilotage par les données)
+
+| Champ | Défaut | Rôle |
+|-------|--------|------|
+| `all_lessons_passed` | `true` | Toutes les leçons doivent être réussies pour valider le module. |
+| `min_total_score` | `0.67` | Score moyen minimal sur l'ensemble des leçons réussies. |
+| `issues_badge` | `true` | Émettre un badge à la complétion. Mettre `false` pour un module sans certification. |
+| `xp_completion_bonus` | `0` | XP bonus attribué à la 1ʳᵉ complétion (anti-double-comptage). |
+
+Avant v1.1.19, ces champs étaient déclarés mais jamais lus — la logique était hardcodée dans `QuizScreen` (`finalPassed && isLastLesson`). Maintenant ils pilotent réellement la complétion.
 
 ---
 

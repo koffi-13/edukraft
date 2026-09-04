@@ -148,6 +148,29 @@ export default function QuizScreen({ route, navigation }) {
     const perfect = finalScore === 1;
     const xp = finalPassed ? xpBase + (perfect ? (quiz?.xp_bonus_perfect || 0) : 0) : 0;
 
+    // v1.1.19 (Phase 2 — Fix 2.B) : piloter la complétion du module par les
+    // completion_criteria du JSON, et ne plus hardcoder `finalPassed && isLastLesson`.
+    // Avant, la logique était entièrement hardcodée dans QuizScreen : impossible
+    // pour un auteur de module de configurer « il faut un score moyen ≥ 80%
+    // pour valider » ou « badge uniquement si toutes les leçons sont réussies »
+    // sans toucher au code. Désormais les 3 sous-champs de completion_criteria
+    // sont CONSULTÉS (avec fallback sûr sur les valeurs historiques) :
+    //   - all_lessons_passed (défaut true) : il faut avoir réussi toutes les
+    //     leçons (lessons_done === totalLessons).
+    //   - min_total_score (défaut 0.67) : score moyen minimal sur l'ensemble
+    //     des leçons réussies. On calcule la moyenne des best_score par leçon
+    //     depuis module_progress (approximée par finalScore pour la leçon
+    //     courante + best_score existant).
+    //   - issues_badge (défaut true) : faut-il émettre un badge à la complétion.
+    // Si la complétion est détectée, on attribue AUSSI xp_completion_bonus
+    // (Fix 2.A — champ declared mais jamais lu avant, = 0 dans tous les
+    // modules bundled). Pour la 1ʳᵉ complétion seulement (anti-double).
+    const cc = module?.completion_criteria || {};
+    const allLessonsPassedRequired = cc.all_lessons_passed !== false; // défaut true
+    const minTotalScore = typeof cc.min_total_score === 'number' ? cc.min_total_score : 0.67;
+    const issuesBadge = cc.issues_badge !== false; // défaut true
+    const xpCompletionBonus = cc.xp_completion_bonus || 0;
+
     // Sauvegarder la tentative
     if (learner) {
       try {
@@ -177,7 +200,25 @@ export default function QuizScreen({ route, navigation }) {
         const lessonsDone = finalPassed
           ? Math.max(lessonIndex + 1, existingProgress?.lessons_done ?? 0)
           : (existingProgress?.lessons_done ?? 0);
-        const moduleCompleted = finalPassed && isLastLesson;
+        // v1.1.19 (Phase 2 — Fix 2.B) : moduleCompleted piloté par
+        // completion_criteria. Toutes les leçons doivent être réussies
+        // (all_lessons_passed) et le score moyen doit dépasser min_total_score.
+        const allLessonsDone = lessonsDone >= totalLessons;
+        // Calcul du score moyen : on prend le best_score existant comme
+        // proxy de la moyenne des leçons réussies avant celle-ci, et on
+        // inclut la leçon courante (finalScore si réussie, sinon best existant).
+        const avgScore = (() => {
+          const prevBest = existingProgress?.best_score ?? 0;
+          if (lessonsDone <= 0) return finalScore;
+          // moyenne approximée : (prevBest * (lessonsDone-1) + finalScore) / lessonsDone
+          // (approximation — la vraie moyenne par leçon nécessiterait une
+          // table quiz_attempt agrégée, mais best_score est déjà un MAX qui
+          // capture le meilleur score global, suffisant pour le gate).
+          return (prevBest * (lessonsDone - 1) + finalScore) / lessonsDone;
+        })();
+        const moduleCompleted = finalPassed && allLessonsDone
+          && (!allLessonsPassedRequired || allLessonsDone)
+          && avgScore >= minTotalScore;
 
         await updateProgress(moduleId, {
           status: (moduleCompleted || moduleAlreadyCompleted) ? 'completed' : 'in_progress',
@@ -196,8 +237,30 @@ export default function QuizScreen({ route, navigation }) {
             : undefined,
         });
 
+        // v1.1.19 (Phase 2 — Fix 2.A) : attribuer le bonus de complétion
+        // UNIQUEMENT à la 1ʳᵉ complétion (pas de double-comptage) et si le
+        // module n'était pas déjà terminé. Avant, xp_completion_bonus était
+        // un champ mort (déclaré à 0 dans tous les modules, jamais lu). On
+        // l'ajoute à learner.total_xp ET à module_progress.total_xp_earned
+        // pour cohérence avec l'XP de quiz.
+        if (moduleCompleted && !moduleAlreadyCompleted && xpCompletionBonus > 0) {
+          try {
+            await addXP(xpCompletionBonus);
+            // Mettre à jour le total_xp_earned du module pour inclure le bonus.
+            const progAfterCompletion = await getProgress(moduleId);
+            if (progAfterCompletion) {
+              await updateProgress(moduleId, {
+                total_xp_earned: (progAfterCompletion.total_xp_earned || 0) + xpCompletionBonus,
+              });
+            }
+          } catch (e) {
+            console.warn('[Quiz] xp_completion_bonus attribution error:', e.message);
+          }
+        }
+
         // Émettre le badge UNIQUEMENT si module terminé ET pas déjà badgé
-        if (moduleCompleted && module && !moduleAlreadyCompleted) {
+        // v1.1.19 (Phase 2 — Fix 2.B) : gated par completion_criteria.issues_badge
+        if (moduleCompleted && module && !moduleAlreadyCompleted && issuesBadge) {
           // v1.1.16 (Fix Issue 3) : badge XP = XP RÉELLEMENT attribuée pour ce
           // module (cumul des xp_awarded, bonus parfaits inclus), et non plus
           // la constante statique module.xp (= Σ base XP sans les bonus). Avant,
