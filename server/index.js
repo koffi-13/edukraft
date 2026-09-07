@@ -274,6 +274,52 @@ function dedupeLearnerBadges(learnerInternalId) {
   }
 }
 
+/** v1.1.17 : INVARIANT SERVEUR « badge ⇒ module terminé ».
+ *
+ * Un badge n'est émis QUE lorsque le quiz final d'un module est réussi
+ * (QuizScreen : moduleCompleted = quiz final réussi → issueBadge). Si une
+ * ligne module_progress du même (learner, module) n'est PAS « completed »,
+ * c'est un état divergent (op module_progress perdue — file de sync, purge
+ * de guérison client v1.1.14-1.1.15, bascule de compte…) : le Dashboard
+ * affiche alors « module terminé marqué En cours » POUR TOUS les clients,
+ * y compris ceux qui ne connaissent pas encore l'invariant (v1.1.15).
+ *
+ * Appliqué côté SERVEUR (push post-batch + pull), l'invariant soigne TOUTES
+ * les versions du client : un v1.1.15 qui tire l'état reçoit « completed »,
+ * l'affiche, et ses re-push « in_progress » sont refusés par la sémantique
+ * collante existante du UPDATE. completed_at de secours = date du badge.
+ *
+ * @returns {number} nombre de lignes réparées.
+ */
+function healBadgedModuleProgress(learnerInternalId) {
+  try {
+    if (!learnerInternalId) return 0;
+    const broken = db.prepare(`
+      SELECT mp.id, mp.module_id, b.issued_at AS badge_issued_at
+      FROM module_progress mp
+      JOIN badge b ON b.learner_id = mp.learner_id AND b.module_id = mp.module_id
+      WHERE mp.learner_id = ? AND mp.status != 'completed'
+    `).all(learnerInternalId);
+    if (broken.length === 0) return 0;
+    const now = new Date().toISOString();
+    const upd = db.prepare(`
+      UPDATE module_progress
+      SET status = 'completed',
+          completed_at = COALESCE(completed_at, ?),
+          updated_at = ?
+      WHERE id = ?
+    `);
+    for (const r of broken) {
+      upd.run(r.badge_issued_at || now, now, r.id);
+      console.log(`[BADGE-INVARIANT] Learner ${learnerInternalId} : module ${r.module_id} badgé mais non-completed → rétabli « completed » (completed_at=${r.badge_issued_at || 'maintenant'})`);
+    }
+    return broken.length;
+  } catch (e) {
+    console.warn('[BADGE-INVARIANT] Erreur :', e.message);
+    return 0;
+  }
+}
+
 function findOrCreateLearner(clientId, payload) {
   let learner = db.prepare('SELECT * FROM learner WHERE client_id = ?').get(clientId);
   const now = new Date().toISOString();
@@ -907,8 +953,12 @@ app.post('/api/sync', rateLimit(30, 60000), async (req, res) => {
     // v1.1.12 : après application des ops, RECOMPTER l'XP du learner touché
     // (union des quiz réussis distincts — rapatrie l'XP gagné en parallèle
     // sur d'autres appareils, MAX seul le perdait).
+    // v1.1.17 : + INVARIANT « badge ⇒ module terminé » — converge toute ligne
+    // module_progress restée « in_progress » pour un module badgé (op mp
+    // perdue par le client, badge arrivé seul dans CE batch, etc.).
     if (learnerServerId) {
       recomputeLearnerXp(learnerServerId);
+      healBadgedModuleProgress(learnerServerId);
     }
 
     const synced = results.filter(r => r.status === 'ok').length;
@@ -1072,6 +1122,10 @@ app.get('/api/progress/:clientId', (req, res) => {
   }
   // v1.1.12 : dédoublonner les badges par module (doublons historiques)
   if (dedupeLearnerBadges(learner.id) > 0) mutatedInGet = true;
+  // v1.1.17 : INVARIANT « badge ⇒ module terminé » — un module badgé dont la
+  // ligne progress n'est pas « completed » est rétabli AVANT de construire la
+  // réponse : tout client qui tire son état (même v1.1.15) reçoit la vérité.
+  if (healBadgedModuleProgress(learner.id) > 0) mutatedInGet = true;
 
   // v1.1.12 : les mutations ci-dessus sont faites dans un GET — le middleware
   // de suivi (POST/PUT/PATCH/DELETE) ne les voit PAS → markDirty explicite,
@@ -1110,16 +1164,27 @@ app.patch('/api/progress/:clientId/:moduleId', (req, res) => {
     const p = req.body;
 
     if (existing) {
+      // v1.1.17 : « completed » est COLLANT (même sémantique que POST /api/sync)
+      // — un PATCH en provenance d'un client en retard ne peut plus rétrograder
+      // un module terminé, et un module BADGÉ ne peut jamais quitter « completed ».
+      const requestedStatus = p.status || existing.status;
+      const badged = !!db.prepare(
+        'SELECT 1 FROM badge WHERE learner_id = ? AND module_id = ?'
+      ).get(existing.learner_id, moduleId);
+      const stickyStatus = (existing.status === 'completed' || requestedStatus === 'completed' || badged)
+        ? 'completed' : requestedStatus;
       db.prepare(`
         UPDATE module_progress SET
           status = ?, current_lesson = ?, lessons_done = ?, total_xp_earned = ?,
-          best_score = MAX(best_score, ?), completed_at = COALESCE(?, completed_at),
+          best_score = MAX(best_score, ?), completed_at = COALESCE(?, completed_at, ?),
           updated_at = ?
         WHERE id = ?
       `).run(
-        p.status || existing.status, p.current_lesson ?? existing.current_lesson,
+        stickyStatus, p.current_lesson ?? existing.current_lesson,
         p.lessons_done ?? existing.lessons_done, p.total_xp_earned ?? existing.total_xp_earned,
-        p.best_score || 0, p.completed_at || null, now, existing.id
+        p.best_score || 0, p.completed_at || null,
+        badged ? (db.prepare('SELECT issued_at FROM badge WHERE learner_id = ? AND module_id = ?').get(existing.learner_id, moduleId)?.issued_at || null) : null,
+        now, existing.id
       );
       const updated = db.prepare('SELECT * FROM module_progress WHERE id = ?').get(existing.id);
       success(res, { progress: updated });

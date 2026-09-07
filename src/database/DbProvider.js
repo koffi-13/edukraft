@@ -1030,7 +1030,8 @@ export function DbProvider({ children }) {
                        (id, learner_id, module_id, status, current_lesson, lessons_done, total_xp_earned, best_score, started_at, completed_at, sync_status, updated_at)
                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
                        ON CONFLICT(id) DO UPDATE SET
-                         status=excluded.status, current_lesson=MAX(module_progress.current_lesson, excluded.current_lesson),
+                         status=CASE WHEN excluded.status='completed' OR module_progress.status='completed' THEN 'completed' ELSE excluded.status END,
+                         current_lesson=MAX(module_progress.current_lesson, excluded.current_lesson),
                          lessons_done=MAX(module_progress.lessons_done, excluded.lessons_done),
                          total_xp_earned=MAX(module_progress.total_xp_earned, excluded.total_xp_earned),
                          best_score=MAX(module_progress.best_score, excluded.best_score),
@@ -1597,7 +1598,16 @@ export function DbProvider({ children }) {
           console.log(`[DB] v1.1.16 : module ${moduleId} badgé mais « ${merged.status} » → rétabli « completed »`);
         }
         s.progress[moduleId] = mergedWithInvariant;
-        if (lp) pushOps.push(['module_progress', 'UPDATE', mergedWithInvariant.id, mergedWithInvariant]);
+        // v1.1.17 : pousser AUSSI les guérisons sans ligne locale (lp null) —
+        // sinon le serveur restait « in_progress » pour un module badgé et la
+        // guérison disparaissait au rechargement de la page (store mémoire).
+        const spRank2 = rank[sp.status] ?? 0;
+        const mpRank2 = rank[mergedWithInvariant.status] ?? 0;
+        const beatsServer2 = mpRank2 > spRank2
+          || (mergedWithInvariant.lessons_done || 0) > (sp.lessons_done || 0)
+          || (mergedWithInvariant.best_score || 0) > (sp.best_score || 0)
+          || (mergedWithInvariant.total_xp_earned || 0) > (sp.total_xp_earned || 0);
+        if (lp || beatsServer2) pushOps.push(['module_progress', 'UPDATE', mergedWithInvariant.id, mergedWithInvariant]);
       }
 
       // Badges : importer ceux du serveur absents localement
@@ -1781,7 +1791,19 @@ export function DbProvider({ children }) {
           merged.current_lesson, merged.lessons_done, merged.total_xp_earned,
           merged.best_score, merged.started_at, merged.completed_at, now,
         ]);
-        if (lp) pushOps.push(['module_progress', 'UPDATE', merged.id, merged]);
+        // v1.1.17 : on pousse la ligne fusionnée AUSSI quand elle n'existait pas
+        // localement (lp null) si elle est MEILLEURE que l'état serveur reçu —
+        // typiquement l'invariant « badge ⇒ terminé » qui soigne une ligne
+        // serveur restée « in_progress ». Avant : la guérison ne vivait que
+        // localement (à la expiration du store mémoire sur web, elle
+        // disparaissait) et le serveur restait faux POUR TOUJOURS.
+        const sRank = rank[sp.status] ?? 0;
+        const mRank = rank[merged.status] ?? 0;
+        const beatsServer = mRank > sRank
+          || (merged.lessons_done || 0) > (sp.lessons_done || 0)
+          || (merged.best_score || 0) > (sp.best_score || 0)
+          || (merged.total_xp_earned || 0) > (sp.total_xp_earned || 0);
+        if (lp || beatsServer) pushOps.push(['module_progress', 'UPDATE', merged.id, merged]);
       }
 
       // Badges
