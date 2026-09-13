@@ -34,7 +34,10 @@ CREATE TABLE IF NOT EXISTS learner (
   email           TEXT,
   photo_url       TEXT,
   bio             TEXT,
-  profession      TEXT
+  profession      TEXT,
+  -- Centres d'intérêt (v1.2) — CSV des codes du CMS admin
+  -- (ex : 'commerce-vente,technologie-numerique')
+  interests       TEXT DEFAULT ''
 );
 
 -- Progression par module
@@ -181,6 +184,13 @@ export const MIGRATE_LEARNER_V3 = [
   'ALTER TABLE learner ADD COLUMN profession TEXT',
 ];
 
+// ── Migration v1.1 > v1.2 : ajoute la colonne des centres d'intérêt ────────
+// (⚠ le nom V3 est déjà pris par le profil étendu — numérotation continue.)
+// CSV des codes du CMS admin, interprété par src/config/interests.js.
+export const MIGRATE_LEARNER_V4 = [
+  "ALTER TABLE learner ADD COLUMN interests TEXT DEFAULT ''",
+];
+
 // ── Requêtes préparées fréquentes ───────────────────────────────────────────
 
 export const QUERIES = {
@@ -195,13 +205,23 @@ export const QUERIES = {
                                 phone=COALESCE(excluded.phone, learner.phone),
                                 language=COALESCE(NULLIF(excluded.language, ''), learner.language),
                                 total_xp=MAX(learner.total_xp, excluded.total_xp),
-                                streak_days=MAX(learner.streak_days, excluded.streak_days),
+                                streak_days=CASE
+                                  WHEN excluded.streak_days IS NULL OR excluded.streak_days = 0 THEN learner.streak_days
+                                  WHEN learner.last_active_at IS NULL OR excluded.last_active_at >= learner.last_active_at THEN excluded.streak_days
+                                  ELSE learner.streak_days
+                                END,
                                 last_active_at=excluded.last_active_at,
                                 updated_at=excluded.updated_at, sync_status='pending'`,
   // v1.1.8 : UPSERT NON-DESTRUCTIF — recréer un learner existant (ex :
   // restauration d'un compte déjà connu de l'appareil) ne remet JAMAIS
-  // l'XP/streak à zéro (sémantique MAX, alignée sur le serveur) et ne
-  // vide pas les champs déjà renseignés (COALESCE).
+  // l'XP/streak à zéro et ne vide pas les champs déjà renseignés (COALESCE).
+  // v1.1.18 : streak_days en LWW « dernière activité gagne » + garde
+  // « excluded 0/NULL ne remplace rien » — l'appelant unique (create/restore,
+  // learnerRepository.create à 9 params positionnels fixes) passe
+  // streak_days=0 placeholder + last_active_at=now ; sans la garde, chaque
+  // re-login remettrait la série à 0. streak_freezes est ABSENT de cet INSERT
+  // (jamais écrit ici, aucun vecteur de résurrection) ; total_xp garde MAX
+  // (monotone).
   ADD_XP:                   `UPDATE learner SET total_xp = total_xp + ?, updated_at = ?, sync_status = 'pending' WHERE id = ?`,
 
   // ── Gamification : streak ─────────────────────────────────────────────

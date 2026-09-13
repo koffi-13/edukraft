@@ -9,6 +9,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors, Typography, Spacing, Radius, Shadow } from '../theme';
+import { FONT_CAPS } from '../theme/fontCaps';
 import { t } from '../i18n';
 
 // ── Liste des fonctionnalités à venir ─────────────────────────────────────────
@@ -51,13 +52,31 @@ export default function CommunityScreen() {
       {/* Sticky header (hors ScrollView) */}
       <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>Communauté</Text>
-          <Text style={styles.headerSub}>
+          <Text
+            style={styles.headerTitle}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            Communauté
+          </Text>
+          <Text
+            style={styles.headerSub}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
             Apprends, partage et progresse ensemble
           </Text>
         </View>
         <View style={styles.soonBadge}>
-          <Text style={styles.soonBadgeText}>Bientôt disponible</Text>
+          <Text
+            style={styles.soonBadgeText}
+            numberOfLines={1}
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            Bientôt disponible
+          </Text>
         </View>
       </View>
 
@@ -69,8 +88,8 @@ export default function CommunityScreen() {
         {/* Héro / illustration */}
         <View style={[styles.hero, Shadow.card]}>
           <Text style={styles.heroEmoji}>👥</Text>
-          <Text style={styles.heroTitle}>Une communauté qui apprend ensemble</Text>
-          <Text style={styles.heroDesc}>
+          <Text style={styles.heroTitle} maxFontSizeMultiplier={FONT_CAPS.tight}>Une communauté qui apprend ensemble</Text>
+          <Text style={styles.heroDesc} maxFontSizeMultiplier={FONT_CAPS.normal}>
             EduKraft construit un espace où les apprenants du Togo et d'ailleurs
             peuvent échanger, s'encourager et grandir collectivement.
             Cette fonctionnalité arrive très prochainement.
@@ -79,17 +98,17 @@ export default function CommunityScreen() {
 
         {/* Liste des bénéfices */}
         <View style={styles.benefitsCard}>
-          <Text style={styles.sectionLabel}>Ce que tu pourras faire</Text>
+          <Text style={styles.sectionLabel} numberOfLines={1} ellipsizeMode="tail" maxFontSizeMultiplier={FONT_CAPS.tight}>Ce que tu pourras faire</Text>
           {BENEFITS.map((benefit, i) => (
             <View key={i} style={styles.benefitRow}>
-              <Text style={styles.benefitBullet}>✓</Text>
-              <Text style={styles.benefitText}>{benefit}</Text>
+              <Text style={styles.benefitBullet} maxFontSizeMultiplier={FONT_CAPS.tight}>✓</Text>
+              <Text style={styles.benefitText} maxFontSizeMultiplier={FONT_CAPS.normal}>{benefit}</Text>
             </View>
           ))}
         </View>
 
         {/* Section titre + feature cards */}
-        <Text style={styles.featuresTitle}>Fonctionnalités à venir</Text>
+        <Text style={styles.featuresTitle} maxFontSizeMultiplier={FONT_CAPS.tight}>Fonctionnalités à venir</Text>
 
         <View style={styles.grid}>
           {UPCOMING_FEATURES.map((feature, i) => (
@@ -101,14 +120,14 @@ export default function CommunityScreen() {
               <View style={styles.featureIconWrap}>
                 <Text style={styles.featureIcon}>{feature.icon}</Text>
               </View>
-              <Text style={styles.featureTitle} numberOfLines={2}>
+              <Text style={styles.featureTitle} numberOfLines={2} ellipsizeMode="tail" maxFontSizeMultiplier={FONT_CAPS.tight}>
                 {feature.title}
               </Text>
-              <Text style={styles.featureDesc} numberOfLines={3}>
+              <Text style={styles.featureDesc} numberOfLines={3} ellipsizeMode="tail" maxFontSizeMultiplier={FONT_CAPS.tight}>
                 {feature.desc}
               </Text>
               <View style={styles.comingTag}>
-                <Text style={styles.comingTagText}>Bientôt</Text>
+                <Text style={styles.comingTagText} numberOfLines={1} maxFontSizeMultiplier={FONT_CAPS.tight}>Bientôt</Text>
               </View>
             </View>
           ))}
@@ -118,8 +137,20 @@ export default function CommunityScreen() {
         <View style={[styles.bottomBanner, Shadow.card]}>
           <Text style={styles.bottomBannerEmoji}>🚀</Text>
           <View style={styles.bottomBannerTextWrap}>
-            <Text style={styles.bottomBannerTitle}>Bientôt disponible</Text>
-            <Text style={styles.bottomBannerDesc}>
+            <Text
+              style={styles.bottomBannerTitle}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              maxFontSizeMultiplier={FONT_CAPS.tight}
+            >
+              Bientôt disponible
+            </Text>
+            <Text
+              style={styles.bottomBannerDesc}
+              numberOfLines={2}
+              ellipsizeMode="tail"
+              maxFontSizeMultiplier={FONT_CAPS.tight}
+            >
               Nous finalisons les derniers réglages. En attendant,
               continue à apprendre et à collectionner tes badges !
             </Text>
@@ -169,6 +200,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
     borderWidth: 1,
     borderColor: Colors.amber + '33',
+    flexShrink: 0,
   },
   soonBadgeText: {
     fontSize: Typography.tiny,
@@ -314,6 +346,7 @@ const styles = StyleSheet.create({
   },
   bottomBannerEmoji: {
     fontSize: 32,
+    flexShrink: 0,
   },
   bottomBannerTextWrap: {
     flex: 1,

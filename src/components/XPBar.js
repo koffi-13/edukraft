@@ -2,6 +2,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import { Colors, Typography, Spacing, Radius, getLevel } from '../theme';
+import { FONT_CAPS } from '../theme/fontCaps';
 import { t } from '../i18n';
 
 export default function XPBar({ xp, compact = false }) {
@@ -20,7 +21,13 @@ export default function XPBar({ xp, compact = false }) {
     return (
       <View style={styles.compactRow}>
         <View style={[styles.levelBadge, { backgroundColor: current.color + '22' }]}>
-          <Text style={[styles.levelText, { color: current.color }]}>N{current.level}</Text>
+          <Text
+            style={[styles.levelText, { color: current.color }]}
+            numberOfLines={1}
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            N{current.level}
+          </Text>
         </View>
         <View style={styles.compactBarWrap}>
           <Animated.View
@@ -33,7 +40,13 @@ export default function XPBar({ xp, compact = false }) {
             ]}
           />
         </View>
-        <Text style={styles.xpLabel}>{xp} XP</Text>
+        <Text
+          style={styles.xpLabel}
+          numberOfLines={1}
+          maxFontSizeMultiplier={FONT_CAPS.tight}
+        >
+          {xp} XP
+        </Text>
       </View>
     );
   }
@@ -41,13 +54,32 @@ export default function XPBar({ xp, compact = false }) {
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <View>
+        <View style={styles.headerLeft}>
           {/* v1.1.3 : icône d'origine restaurée */}
-          <Text style={styles.levelLabel}>{t('dashboard.level_label')} {current.level} · {current.label}</Text>
-          <Text style={styles.xpValue}>{xp} {t('dashboard.xp_label')}</Text>
+          <Text
+            style={styles.levelLabel}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {t('dashboard.level_label')} {current.level} · {current.label}
+          </Text>
+          <Text
+            style={styles.xpValue}
+            numberOfLines={1}
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {xp} {t('dashboard.xp_label')}
+          </Text>
         </View>
         {next && (
-          <Text style={styles.nextLabel}>{next.minXP - xp} XP {">"} N{next.level}</Text>
+          <Text
+            style={styles.nextLabel}
+            numberOfLines={1}
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {next.minXP - xp} XP {">"} N{next.level}
+          </Text>
         )}
       </View>
       <View style={styles.track}>
@@ -74,6 +106,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems:     'flex-end',
   },
+  headerLeft: { flex: 1 },
   levelLabel: {
     fontSize:   Typography.caption,
     fontWeight: Typography.semibold,
@@ -88,6 +121,7 @@ const styles = StyleSheet.create({
   nextLabel: {
     fontSize:   Typography.caption,
     color:      Colors.ink60,
+    flexShrink: 0,
   },
   track: {
     height:           8,
@@ -109,6 +143,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical:   3,
     borderRadius:      Radius.sm,
+    flexShrink:        0,
   },
   levelText: {
     fontSize:   Typography.tiny,

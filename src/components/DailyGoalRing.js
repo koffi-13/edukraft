@@ -22,6 +22,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import Svg, { Circle as SvgCircle } from 'react-native-svg';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../theme';
+import { FONT_CAPS } from '../theme/fontCaps';
 import { t } from '../i18n';
 
 const AnimatedCircle = Animated.createAnimatedComponent(SvgCircle);
@@ -61,8 +62,22 @@ export default function DailyGoalRing({ goal, todayValue, onPress }) {
           {/* v1.1.3 : icône d'origine restaurée */}
           <Text style={styles.emptyIcon}>🎯</Text>
           <View style={styles.emptyText}>
-            <Text style={styles.emptyTitle}>{t('gamification.set_goal_title')}</Text>
-            <Text style={styles.emptyDesc}>{t('gamification.set_goal_desc')}</Text>
+            <Text
+              style={styles.emptyTitle}
+              numberOfLines={2}
+              ellipsizeMode="tail"
+              maxFontSizeMultiplier={FONT_CAPS.tight}
+            >
+              {t('gamification.set_goal_title')}
+            </Text>
+            <Text
+              style={styles.emptyDesc}
+              numberOfLines={2}
+              ellipsizeMode="tail"
+              maxFontSizeMultiplier={FONT_CAPS.tight}
+            >
+              {t('gamification.set_goal_desc')}
+            </Text>
           </View>
           <Text style={styles.emptyArrow}>›</Text>
         </View>
@@ -112,21 +127,45 @@ export default function DailyGoalRing({ goal, todayValue, onPress }) {
             />
           </Svg>
           <View style={styles.ringCenter}>
-            <Text style={styles.ringValue}>{todayValue || 0}</Text>
-            <Text style={styles.ringUnit}>/ {goal.target}</Text>
+            <Text
+              style={styles.ringValue}
+              numberOfLines={1}
+              maxFontSizeMultiplier={FONT_CAPS.tight}
+            >
+              {todayValue || 0}
+            </Text>
+            <Text
+              style={styles.ringUnit}
+              numberOfLines={1}
+              maxFontSizeMultiplier={FONT_CAPS.tight}
+            >
+              / {goal.target}
+            </Text>
           </View>
         </View>
 
         <View style={styles.info}>
-          <Text style={styles.label}>{label}</Text>
-          <Text style={styles.status}>
+          <Text
+            style={styles.label}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {label}
+          </Text>
+          <Text
+            style={styles.status}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
             {goalMet
               ? t('gamification.goal_met')
               : t('gamification.goal_remaining', {
                   remaining: Math.max(0, goal.target - (todayValue || 0)),
                 })}
           </Text>
-          {goalMet && <Text style={styles.check}>✓</Text>}
+          {goalMet && <Text style={styles.check} maxFontSizeMultiplier={FONT_CAPS.tight}>✓</Text>}
         </View>
       </View>
     </TouchableOpacity>
@@ -152,6 +191,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   ringSvg: {
     position: 'absolute',
@@ -194,7 +234,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.sm,
   },
-  emptyIcon: { fontSize: 28 },
+  emptyIcon: { fontSize: 28, flexShrink: 0 },
   emptyText: { flex: 1 },
   emptyTitle: {
     fontSize: Typography.body,
@@ -210,5 +250,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: Colors.ink30,
     fontWeight: '300',
+    flexShrink: 0,
   },
 });

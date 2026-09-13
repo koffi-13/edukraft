@@ -92,7 +92,7 @@ async function initSchema(db) {
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
   `);
-  const { CREATE_TABLES, INITIAL_SYNC_META, MIGRATE_LEARNER_V2, MIGRATE_LEARNER_V3 } = require('./schema');
+  const { CREATE_TABLES, INITIAL_SYNC_META, MIGRATE_LEARNER_V2, MIGRATE_LEARNER_V3, MIGRATE_LEARNER_V4 } = require('./schema');
   await db.execAsync(CREATE_TABLES);
   await db.execAsync(INITIAL_SYNC_META);
   // Migration v1 > v2 : ajoute les colonnes gamification au learner
@@ -102,6 +102,11 @@ async function initSchema(db) {
   }
   // Migration v1 > v1.1 : ajoute les colonnes du profil étendu au learner
   for (const stmt of MIGRATE_LEARNER_V3) {
+    try { await db.execAsync(stmt); } catch (_) { /* colonne déjà là */ }
+  }
+  // Migration v1.1 > v1.2 : ajoute la colonne des centres d'intérêt (CSV de
+  // codes CMS — même pattern idempotent)
+  for (const stmt of MIGRATE_LEARNER_V4) {
     try { await db.execAsync(stmt); } catch (_) { /* colonne déjà là */ }
   }
 }
@@ -163,6 +168,7 @@ const LEARNER_COLUMNS = [
   'created_at', 'server_id', 'sync_status', 'updated_at',
   'first_name', 'last_name', 'gender', 'birth_date', 'education_level',
   'country', 'state', 'city', 'address', 'email', 'photo_url', 'bio', 'profession',
+  'interests',
 ];
 
 async function upsertLearnerRow(db, learner) {
@@ -180,6 +186,7 @@ async function upsertLearnerRow(db, learner) {
     get('birth_date', null), get('education_level', null),
     get('country', null), get('state', null), get('city', null), get('address', null),
     get('email', null), get('photo_url', null), get('bio', null), get('profession', null),
+    get('interests', ''),
   ];
   const updateSet = LEARNER_COLUMNS.slice(1).map(c => `${c} = excluded.${c}`).join(', ');
   await db.runAsync(
@@ -774,9 +781,12 @@ async function ensureSessionLearner(nativeDb, store, setLearnerFn, persistSnapsh
 // champs de profil (prénom, nom, email, ville, bio…) remplis sur un autre
 // appareil n'étaient JAMAIS ramenés. Règle : la valeur locale gagne si elle
 // est remplie, sinon on prend celle du serveur (jamais d'écrasement).
+// v1.2 : interests suit la même règle (« local rempli gagne, serveur
+// complète ») — CSV des codes CMS.
 const PROFILE_FIELDS = [
   'first_name', 'last_name', 'gender', 'birth_date', 'education_level',
   'country', 'state', 'city', 'address', 'email', 'photo_url', 'bio', 'profession',
+  'interests',
 ];
 
 // v1.1.11 : une DATA URI (photo auto-contenue, toujours affichable) est
@@ -801,6 +811,31 @@ function mergeProfileFields(localLearner, serverLearner) {
     merged[f] = (lv !== undefined && lv !== null && String(lv).trim() !== '') ? lv : (sv ?? null);
   }
   return merged;
+}
+
+// v1.1.18 : LWW streak pour la fusion du pull serveur — les ressources
+// streak (streak_days, streak_freezes, last_active_date) sont NON-MONOTONES :
+// un joker consommé (2→1) ou une série cassée (5→1) doivent pouvoir DESCENDRE.
+// L'ancien Math.max ressuscitait les jokers localement (1 vs 2 → 2) au moindre
+// pull et rendait les séries incassables. Le serveur ne fournit ses valeurs
+// que si son last_active_at est STRICTEMENT plus récent que le local (égalité
+// → local, pour éviter le churn) ; le last_active_at du GAGNANT accompagne ses
+// valeurs pour garder la ligne auto-cohérente. Les monotones (best_streak,
+// total_xp, total_lessons_done) gardent Math.max, hors de ce helper.
+function applyStreakLww(localLearner, serverLearner) {
+  const la = (localLearner && localLearner.last_active_at) || null;
+  const sa = (serverLearner && serverLearner.last_active_at) || null;
+  const serverWins = !!sa && (!la || String(sa) > String(la));
+  const pick = (field, dflt) => {
+    if (serverWins) return serverLearner?.[field] ?? localLearner?.[field] ?? dflt;
+    return localLearner?.[field] ?? serverLearner?.[field] ?? dflt;
+  };
+  return {
+    streak_days: pick('streak_days', 0),
+    streak_freezes: pick('streak_freezes', 2),
+    last_active_date: pick('last_active_date', null),
+    last_active_at: serverWins ? sa : (la || sa || null),
+  };
 }
 
 // ── Provider ─────────────────────────────────────────────────────────────────
@@ -1558,14 +1593,16 @@ export function DbProvider({ children }) {
       const s = storeRef.current;
       const svLearner = sv.learner;
 
-      // Learner : MAX des champs numériques + champs de profil (v1.1.8)
+      // Learner : MAX des monotones + LWW streak (v1.1.18) + champs de profil (v1.1.8)
       if (s.learner && svLearner) {
         const merged = { ...s.learner };
         merged.total_xp           = Math.max(s.learner.total_xp || 0, svLearner.total_xp || 0);
-        merged.streak_days        = Math.max(s.learner.streak_days || 0, svLearner.streak_days || 0);
         merged.best_streak        = Math.max(s.learner.best_streak || 0, svLearner.best_streak || 0);
-        merged.streak_freezes     = Math.max(s.learner.streak_freezes ?? 2, svLearner.streak_freezes ?? 2);
         merged.total_lessons_done = Math.max(s.learner.total_lessons_done || 0, svLearner.total_lessons_done || 0);
+        // v1.1.18 : streak en LWW par last_active_at (plus de Math.max —
+        // cf. applyStreakLww : un joker consommé côté serveur ne doit pas
+        // être ressuscité par la fusion locale)
+        Object.assign(merged, applyStreakLww(s.learner, svLearner));
         merged.phone   = s.learner.phone || svLearner.phone || null;
         merged.language = s.learner.language || svLearner.language || 'fr';
         // v1.1.8 : profil étendu — le serveur complète les champs locaux vides
@@ -1732,14 +1769,16 @@ export function DbProvider({ children }) {
       const localLearner = await db.getFirstAsync('SELECT * FROM learner WHERE id = ?', [canonicalId]);
       const svLearner = sv.learner;
 
-      // Learner : MAX des champs numériques + champs de profil (v1.1.8)
+      // Learner : MAX des monotones + LWW streak (v1.1.18) + champs de profil (v1.1.8)
       if (localLearner && svLearner) {
         const merged = { ...localLearner };
         merged.total_xp           = Math.max(localLearner.total_xp || 0, svLearner.total_xp || 0);
-        merged.streak_days        = Math.max(localLearner.streak_days || 0, svLearner.streak_days || 0);
         merged.best_streak        = Math.max(localLearner.best_streak || 0, svLearner.best_streak || 0);
-        merged.streak_freezes     = Math.max(localLearner.streak_freezes ?? 2, svLearner.streak_freezes ?? 2);
         merged.total_lessons_done = Math.max(localLearner.total_lessons_done || 0, svLearner.total_lessons_done || 0);
+        // v1.1.18 : streak en LWW par last_active_at (plus de Math.max —
+        // cf. applyStreakLww : un joker consommé côté serveur ne doit pas
+        // être ressuscité par la fusion locale)
+        Object.assign(merged, applyStreakLww(localLearner, svLearner));
         merged.phone   = localLearner.phone || svLearner.phone || null;
         merged.language = localLearner.language || svLearner.language || 'fr';
         // v1.1.8 : profil étendu — le serveur complète les champs locaux vides

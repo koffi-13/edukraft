@@ -13,6 +13,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, Animated } from 'react-native';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../theme';
+import { FONT_CAPS } from '../theme/fontCaps';
 import { t } from '../i18n';
 import { ACHIEVEMENT_CATEGORIES } from '../gamification';
 
@@ -57,13 +58,18 @@ export default function CelebrationModal({
           ]}
         >
           {/* En-tête : maîtrise (pas fanfare) */}
-          <Text style={styles.eyebrow}>
+          <Text style={styles.eyebrow} maxFontSizeMultiplier={FONT_CAPS.tight}>
             {score !== undefined
               ? t('gamification.celebration_lesson_done')
               : t('gamification.celebration_progress')}
           </Text>
 
-          <Text style={styles.title}>
+          <Text
+            style={styles.title}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
             {goalMet
               ? t('gamification.celebration_goal_met_title')
               : hasAchievements
@@ -75,30 +81,69 @@ export default function CelebrationModal({
           <View style={styles.statsRow}>
             {xp !== undefined && xp > 0 && (
               <View style={styles.statItem}>
-                <Text style={[styles.statValue, { color: Colors.xpGold }]}>+{xp}</Text>
-                <Text style={styles.statLabel}>XP</Text>
+                <Text
+                  style={[styles.statValue, { color: Colors.xpGold }]}
+                  numberOfLines={1}
+                  maxFontSizeMultiplier={FONT_CAPS.tight}
+                >
+                  +{xp}
+                </Text>
+                <Text
+                  style={styles.statLabel}
+                  numberOfLines={1}
+                  maxFontSizeMultiplier={FONT_CAPS.tight}
+                >
+                  XP
+                </Text>
               </View>
             )}
             {streak && (
               <View style={styles.statItem}>
                 {/* v1.1.3 : icône d'origine restaurée */}
-                <Text style={[styles.statValue, { color: Colors.coral }]}>{streak.current} 🔥</Text>
-                <Text style={styles.statLabel}>{t('gamification.day_plural')}</Text>
+                <Text
+                  style={[styles.statValue, { color: Colors.coral }]}
+                  numberOfLines={1}
+                  maxFontSizeMultiplier={FONT_CAPS.tight}
+                >
+                  {streak.current} 🔥
+                </Text>
+                <Text
+                  style={styles.statLabel}
+                  numberOfLines={1}
+                  maxFontSizeMultiplier={FONT_CAPS.tight}
+                >
+                  {t('gamification.day_plural')}
+                </Text>
               </View>
             )}
             {score !== undefined && (
               <View style={styles.statItem}>
-                <Text style={[styles.statValue, { color: Colors.teal }]}>
+                <Text
+                  style={[styles.statValue, { color: Colors.teal }]}
+                  numberOfLines={1}
+                  maxFontSizeMultiplier={FONT_CAPS.tight}
+                >
                   {Math.round(score * 100)}%
                 </Text>
-                <Text style={styles.statLabel}>{t('gamification.score_label')}</Text>
+                <Text
+                  style={styles.statLabel}
+                  numberOfLines={1}
+                  maxFontSizeMultiplier={FONT_CAPS.tight}
+                >
+                  {t('gamification.score_label')}
+                </Text>
               </View>
             )}
           </View>
 
           {/* Streak cassé — message accueillant (anti-honte) */}
           {streak?.broken && (
-            <Text style={styles.brokenMsg}>
+            <Text
+              style={styles.brokenMsg}
+              numberOfLines={3}
+              ellipsizeMode="tail"
+              maxFontSizeMultiplier={FONT_CAPS.normal}
+            >
               {t('gamification.streak_restarted')}
             </Text>
           )}
@@ -106,7 +151,7 @@ export default function CelebrationModal({
           {/* Nouveaux succès */}
           {hasAchievements && (
             <View style={styles.achievementsSection}>
-              <Text style={styles.sectionLabel}>
+              <Text style={styles.sectionLabel} numberOfLines={1} ellipsizeMode="tail" maxFontSizeMultiplier={FONT_CAPS.tight}>
                 {t('gamification.new_achievements', { count: newAchievements.length })}
               </Text>
               {newAchievements.map((ach) => {
@@ -116,8 +161,22 @@ export default function CelebrationModal({
                     {/* v1.1.3 : icône d'origine restaurée */}
                     <Text style={styles.achievementIcon}>{cat.icon || '🏆'}</Text>
                     <View style={styles.achievementText}>
-                      <Text style={styles.achievementTitle}>{ach.title}</Text>
-                      <Text style={styles.achievementDesc}>{ach.description}</Text>
+                      <Text
+                        style={styles.achievementTitle}
+                        numberOfLines={2}
+                        ellipsizeMode="tail"
+                        maxFontSizeMultiplier={FONT_CAPS.tight}
+                      >
+                        {ach.title}
+                      </Text>
+                      <Text
+                        style={styles.achievementDesc}
+                        numberOfLines={3}
+                        ellipsizeMode="tail"
+                        maxFontSizeMultiplier={FONT_CAPS.normal}
+                      >
+                        {ach.description}
+                      </Text>
                     </View>
                   </View>
                 );
@@ -127,7 +186,12 @@ export default function CelebrationModal({
 
           {/* Objectif atteint */}
           {goalMet && !hasAchievements && (
-            <Text style={styles.goalMetMsg}>
+            <Text
+              style={styles.goalMetMsg}
+              numberOfLines={3}
+              ellipsizeMode="tail"
+              maxFontSizeMultiplier={FONT_CAPS.normal}
+            >
               {t('gamification.daily_goal_reached')}
             </Text>
           )}
@@ -137,7 +201,13 @@ export default function CelebrationModal({
             onPress={onClose}
             activeOpacity={0.85}
           >
-            <Text style={styles.closeBtnText}>{t('common.done')}</Text>
+            <Text
+              style={styles.closeBtnText}
+              numberOfLines={1}
+              maxFontSizeMultiplier={FONT_CAPS.tight}
+            >
+              {t('common.done')}
+            </Text>
           </TouchableOpacity>
         </Animated.View>
       </View>
@@ -176,8 +246,10 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'center',
     gap: Spacing.lg,
+    rowGap: Spacing.sm,
     paddingVertical: Spacing.md,
   },
   statItem: { alignItems: 'center', gap: 2 },
@@ -211,7 +283,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.sm,
   },
-  achievementIcon: { fontSize: 24 },
+  achievementIcon: { fontSize: 24, flexShrink: 0 },
   achievementText: { flex: 1 },
   achievementTitle: {
     fontSize: Typography.body,

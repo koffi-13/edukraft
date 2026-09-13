@@ -14,6 +14,13 @@
 #
 # Une fois le workflow terminé, l'APK est téléchargeable depuis :
 #   https://github.com/koffi-13/edukraft/releases
+#
+# v1.1.19 — DOUBLE DÉPÔT : le dépôt principal passera en PRIVÉ (voir
+# docs/SECURITE.md §2) ; chaque release est AUSSI publiée sur le dépôt miroir
+# PUBLIC koffi-13/edukraft-releases pour que les liens de téléchargement de
+# l'APK continuent de fonctionner. Le miroir utilise le secret optionnel
+# RELEASES_TOKEN (PAT fine-grained dédié) — s'il est absent, le step de miroir
+# est simplement sauté et le comportement reste STRICTEMENT inchangé.
 
 name: Build & Release APK
 
@@ -36,6 +43,10 @@ jobs:
   build:
     name: Build APK (Gradle direct) and Create Release
     runs-on: ubuntu-latest
+    # v1.1.19 : token DÉDIÉ pour le miroir public (peut rester absent — le step
+    # de miroir est alors sauté, publication principale inchangée).
+    env:
+      RELEASES_TOKEN: ${{ secrets.RELEASES_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -161,3 +172,60 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # v1.1.19 : Miroir de la release vers le dépôt PUBLIC — le dépôt
+      # principal devient privé (docs/SECURITE.md §1-2) mais l'APK doit rester
+      # téléchargeable par les apprenants. Même tag / même fichier / même
+      # body FR, token DÉDIÉ ( RELEASES_TOKEN ) car GITHUB_TOKEN n'a de droits
+      # que sur le dépôt courant. Garde `if: env.RELEASES_TOKEN != ''` :
+      # secret absent → step sauté, comportement strictement inchangé.
+      - name: Mirror release to public repo (koffi-13/edukraft-releases)
+        if: env.RELEASES_TOKEN != ''
+        uses: softprops/action-gh-release@v1
+        with:
+          repository: koffi-13/edukraft-releases
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name: EduKraft ${{ steps.version.outputs.VERSION }}
+          body: |
+            # EduKraft ${{ steps.version.outputs.VERSION }}
+
+            ## Installation
+            1. Téléchargez le fichier APK ci-dessous
+            2. Ouvrez-le sur votre téléphone Android
+            3. Autorisez "Sources inconnues" si demandé
+            4. Ouvrez EduKraft
+
+            ## Nouveautés v1.1.9
+            - **Connexion Email + Mot de passe réparée** (correctif majeur) :
+              le serveur perdait tous les comptes à chaque redémarrage Render
+              (disque éphémère du plan gratuit) — « l'inscription marche mais
+              pas la connexion ». La base du serveur est désormais sauvegardée
+              automatiquement (snapshot GitHub) et restaurée à chaque
+              démarrage : les comptes survivent aux redéploiements.
+            - **Vos données ne disparaissent plus après une reconnexion** :
+              si le serveur avait recréé votre compte (nouvel identifiant),
+              l'app reconnaissait à tort un « changement de compte » et
+              repartait d'un profil vide. Désormais, même email = même
+              compte : votre objectif du jour, votre photo de profil, vos
+              informations et votre XP suivent votre compte, et tout est
+              renvoyé au serveur pour vos autres appareils.
+            - **Photo de profil affichée** dans l'onglet Profil (et conservée
+              sur tous vos appareils) — avant, seule l'initiale du prénom
+              apparaissait.
+            - **Vérification d'email** : après une connexion ou une
+              inscription par email, un code à 6 chiffres vous est envoyé
+              pour sécuriser votre compte (non bloquant, « Plus tard »
+              possible). Les comptes Google sont considérés vérifiés
+              automatiquement.
+            - **Objectif du jour conservé** : le réglage (leçons/XP) survit
+              aux redémarrages, aux reconnexions et aux effacements serveur.
+            - **Connexion Google plus résistante** : l'app réessaie
+              automatiquement (jusqu'à ~100 s) pendant le réveil du serveur
+              Render — fini le retour silencieux à l'écran de connexion
+              « sans aucune activité » sur un téléphone qui se connecte pour
+              la première fois de la journée.
+          files: edukraft-${{ steps.version.outputs.VERSION }}.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ env.RELEASES_TOKEN }}

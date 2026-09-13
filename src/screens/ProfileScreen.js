@@ -4,12 +4,14 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, Image } fr
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors, Typography, Spacing, Radius, Shadow, getLevel } from '../theme';
+import { FONT_CAPS } from '../theme/fontCaps';
 import { useDb } from '../database/DbProvider';
 import { useAuth } from '../contexts/AuthContext';
 import { t } from '../i18n';
 import persistentStorage from '../utils/persistentStorage';
 import * as authService from '../services/authService';
 import { getRemoteVersion } from '../content/moduleRegistry';
+import { INTERESTS, parseInterests, serializeInterests } from '../config/interests';
 // v1.1.16 : alerte multi-plateforme — Alert.alert est un NO-OP sur
 // react-native-web : « Se déconnecter » / « Réinitialiser » ne faisaient
 // RIEN sur le web (bug « déconnexion impossible sur le web »).
@@ -35,6 +37,20 @@ export default function ProfileScreen({ navigation }) {
   // boucle ») — état de chaque couche de stockage + clés présentes.
   const [diagOpen, setDiagOpen] = useState(false);
   const [diag, setDiag] = useState(null);
+  // v1.2 : centres d'intérêt — chips multi-select (codes CMS admin).
+  // La sélection est réinitialisée depuis learner.interests SAUF si
+  // l'utilisateur est en train de modifier (interestsTouched) : un pull
+  // serveur n'écrase pas une sélection en cours ; post-save la réinit est un
+  // no-op visuel (le learner contient déjà la valeur enregistrée).
+  const [selectedInterests, setSelectedInterests] = useState(() => parseInterests(learner?.interests));
+  const [interestsTouched, setInterestsTouched] = useState(false);
+  const [savingInterests, setSavingInterests] = useState(false);
+
+  useEffect(() => {
+    if (!interestsTouched) {
+      setSelectedInterests(parseInterests(learner?.interests));
+    }
+  }, [learner?.interests, interestsTouched]);
   const loadBadges = useCallback(async () => {
     try {
       const userBadges = await getAllBadges();
@@ -222,10 +238,38 @@ export default function ProfileScreen({ navigation }) {
     return d.toLocaleTimeString('fr-TG', { hour: '2-digit', minute: '2-digit' });
   };
 
+  // v1.2 : centres d'intérêt — toggle d'un chip + sauvegarde (MÊME flux que
+  // EditProfileScreen : bouton « Enregistrer » désactivé sans changement,
+  // état « Enregistrement… » pendant l'écriture, alertes succès/erreur).
+  const savedInterestsCsv = serializeInterests(parseInterests(learner?.interests));
+  const interestsDirty = serializeInterests(selectedInterests) !== savedInterestsCsv;
+
+  const toggleInterest = (code) => {
+    setSelectedInterests(prev =>
+      prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]
+    );
+    setInterestsTouched(true);
+  };
+
+  const handleSaveInterests = async () => {
+    if (!interestsDirty || savingInterests) return;
+    setSavingInterests(true);
+    try {
+      await updateProfile({ interests: serializeInterests(selectedInterests) });
+      setInterestsTouched(false);
+      alertUser('Centres d\'intérêt', 'Tes centres d\'intérêt ont été enregistrés.');
+    } catch (e) {
+      console.error('Erreur enregistrement centres d\'intérêt:', e);
+      alertUser('Erreur', 'Impossible d\'enregistrer tes centres d\'intérêt. Réessaie.');
+    } finally {
+      setSavingInterests(false);
+    }
+  };
+
   if (!learner) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <Text style={styles.loading}>{t('common.loading')}</Text>
+        <Text style={styles.loading} numberOfLines={1} maxFontSizeMultiplier={FONT_CAPS.tight}>{t('common.loading')}</Text>
       </View>
     );
   }
@@ -260,19 +304,42 @@ export default function ProfileScreen({ navigation }) {
             />
           ) : null}
           {!(learner.photo_url && !photoFailed) ? (
-            <Text style={styles.avatarInitial}>
+            <Text style={styles.avatarInitial} maxFontSizeMultiplier={FONT_CAPS.tight}>
               {(learner.name || '?').charAt(0).toUpperCase()}
             </Text>
           ) : null}
         </View>
-        <Text style={styles.name}>{learner.name}</Text>
+        <Text
+          style={styles.name}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          maxFontSizeMultiplier={FONT_CAPS.tight}
+        >
+          {learner.name}
+        </Text>
         {/* v1.1.9 : l'email du compte est visible (exigence « l'email doit
             être connu ») — sous le téléphone, discret. */}
         {(learner.email || user?.email) ? (
-          <Text style={styles.emailLine}>{learner.email || user.email}</Text>
+          <Text
+            style={styles.emailLine}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {learner.email || user.email}
+          </Text>
         ) : null}
-        {learner.phone ? <Text style={styles.phone}>{learner.phone}</Text> : null}
-        <Text style={styles.language}>
+        {learner.phone ? (
+          <Text
+            style={styles.phone}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {learner.phone}
+          </Text>
+        ) : null}
+        <Text style={styles.language} numberOfLines={1} maxFontSizeMultiplier={FONT_CAPS.tight}>
           {learner.language === 'fr' ? 'Français' : 'Eʋe'}
         </Text>
       </View>
@@ -289,8 +356,22 @@ export default function ProfileScreen({ navigation }) {
             <View style={styles.premiumLeft}>
               <Text style={styles.premiumIcon}>✉️</Text>
               <View style={{ flex: 1 }}>
-                <Text style={styles.verifyTitle}>{t('verify.profile_card_title')}</Text>
-                <Text style={styles.premiumDesc}>{t('verify.profile_card_desc')}</Text>
+                <Text
+                  style={styles.verifyTitle}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  maxFontSizeMultiplier={FONT_CAPS.tight}
+                >
+                  {t('verify.profile_card_title')}
+                </Text>
+                <Text
+                  style={styles.premiumDesc}
+                  numberOfLines={2}
+                  ellipsizeMode="tail"
+                  maxFontSizeMultiplier={FONT_CAPS.tight}
+                >
+                  {t('verify.profile_card_desc')}
+                </Text>
               </View>
             </View>
             <Text style={styles.premiumArrow}>›</Text>
@@ -301,7 +382,7 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.section}>
           <View style={[styles.accountCard, Shadow.card, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
             <Text style={{ fontSize: 16 }}>✅</Text>
-            <Text style={styles.verifiedText}>{t('verify.verified_badge')}</Text>
+            <Text style={styles.verifiedText} numberOfLines={1} ellipsizeMode="tail" maxFontSizeMultiplier={FONT_CAPS.tight}>{t('verify.verified_badge')}</Text>
           </View>
         </View>
       ) : null}
@@ -309,24 +390,63 @@ export default function ProfileScreen({ navigation }) {
       {/* Stats */}
       <View style={styles.stats}>
         <View style={styles.statItem}>
-          <Text style={[styles.statValue, { color: Colors.xpGold }]}>{learner.total_xp || 0}</Text>
-          <Text style={styles.statLabel}>XP Total</Text>
+          <Text
+            style={[styles.statValue, { color: Colors.xpGold }]}
+            numberOfLines={1}
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {learner.total_xp || 0}
+          </Text>
+          <Text
+            style={styles.statLabel}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            XP Total
+          </Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={[styles.statValue, { color: Colors.primary }]}>{current.level}</Text>
-          <Text style={styles.statLabel}>{current.label}</Text>
+          <Text
+            style={[styles.statValue, { color: Colors.primary }]}
+            numberOfLines={1}
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {current.level}
+          </Text>
+          <Text
+            style={styles.statLabel}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {current.label}
+          </Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={[styles.statValue, { color: Colors.teal }]}>{badges.length}</Text>
-          <Text style={styles.statLabel}>Badges</Text>
+          <Text
+            style={[styles.statValue, { color: Colors.teal }]}
+            numberOfLines={1}
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {badges.length}
+          </Text>
+          <Text
+            style={styles.statLabel}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            Badges
+          </Text>
         </View>
       </View>
 
       {/* Sync status */}
       <View style={styles.syncCard}>
-        <Text style={styles.syncTitle}>Synchronisation</Text>
+        <Text style={styles.syncTitle} numberOfLines={1} maxFontSizeMultiplier={FONT_CAPS.tight}>Synchronisation</Text>
         <View style={styles.syncRow}>
           <View style={styles.syncDotWrap}>
             <View style={[
@@ -334,14 +454,14 @@ export default function ProfileScreen({ navigation }) {
               { backgroundColor: syncInfo.pending > 0 ? Colors.xpGold : Colors.teal },
             ]} />
           </View>
-          <Text style={styles.syncText}>
+          <Text style={styles.syncText} maxFontSizeMultiplier={FONT_CAPS.tight}>
             {syncInfo.pending > 0
               ? `${syncInfo.pending} élément(s) en attente de synchronisation`
               : 'Tout est à jour'
             }
           </Text>
         </View>
-        <Text style={styles.syncSubtext}>
+        <Text style={styles.syncSubtext} numberOfLines={1} maxFontSizeMultiplier={FONT_CAPS.tight}>
           Dernière sync : {formatSyncTime(syncInfo.lastSync)}
         </Text>
         {/* v1.1.7 : diagnostics de persistance — visible par l'utilisateur en
@@ -355,28 +475,28 @@ export default function ProfileScreen({ navigation }) {
             if (next) runDiagnostics();
           }}
         >
-          <Text style={styles.diagToggleText}>
+          <Text style={styles.diagToggleText} numberOfLines={1} maxFontSizeMultiplier={FONT_CAPS.tight}>
             {diagOpen ? '▾' : '▸'} Diagnostics du stockage
           </Text>
         </TouchableOpacity>
         {diagOpen && diag && (
           <View style={styles.diagBox}>
-            <Text style={styles.diagRow}>SQLite : {diag.sqlite ? '✓ actif' : '✗ indisponible (mode mémoire)'}</Text>
+            <Text style={styles.diagRow} maxFontSizeMultiplier={FONT_CAPS.tight}>SQLite : {diag.sqlite ? '✓ actif' : '✗ indisponible (mode mémoire)'}</Text>
             {/* v1.1.14 : POURQUOI SQLite est indisponible (ou a été reconstruit)
                 — la cause exacte remontée par DbProvider au démarrage. */}
             {diag.dbInitError ? (
-              <Text style={styles.diagRow}>Détail SQLite : {diag.dbInitError}</Text>
+              <Text style={styles.diagRow} maxFontSizeMultiplier={FONT_CAPS.tight}>Détail SQLite : {diag.dbInitError}</Text>
             ) : null}
-            <Text style={styles.diagRow}>File de sync : {diag.queue == null ? '—' : `${diag.queue} op(s) en attente`}</Text>
-            <Text style={styles.diagRow}>Stockage persistant : {diag.storage ? '✓ opérationnel' : '✗ HS'}</Text>
-            <Text style={styles.diagRow}>Session : {diag.session}</Text>
-            <Text style={styles.diagRow}>Clé profil (ek_learner) : {diag.keys.ek_learner ? '✓ présente' : '✗ absente'}</Text>
-            <Text style={styles.diagRow}>Snapshot complet : {diag.snapshot ? '✓ présent' : '✗ absent'}</Text>
-            <Text style={styles.diagRow}>Compte (ek_user) : {diag.keys.ek_user ? '✓ présent' : '✗ absent'}</Text>
-            <Text style={styles.diagRow}>Flag déconnexion : {diag.keys.ek_logged_out ? '⚠ posé (déconnecté)' : '✓ non posé'}</Text>
-            {diag.learnerId && <Text style={styles.diagRow}>Learner : {diag.learnerId}</Text>}
-            {diag.serverId && <Text style={styles.diagRow}>Compte lié : {diag.serverId}</Text>}
-            <Text style={styles.diagRow}>Catalogue cours distant : v{diag.remoteCatalog}</Text>
+            <Text style={styles.diagRow} maxFontSizeMultiplier={FONT_CAPS.tight}>File de sync : {diag.queue == null ? '—' : `${diag.queue} op(s) en attente`}</Text>
+            <Text style={styles.diagRow} maxFontSizeMultiplier={FONT_CAPS.tight}>Stockage persistant : {diag.storage ? '✓ opérationnel' : '✗ HS'}</Text>
+            <Text style={styles.diagRow} maxFontSizeMultiplier={FONT_CAPS.tight}>Session : {diag.session}</Text>
+            <Text style={styles.diagRow} maxFontSizeMultiplier={FONT_CAPS.tight}>Clé profil (ek_learner) : {diag.keys.ek_learner ? '✓ présente' : '✗ absente'}</Text>
+            <Text style={styles.diagRow} maxFontSizeMultiplier={FONT_CAPS.tight}>Snapshot complet : {diag.snapshot ? '✓ présent' : '✗ absent'}</Text>
+            <Text style={styles.diagRow} maxFontSizeMultiplier={FONT_CAPS.tight}>Compte (ek_user) : {diag.keys.ek_user ? '✓ présent' : '✗ absent'}</Text>
+            <Text style={styles.diagRow} maxFontSizeMultiplier={FONT_CAPS.tight}>Flag déconnexion : {diag.keys.ek_logged_out ? '⚠ posé (déconnecté)' : '✓ non posé'}</Text>
+            {diag.learnerId && <Text style={styles.diagRow} maxFontSizeMultiplier={FONT_CAPS.tight}>Learner : {diag.learnerId}</Text>}
+            {diag.serverId && <Text style={styles.diagRow} maxFontSizeMultiplier={FONT_CAPS.tight}>Compte lié : {diag.serverId}</Text>}
+            <Text style={styles.diagRow} maxFontSizeMultiplier={FONT_CAPS.tight}>Catalogue cours distant : v{diag.remoteCatalog}</Text>
           </View>
         )}
       </View>
@@ -389,9 +509,23 @@ export default function ProfileScreen({ navigation }) {
         >
           <View style={styles.premiumLeft}>
             <Text style={styles.premiumIcon}>💎</Text>
-            <View>
-              <Text style={styles.premiumTitle}>{t('profile.go_premium')}</Text>
-              <Text style={styles.premiumDesc}>{t('profile.premium_desc')}</Text>
+            <View style={styles.premiumText}>
+              <Text
+                style={styles.premiumTitle}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                maxFontSizeMultiplier={FONT_CAPS.tight}
+              >
+                {t('profile.go_premium')}
+              </Text>
+              <Text
+                style={styles.premiumDesc}
+                numberOfLines={2}
+                ellipsizeMode="tail"
+                maxFontSizeMultiplier={FONT_CAPS.tight}
+              >
+                {t('profile.premium_desc')}
+              </Text>
             </View>
           </View>
           <Text style={styles.premiumArrow}>›</Text>
@@ -400,11 +534,11 @@ export default function ProfileScreen({ navigation }) {
 
       {/* Badges */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t('profile.badges_section')}</Text>
+        <Text style={styles.sectionTitle} maxFontSizeMultiplier={FONT_CAPS.tight}>{t('profile.badges_section')}</Text>
         {badges.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>🏆</Text>
-            <Text style={styles.emptyText}>{t('badge.empty_text')}</Text>
+            <Text style={styles.emptyText} maxFontSizeMultiplier={FONT_CAPS.normal}>{t('badge.empty_text')}</Text>
           </View>
         ) : (
           <View style={styles.badgeGrid}>
@@ -423,12 +557,12 @@ export default function ProfileScreen({ navigation }) {
                 )}
               >
                 <Text style={styles.badgeIcon}>🏅</Text>
-                <Text style={styles.badgeTitle} numberOfLines={2}>
+                <Text style={styles.badgeTitle} numberOfLines={2} ellipsizeMode="tail" maxFontSizeMultiplier={FONT_CAPS.tight}>
                   {badge.module_title}
                 </Text>
                 <View style={styles.badgeRow}>
-                  <Text style={styles.badgeScore}>{Math.round(badge.score * 100)}%</Text>
-                  <Text style={styles.badgeXP}>+{badge.xp_total} XP</Text>
+                  <Text style={styles.badgeScore} numberOfLines={1} maxFontSizeMultiplier={FONT_CAPS.tight}>{Math.round(badge.score * 100)}%</Text>
+                  <Text style={styles.badgeXP} numberOfLines={1} maxFontSizeMultiplier={FONT_CAPS.tight}>+{badge.xp_total} XP</Text>
                 </View>
               </TouchableOpacity>
             ))}
@@ -445,9 +579,23 @@ export default function ProfileScreen({ navigation }) {
         >
           <View style={styles.premiumLeft}>
             <Text style={styles.premiumIcon}>🏆</Text>
-            <View>
-              <Text style={styles.premiumTitle}>{t('gamification.profile_link_title')}</Text>
-              <Text style={styles.premiumDesc}>{t('gamification.profile_link_desc')}</Text>
+            <View style={styles.premiumText}>
+              <Text
+                style={styles.premiumTitle}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                maxFontSizeMultiplier={FONT_CAPS.tight}
+              >
+                {t('gamification.profile_link_title')}
+              </Text>
+              <Text
+                style={styles.premiumDesc}
+                numberOfLines={2}
+                ellipsizeMode="tail"
+                maxFontSizeMultiplier={FONT_CAPS.tight}
+              >
+                {t('gamification.profile_link_desc')}
+              </Text>
             </View>
           </View>
           <Text style={styles.premiumArrow}>›</Text>
@@ -463,40 +611,120 @@ export default function ProfileScreen({ navigation }) {
         >
           <View style={styles.premiumLeft}>
             <Text style={styles.premiumIcon}>👤</Text>
-            <View>
-              <Text style={styles.premiumTitle}>{t('profile.edit_title')}</Text>
-              <Text style={styles.premiumDesc}>{t('profile.edit_desc')}</Text>
+            <View style={styles.premiumText}>
+              <Text
+                style={styles.premiumTitle}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                maxFontSizeMultiplier={FONT_CAPS.tight}
+              >
+                {t('profile.edit_title')}
+              </Text>
+              <Text
+                style={styles.premiumDesc}
+                numberOfLines={2}
+                ellipsizeMode="tail"
+                maxFontSizeMultiplier={FONT_CAPS.tight}
+              >
+                {t('profile.edit_desc')}
+              </Text>
             </View>
           </View>
           <Text style={styles.premiumArrow}>›</Text>
         </TouchableOpacity>
       </View>
 
+      {/* v1.2 : Section Mes centres d'intérêt — chips multi-select (codes CMS).
+          Le Dashboard s'en sert pour « ⭐ Recommandé pour toi » ; la valeur est
+          persistée dans learner.interests (SQLite + sync). */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle} maxFontSizeMultiplier={FONT_CAPS.tight}>Mes centres d'intérêt</Text>
+        <View style={styles.interestsGrid}>
+          {INTERESTS.map(({ code, label, emoji }) => {
+            const selected = selectedInterests.includes(code);
+            return (
+              <TouchableOpacity
+                key={code}
+                style={[styles.interestChip, selected && styles.interestChipSelected]}
+                onPress={() => toggleInterest(code)}
+                activeOpacity={0.8}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: selected }}
+                accessibilityLabel={`${emoji} ${label}${selected ? ' (sélectionné)' : ''}`}
+              >
+                <Text
+                  style={[styles.interestChipText, selected && styles.interestChipTextSelected]}
+                  numberOfLines={2}
+                  ellipsizeMode="tail"
+                  maxFontSizeMultiplier={FONT_CAPS.tight}
+                >
+                  {emoji} {label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <TouchableOpacity
+          style={[styles.interestSaveBtn, (!interestsDirty || savingInterests) && styles.interestSaveBtnDisabled, Shadow.button]}
+          onPress={handleSaveInterests}
+          disabled={!interestsDirty || savingInterests}
+          activeOpacity={0.85}
+        >
+          <Text
+            style={[styles.interestSaveBtnText, (!interestsDirty || savingInterests) && styles.interestSaveBtnTextDisabled]}
+            numberOfLines={1}
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {savingInterests ? 'Enregistrement…' : 'Enregistrer'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Section Compte / Authentification */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t('auth.account_section')}</Text>
+        <Text style={styles.sectionTitle} maxFontSizeMultiplier={FONT_CAPS.tight}>{t('auth.account_section')}</Text>
         {user ? (
           <View style={[styles.accountCard, Shadow.card]}>
             <View style={styles.accountRow}>
-              <Text style={styles.accountLabel}>{t('auth.email_display')}</Text>
-              <Text style={styles.accountValue}>{user.email || user.phone || '-'}</Text>
+              <Text style={styles.accountLabel} numberOfLines={1} ellipsizeMode="tail" maxFontSizeMultiplier={FONT_CAPS.tight}>{t('auth.email_display')}</Text>
+              <Text
+                style={styles.accountValue}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                maxFontSizeMultiplier={FONT_CAPS.tight}
+              >
+                {user.email || user.phone || '-'}
+              </Text>
             </View>
             <View style={styles.accountRow}>
-              <Text style={styles.accountLabel}>{t('auth.provider_label')}</Text>
+              <Text style={styles.accountLabel} numberOfLines={1} ellipsizeMode="tail" maxFontSizeMultiplier={FONT_CAPS.tight}>{t('auth.provider_label')}</Text>
               <View style={[styles.providerBadge, { backgroundColor: providerColor(user.provider) }]}>
-                <Text style={styles.providerBadgeText}>{providerLabel(user.provider)}</Text>
+                <Text
+                  style={styles.providerBadgeText}
+                  numberOfLines={1}
+                  maxFontSizeMultiplier={FONT_CAPS.tight}
+                >
+                  {providerLabel(user.provider)}
+                </Text>
               </View>
             </View>
             {user.display_name && (
               <View style={styles.accountRow}>
-                <Text style={styles.accountLabel}>{t('auth.name_label')}</Text>
-                <Text style={styles.accountValue}>{user.display_name}</Text>
+                <Text style={styles.accountLabel} numberOfLines={1} ellipsizeMode="tail" maxFontSizeMultiplier={FONT_CAPS.tight}>{t('auth.name_label')}</Text>
+                <Text
+                  style={styles.accountValue}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  maxFontSizeMultiplier={FONT_CAPS.tight}
+                >
+                  {user.display_name}
+                </Text>
               </View>
             )}
           </View>
         ) : skipAuth ? (
           <View style={[styles.accountCard, Shadow.card]}>
-            <Text style={styles.skipAuthText}>
+            <Text style={styles.skipAuthText} maxFontSizeMultiplier={FONT_CAPS.tight}>
               {t('auth.skip')} — {t('auth.skip_description')}
             </Text>
           </View>
@@ -506,14 +734,26 @@ export default function ProfileScreen({ navigation }) {
             compris) — pour l'invité, il déclenche le parcours « créer un
             compte pour sécuriser tes données » (handleLogout). */}
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText}>{t('auth.logout_button')}</Text>
+          <Text
+            style={styles.logoutButtonText}
+            numberOfLines={1}
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {t('auth.logout_button')}
+          </Text>
         </TouchableOpacity>
       </View>
 
       {/* Reset */}
       <View style={styles.section}>
         <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
-          <Text style={styles.resetButtonText}>{t('profile.reset_title')}</Text>
+          <Text
+            style={styles.resetButtonText}
+            numberOfLines={1}
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {t('profile.reset_title')}
+          </Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -607,6 +847,8 @@ const styles = StyleSheet.create({
   },
   stats: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    rowGap: Spacing.sm,
     justifyContent: 'space-around',
     padding: Spacing.lg,
     backgroundColor: Colors.surface,
@@ -614,6 +856,8 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   statItem: {
+    flex: 1,
+    minWidth: '28%',
     alignItems: 'center',
   },
   statDivider: {
@@ -774,8 +1018,10 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     flex: 1,
   },
+  premiumText: { flex: 1 },
   premiumIcon: {
     fontSize: 28,
+    flexShrink: 0,
   },
   premiumTitle: {
     fontSize: Typography.body,
@@ -793,6 +1039,55 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: Colors.ink30,
     fontWeight: '300',
+    flexShrink: 0,
+  },
+  // ── v1.2 : Centres d'intérêt ───────────────────────────────────────────
+  interestsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  interestChip: {
+    minHeight: 44,                                   // cible tactile confortable
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.full,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    justifyContent: 'center',
+  },
+  interestChipSelected: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primaryLight,
+  },
+  interestChipText: {
+    fontSize: Typography.caption,
+    fontWeight: Typography.medium,
+    color: Colors.ink60,
+  },
+  interestChipTextSelected: {
+    color: Colors.primary,
+    fontWeight: Typography.bold,
+  },
+  interestSaveBtn: {
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    backgroundColor: Colors.primary,
+  },
+  interestSaveBtnDisabled: {
+    opacity: 0.5,
+  },
+  interestSaveBtnText: {
+    fontSize: Typography.body,
+    fontWeight: Typography.bold,
+    color: Colors.surface,
+  },
+  interestSaveBtnTextDisabled: {
+    color: Colors.surface,
   },
   resetButton: {
     paddingVertical: Spacing.md,

@@ -139,6 +139,9 @@ export function createLearnerRepository(db, store, enqueue) {
     const allowedFields = [
       'first_name', 'last_name', 'gender', 'birth_date', 'education_level',
       'country', 'state', 'city', 'address', 'email', 'phone', 'photo_url', 'bio', 'profession',
+      // v1.2 : centres d'intérêt (CSV de codes CMS — écrasement simple,
+      // l'appelant envoie toujours la valeur complète)
+      'interests',
     ];
 
     if (isMemory()) {

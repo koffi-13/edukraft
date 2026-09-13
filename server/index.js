@@ -89,7 +89,9 @@ function initDatabase() {
       email           TEXT,
       photo_url       TEXT,
       bio             TEXT,
-      profession      TEXT
+      profession      TEXT,
+      -- ── Centres d'intérêt (v1.1.19) — CSV de codes « code-a,code-b » ────
+      interests       TEXT DEFAULT ''
     );
 
     CREATE TABLE IF NOT EXISTS module_progress (
@@ -146,6 +148,17 @@ function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_badge_learner    ON badge(learner_id);
   `);
 
+  // v1.1.19 : colonne learner.interests (centres d'intérêt — CSV de codes,
+  // cf. src/config/interests.js côté client). Les bases NEUVES l'ont via le
+  // CREATE TABLE ci-dessus ; les bases EXISTANTES (production restaurée depuis
+  // GitHub) passent par l'ALTER ci-dessous, gardé par PRAGMA table_info pour
+  // être IDEMPOTENT (aucun re-ALTER aux redémarrages suivants).
+  const learnerColumns = db.prepare('PRAGMA table_info(learner)').all();
+  if (!learnerColumns.some(c => c.name === 'interests')) {
+    db.exec("ALTER TABLE learner ADD COLUMN interests TEXT DEFAULT ''");
+    console.log('[DB] Migration v1.1.19 : colonne learner.interests ajoutée');
+  }
+
   console.log(`[DB] SQLite initialisé : ${DB_PATH}`);
 }
 
@@ -199,6 +212,10 @@ function fail(res, message, statusCode = 400) {
 const LEARNER_PROFILE_FIELDS = [
   'first_name', 'last_name', 'gender', 'birth_date', 'education_level',
   'country', 'state', 'city', 'address', 'email', 'photo_url', 'bio', 'profession',
+  // v1.1.19 : centres d'intérêt (CSV « code-a,code-b ») — même sémantique
+  // profil : COALESCE non-vide, une valeur absente/vide n'écrase jamais
+  // l'existant (préférence utilisateur, pas un compteur).
+  'interests',
 ];
 
 /** v1.1.12 : RECOMPTAGE de l'XP total d'un learner depuis l'UNION des quiz
@@ -321,14 +338,25 @@ function healBadgedModuleProgress(learnerInternalId) {
 }
 
 function findOrCreateLearner(clientId, payload) {
+  // v1.1.19 : normaliser les centres d'intérêt UNE fois en tête — la mutation
+  // IN-PLACE du payload profite aussi à applySyncOperation (le handler
+  // /api/sync lui repasse le même objet juste après cet appel). null =
+  // absent/vide/type inattendu = ne rien écrire (les boucles de profil
+  // ci-dessous sautent les valeurs nulles/vides → l'existant est conservé).
+  if (payload && payload.interests !== undefined) {
+    payload.interests = gamification.toInterestsText(payload.interests);
+  }
   let learner = db.prepare('SELECT * FROM learner WHERE client_id = ?').get(clientId);
   const now = new Date().toISOString();
 
   if (!learner) {
     const id = uuidv4();
     const cols = ['id', 'server_id', 'client_id', 'name', 'phone', 'language', 'total_xp', 'streak_days', 'last_active_at', 'created_at', 'updated_at'];
+    // v1.1.18 : last_active_at = activité CONNUE du payload (pas l'heure de
+    // réception — qui faussait le jugement LWW d'applySyncOperation en faisant
+    // gagner tout push, même périmé).
     const vals = [id, `srv_${uuidv4().slice(0, 8)}`, clientId, payload.name, payload.phone || null, payload.language || 'fr',
-      payload.total_xp || 0, payload.streak_days || 0, now, now, now];
+      payload.total_xp || 0, payload.streak_days || 0, payload.last_active_at || now, now, now];
     // v1.1.8 : insérer aussi les champs de profil connus du client
     for (const f of LEARNER_PROFILE_FIELDS) {
       if (payload[f] !== undefined && payload[f] !== null && String(payload[f]).trim() !== '') {
@@ -342,17 +370,30 @@ function findOrCreateLearner(clientId, payload) {
     // Mettre à jour les champs modifiés (COALESCE pour ne pas écraser les champs
     // absents du payload — important pour les updates partiels gamification)
     // v1.1.8 : + tous les champs du profil étendu (sync « informations de profil »)
+    // v1.1.18 : streak_days / streak_freezes / last_active_date en COALESCE
+    // DIRECT (plus de MAX — ces ressources non-monotones doivent pouvoir
+    // descendre : joker consommé, série cassée). Le jugement LWW définitif est
+    // fait par applySyncOperation (qui rétablit la pré-image si l'entrant est
+    // périmé). last_active_at : CASE jamais-régressant sur l'activité CONNUE du
+    // payload (pas l'heure de réception).
     const setClauses = [
       'name = COALESCE(?, name)',
       'phone = COALESCE(?, phone)',
       'language = COALESCE(?, language)',
       'total_xp = MAX(total_xp, ?)',
-      'streak_days = MAX(streak_days, ?)',
-      'last_active_at = ?',
+      'streak_days = COALESCE(?, streak_days)',
+      'streak_freezes = COALESCE(?, streak_freezes)',
+      'last_active_date = COALESCE(?, last_active_date)',
+      'last_active_at = CASE WHEN ? IS NOT NULL AND (last_active_at IS NULL OR ? >= last_active_at) THEN ? ELSE last_active_at END',
       'updated_at = ?',
     ];
     const params = [payload.name, payload.phone, payload.language,
-      payload.total_xp || 0, payload.streak_days || 0, now, now];
+      payload.total_xp || 0,
+      payload.streak_days ?? null,
+      payload.streak_freezes ?? null,
+      payload.last_active_date ?? null,
+      payload.last_active_at ?? null, payload.last_active_at ?? null, payload.last_active_at ?? null,
+      now];
     for (const f of LEARNER_PROFILE_FIELDS) {
       if (payload[f] !== undefined && payload[f] !== null && String(payload[f]).trim() !== '') {
         setClauses.push(`${f} = COALESCE(?, ${f})`);
@@ -454,21 +495,34 @@ function mergeOrphanLearnerRows(canonicalClientId, email) {
   for (const orph of orphans) {
     try {
       const now = new Date().toISOString();
-      // 1. Compteurs du learner canonique : MAX (jamais de rétrogradation)
+      // 1. Compteurs du learner canonique.
+      // v1.1.18 : streak_days / streak_freezes / last_active_date en LWW —
+      // l'orphelin ne fournit ses valeurs streak (non-monotones : joker
+      // consommé, série cassée) que si son activité est AUSSI récente que
+      // celle du canonique. La référence de colonne last_active_at est
+      // évaluée sur la valeur PRÉ-UPDATE (comme toute RHS d'un même UPDATE),
+      // donc la comparaison se fait bien sur l'activité d'avant fusion.
+      // MAX gardé pour les monotones (total_xp, best_streak,
+      // total_lessons_done) et pour last_active_at.
       db.prepare(`
         UPDATE learner SET
           total_xp           = MAX(total_xp, ?),
-          streak_days        = MAX(streak_days, ?),
-          streak_freezes     = MAX(COALESCE(streak_freezes, 2), COALESCE(?, 2)),
+          streak_days        = CASE WHEN ? >= last_active_at THEN ? ELSE streak_days END,
+          streak_freezes     = CASE WHEN ? >= last_active_at THEN ? ELSE streak_freezes END,
           best_streak        = MAX(COALESCE(best_streak, 0), COALESCE(?, 0)),
           total_lessons_done = MAX(COALESCE(total_lessons_done, 0), COALESCE(?, 0)),
-          last_active_date   = MAX(COALESCE(last_active_date, ''), COALESCE(?, '')),
+          last_active_date   = CASE WHEN ? >= last_active_at THEN ? ELSE last_active_date END,
+          last_active_at     = COALESCE(MAX(last_active_at, ?), last_active_at, ?),
           updated_at         = ?
         WHERE id = ?
       `).run(
-        orph.total_xp || 0, orph.streak_days || 0,
-        orph.streak_freezes ?? 2, orph.best_streak || 0, orph.total_lessons_done || 0,
-        orph.last_active_date || '', now, canonical.id
+        orph.total_xp || 0,
+        orph.last_active_at ?? null, orph.streak_days ?? 0,
+        orph.last_active_at ?? null, orph.streak_freezes ?? 2,
+        orph.best_streak || 0, orph.total_lessons_done || 0,
+        orph.last_active_at ?? null, orph.last_active_date ?? null,
+        orph.last_active_at ?? null, orph.last_active_at ?? null,
+        now, canonical.id
       );
 
       // 2. Profil : les champs vides du canonique sont remplis par l'orphelin
@@ -694,6 +748,14 @@ app.post('/api/sync', rateLimit(30, 60000), async (req, res) => {
 
         switch (table_name) {
           case 'learner': {
+            // v1.1.18 : PRÉ-IMAGE de la ligne AVANT findOrCreateLearner — le
+            // LWW de applySyncOperation doit juger sur l'état PRÉ-EXISTANT
+            // (findOrCreateLearner écrit les valeurs entrantes en COALESCE
+            // direct et rafraîchit last_active_at, ce qui fausserait la
+            // comparaison de fraîcheur).
+            const preLearner = db.prepare(
+              'SELECT streak_days, streak_freezes, last_active_date, last_active_at FROM learner WHERE client_id = ?'
+            ).get(clientId);
             const learner = findOrCreateLearner(clientId, payload);
             learnerServerId = learner.id;
             result.server_id = learner.id;
@@ -724,13 +786,17 @@ app.post('/api/sync', rateLimit(30, 60000), async (req, res) => {
               }
             }
             // Gamification : sync des champs streak/freezes/best_streak si présents
+            // v1.1.19 : + interests — un payload ne portant QUE les centres
+            // d'intérêt (pas de champs streak) doit quand même être traité
+            // (persistance COALESCE dans applySyncOperation case 'learner').
             if (payload.streak_days !== undefined || payload.streak_freezes !== undefined
                 || payload.best_streak !== undefined || payload.last_active_date !== undefined
-                || payload.total_lessons_done !== undefined) {
+                || payload.total_lessons_done !== undefined
+                || payload.interests !== undefined) {
               gamification.applySyncOperation(db, 'learner', {
                 ...payload,
                 learner_id: learnerServerId,
-              });
+              }, preLearner);
             }
             break;
           }
@@ -1008,12 +1074,20 @@ app.patch('/api/learners/:clientId/profile', (req, res) => {
 
     const allowedFields = [
       'first_name', 'last_name', 'gender', 'birth_date', 'education_level',
-      'country', 'state', 'city', 'address', 'email', 'phone', 'photo_url', 'bio', 'profession'
+      'country', 'state', 'city', 'address', 'email', 'phone', 'photo_url', 'bio', 'profession',
+      'interests'
     ];
     const updates = {};
     for (const f of allowedFields) {
       if (req.body[f] !== undefined) updates[f] = req.body[f];
     }
+
+    // v1.1.19 : centres d'intérêt — normalisation défensive (CSV de codes ou
+    // tableau de codes). null (vide/type inattendu) = NE PAS changer la
+    // valeur existante → champ retiré des updates (rien n'est écrasé).
+    const normInterests = gamification.toInterestsText(updates.interests);
+    if (normInterests === null) delete updates.interests;
+    else updates.interests = normInterests;
 
     if (Object.keys(updates).length === 0) {
       return fail(res, 'Aucun champ à mettre à jour');
@@ -1067,7 +1141,9 @@ app.post('/api/learners/:clientId/photo', (req, res) => {
  *  le learner complet, les succès, les logs de streak et l'objectif quotidien.
  *  C'est CETTE route que l'app appelle après une connexion réussie pour
  *  RESTAURER l'intégralité des données du compte sur un nouvel appareil
- *  (inscription sur le web → connexion dans l'app APK, et vice versa). */
+ *  (inscription sur le web → connexion dans l'app APK, et vice versa).
+ *  v1.1.19 : le learner est lu en SELECT * → il transporte aussi `interests`
+ *  (centres d'intérêt, CSV de codes « code-a,code-b » — migration v1.1.19). */
 app.get('/api/progress/:clientId', (req, res) => {
   let learner = db.prepare('SELECT * FROM learner WHERE client_id = ?').get(req.params.clientId);
   let mutatedInGet = false; // v1.1.12 : les mutations du GET doivent être répliquées (markDirty)
@@ -1400,6 +1476,67 @@ function requireAdminKey(req, res, next) {
   next();
 }
 
+// ── v1.1.19 : avertissement de démarrage — clés par défaut ──────────────────
+// V1 du durcissement sécurité (voir docs/SECURITE.md) : tant que ADMIN_KEY
+// et/ou API_KEY ne sont pas définies avec une valeur forte, les routes
+// /api/admin/* et /api/sync tournent avec la clé par défaut 'dev-key'
+// (publique). Ce warning LOUD est affiché en TÊTE des logs de démarrage
+// (avant la restauration DB) pour être impossible à rater dans la console
+// Render. Il est JAMAIS bloquant — le serveur démarre quand même.
+function warnInsecureDefaults() {
+  const bars = '═'.repeat(78);
+  const adminKeyRaw = process.env.ADMIN_KEY;
+  const apiKeyIsDefault = API_KEY === 'dev-key';
+  const adminKeyExplicitDev = adminKeyRaw === 'dev-key';
+  const adminKeyMissing = adminKeyRaw === undefined || adminKeyRaw === '';
+  // Routes admin réellement ouvertes : ADMIN_KEY = 'dev-key' explicite, OU
+  // ADMIN_KEY absente alors que le repli API_KEY vaut 'dev-key' lui aussi.
+  const adminInsecure = adminKeyExplicitDev || (adminKeyMissing && apiKeyIsDefault);
+  const lines = [];
+
+  if (adminInsecure) {
+    lines.push("⚠️  CRITIQUE : ADMIN_KEY absente ou 'dev-key' — les routes d'administration");
+    lines.push('⚠️  /api/admin/* (dump, user?email, user/:userId) acceptent la clé PAR DÉFAUT.');
+    lines.push('⚠️  TOUTE la base est lisible publiquement, preuve :');
+    lines.push('⚠️      GET /api/admin/dump?admin_key=dev-key');
+    lines.push(adminKeyMissing
+      ? "⚠️  (ADMIN_KEY absente → repli sur API_KEY = 'dev-key')"
+      : "⚠️  (ADMIN_KEY explicitement 'dev-key')");
+  } else if (adminKeyMissing) {
+    // Cas particulier : ADMIN_KEY absente MAIS API_KEY forte → le repli est
+    // EFFECTIF (routes admin protégées par la valeur forte d'API_KEY).
+    // Information seulement — pas de fausse alerte « dev-key » ici.
+    lines.push("ℹ️  ADMIN_KEY non définie : les routes /api/admin/* sont protégées par le");
+    lines.push("ℹ️  REPLI sur API_KEY (actuellement forte) — protection effective.");
+    lines.push("ℹ️  Recommandé : une clé DÉDIÉE (rotation indépendante de l'API mobile).");
+  }
+
+  if (apiKeyIsDefault) {
+    lines.push("⚠️  CRITIQUE : API_KEY = 'dev-key' — /api/sync et les endpoints apprenant");
+    lines.push('⚠️  acceptent la clé publique par défaut : n\'importe qui peut lire/écrire');
+    lines.push('⚠️  des données via POST /api/sync.');
+  }
+
+  if (lines.length === 0) return; // clés fortes → silence
+
+  const critical = adminInsecure || apiKeyIsDefault;
+  console.warn(`
+${bars}
+${critical ? '⚠️  AVERTISSEMENT SÉCURITÉ — CLÉS PAR DÉFAUT ACTIVES' : 'ℹ️  NOTE SÉCURITÉ — ADMIN_KEY DÉDIÉE RECOMMANDÉE'}
+${bars}
+${lines.join('\n')}
+
+  POUR CORRIGER (Render → Environment → Add, puis Redeploy) :
+      openssl rand -hex 32     ← générer une clé forte
+      ADMIN_KEY=<clé générée>  ← protège /api/admin/* (dump, user, user/:id)
+      API_KEY=<clé générée>    ← protège /api/sync (⚠️ à coordonner avec l'APK)
+
+  → Runbook opérationnel complet : docs/SECURITE.md
+  (avertissement NON bloquant : le serveur démarre quand même)
+${bars}
+`);
+}
+
 function sanitizeUserRow(u) {
   if (!u) return null;
   const { password_hash, ...safe } = u;
@@ -1506,6 +1643,11 @@ app.use('/api/auth/verify-email', otpLimiter);
 // créés depuis le dernier démarrage sont perdus (« la connexion échoue
 // alors que l'inscription avait fonctionné »).
 (async () => {
+  // v1.1.19 : TOUT PREMIER statement du boot — le warning sécurité doit être
+  // visible en TÊTE des logs Render, AVANT la restauration DB distante et les
+  // bannières de démarrage (non bloquant : simple console.warn).
+  warnInsecureDefaults();
+
   try {
     await replication.restoreDbFromRemote(DB_PATH);
   } catch (e) {

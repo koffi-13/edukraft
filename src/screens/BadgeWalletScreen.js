@@ -7,6 +7,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../theme';
+import { FONT_CAPS } from '../theme/fontCaps';
 import { useDb }         from '../database/DbProvider';
 import { getBadgeTier, formatHash } from '../blockchain/badgeGenerator';
 import { t }             from '../i18n';
@@ -60,13 +61,33 @@ export default function BadgeWalletScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <View>
-          <Text style={styles.headerTitle}>{t('badge.title')}</Text>
-          <Text style={styles.headerSub}>{t('badge.subtitle')}</Text>
+          <Text
+            style={styles.headerTitle}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {t('badge.title')}
+          </Text>
+          <Text
+            style={styles.headerSub}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {t('badge.subtitle')}
+          </Text>
         </View>
         {pendingCount > 0 && (
           <View style={styles.syncBadge}>
             <View style={styles.syncDot} />
-            <Text style={styles.syncText}>{pendingCount} en attente</Text>
+            <Text
+              style={styles.syncText}
+              numberOfLines={1}
+              maxFontSizeMultiplier={FONT_CAPS.tight}
+            >
+              {pendingCount} en attente
+            </Text>
           </View>
         )}
       </View>
@@ -98,8 +119,8 @@ export default function BadgeWalletScreen() {
         {badges.length === 0 && (
           <View style={styles.emptyState}>
             <Text style={styles.emptyIcon}>🏅</Text>
-            <Text style={styles.emptyTitle}>{t('badge.empty_title')}</Text>
-            <Text style={styles.emptyText}>{t('badge.empty_text')}</Text>
+            <Text style={styles.emptyTitle} maxFontSizeMultiplier={FONT_CAPS.tight}>{t('badge.empty_title')}</Text>
+            <Text style={styles.emptyText} maxFontSizeMultiplier={FONT_CAPS.normal}>{t('badge.empty_text')}</Text>
           </View>
         )}
 
@@ -119,9 +140,9 @@ export default function BadgeWalletScreen() {
         {badges.length > 0 && (
           <View style={styles.chainInfo}>
             <Text style={styles.chainInfoIcon}>⛓</Text>
-            <Text style={styles.chainInfoText}>
+            <Text style={styles.chainInfoText} maxFontSizeMultiplier={FONT_CAPS.normal}>
               Chaque badge est ancré sur la {'\n'}
-              <Text style={{ fontWeight: Typography.bold, color: Colors.primary }}>blockchain Polygon PoS</Text>
+              <Text style={{ fontWeight: Typography.bold, color: Colors.primary }} maxFontSizeMultiplier={FONT_CAPS.normal}>blockchain Polygon PoS</Text>
               {' '}— inviolable et vérifiable par n'importe qui, partout dans le monde.
             </Text>
           </View>
@@ -167,24 +188,36 @@ function BadgeListItem({ badge, onPress, onShare }) {
 
       {/* Tier icon */}
       <View style={[styles.tierCircle, { backgroundColor: tier.color + '22' }]}>
-        <Text style={styles.tierEmoji}>{tier.emoji}</Text>
+        <Text style={styles.tierEmoji} maxFontSizeMultiplier={FONT_CAPS.tight}>{tier.emoji}</Text>
       </View>
 
       {/* Title */}
-      <Text style={styles.listTitle} numberOfLines={2}>{badge.module_title}</Text>
+      <Text style={styles.listTitle} numberOfLines={2} ellipsizeMode="tail" maxFontSizeMultiplier={FONT_CAPS.tight}>{badge.module_title}</Text>
 
       {/* Score + XP inline */}
       <View style={styles.listBottom}>
         <View style={[styles.scorePill, { backgroundColor: tier.color + '22' }]}>
-          <Text style={[styles.scorePillText, { color: tier.color }]}>{score}%</Text>
+          <Text
+            style={[styles.scorePillText, { color: tier.color }]}
+            numberOfLines={1}
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {score}%
+          </Text>
         </View>
-        <Text style={styles.listXP}>+{badge.xp_total} XP</Text>
+        <Text
+          style={styles.listXP}
+          numberOfLines={1}
+          maxFontSizeMultiplier={FONT_CAPS.tight}
+        >
+          +{badge.xp_total} XP
+        </Text>
       </View>
 
       {/* Statut blockchain compact */}
       <View style={[styles.chainPill, { backgroundColor: isPending ? Colors.amberLight : Colors.tealLight }]}>
         <View style={[styles.chainDot, { backgroundColor: isPending ? Colors.amber : Colors.teal }]} />
-        <Text style={[styles.chainPillText, { color: isPending ? Colors.amber : Colors.teal }]} numberOfLines={1}>
+        <Text style={[styles.chainPillText, { color: isPending ? Colors.amber : Colors.teal }]} numberOfLines={1} ellipsizeMode="tail" maxFontSizeMultiplier={FONT_CAPS.tight}>
           {isPending ? 'Sync en attente' : 'Certifié Polygon'}
         </Text>
       </View>
@@ -207,24 +240,57 @@ function BadgeDetail({ badge, insets, onClose, onShare }) {
       >
         {/* Close */}
         <TouchableOpacity onPress={onClose} style={detailStyles.closeBtn}>
-          <Text style={detailStyles.closeText}>✕</Text>
+          <Text style={detailStyles.closeText} maxFontSizeMultiplier={FONT_CAPS.tight}>✕</Text>
         </TouchableOpacity>
 
         {/* Badge header */}
         <View style={[detailStyles.badgeHeader, { backgroundColor: tier.color + '15' }]}>
           <Text style={detailStyles.headerEmoji}>{tier.emoji}</Text>
-          <Text style={detailStyles.headerTier}>{tier.label}</Text>
-          <Text style={detailStyles.headerTitle}>{badge.module_title}</Text>
+          <Text
+            style={detailStyles.headerTier}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {tier.label}
+          </Text>
+          <Text
+            style={detailStyles.headerTitle}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {badge.module_title}
+          </Text>
           <View style={detailStyles.scoreRow}>
-            <Text style={[detailStyles.scoreVal, { color: tier.color }]}>{score}%</Text>
-            <Text style={detailStyles.scoreSep}>·</Text>
-            <Text style={detailStyles.xpVal}>{badge.xp_total} XP</Text>
+            <Text
+              style={[detailStyles.scoreVal, { color: tier.color }]}
+              numberOfLines={1}
+              maxFontSizeMultiplier={FONT_CAPS.tight}
+            >
+              {score}%
+            </Text>
+            <Text style={detailStyles.scoreSep} maxFontSizeMultiplier={FONT_CAPS.tight}>·</Text>
+            <Text
+              style={detailStyles.xpVal}
+              numberOfLines={1}
+              maxFontSizeMultiplier={FONT_CAPS.tight}
+            >
+              {badge.xp_total} XP
+            </Text>
           </View>
         </View>
 
         {/* QR Code section */}
         <View style={detailStyles.qrSection}>
-          <Text style={detailStyles.qrLabel}>{t('badge.verify_qr')}</Text>
+          <Text
+            style={detailStyles.qrLabel}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {t('badge.verify_qr')}
+          </Text>
           <View style={[detailStyles.qrCard, Shadow.card]}>
             <QRCode
               value={badge.qr_payload || `https://verify.edukraft.tg/badge/${badge.id}`}
@@ -234,7 +300,12 @@ function BadgeDetail({ badge, insets, onClose, onShare }) {
               ecl="M"
             />
           </View>
-          <Text style={detailStyles.qrHint}>
+          <Text
+            style={detailStyles.qrHint}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
             Scanner avec n'importe quel téléphone{'\n'}pour vérifier l'authenticité
           </Text>
         </View>
@@ -254,8 +325,8 @@ function BadgeDetail({ badge, insets, onClose, onShare }) {
 
         {/* Blockchain explanation */}
         <View style={detailStyles.explainBox}>
-          <Text style={detailStyles.explainTitle}>🔒 {t('badge.blockchain_info')}</Text>
-          <Text style={detailStyles.explainText}>
+          <Text style={detailStyles.explainTitle} maxFontSizeMultiplier={FONT_CAPS.tight}>🔒 {t('badge.blockchain_info')}</Text>
+          <Text style={detailStyles.explainText} maxFontSizeMultiplier={FONT_CAPS.normal}>
             Un identifiant unique (hash SHA-256) de ce badge est inscrit de façon permanente et immuable sur la blockchain Polygon PoS.
             {'\n\n'}
             Personne — ni EduKraft, ni aucune tierce partie — ne peut modifier ou falsifier ce badge. Il t'appartient pour toujours.
@@ -268,7 +339,13 @@ function BadgeDetail({ badge, insets, onClose, onShare }) {
           onPress={onShare}
           activeOpacity={0.85}
         >
-          <Text style={detailStyles.shareFullText}>↗ {t('badge.share')}</Text>
+          <Text
+            style={detailStyles.shareFullText}
+            numberOfLines={1}
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            ↗ {t('badge.share')}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -278,8 +355,20 @@ function BadgeDetail({ badge, insets, onClose, onShare }) {
 function MetaRow({ label, value, mono, color }) {
   return (
     <View style={detailStyles.metaRow}>
-      <Text style={detailStyles.metaLabel}>{label}</Text>
-      <Text style={[detailStyles.metaValue, mono && detailStyles.metaMono, color && { color }]} numberOfLines={1}>
+      <Text
+        style={detailStyles.metaLabel}
+        numberOfLines={1}
+        ellipsizeMode="tail"
+        maxFontSizeMultiplier={FONT_CAPS.tight}
+      >
+        {label}
+      </Text>
+      <Text
+        style={[detailStyles.metaValue, mono && detailStyles.metaMono, color && { color }]}
+        numberOfLines={1}
+        ellipsizeMode="tail"
+        maxFontSizeMultiplier={FONT_CAPS.tight}
+      >
         {value}
       </Text>
     </View>
@@ -289,8 +378,21 @@ function MetaRow({ label, value, mono, color }) {
 function StatMini({ value, label }) {
   return (
     <View style={styles.statMini}>
-      <Text style={styles.statMiniVal}>{value}</Text>
-      <Text style={styles.statMiniLbl}>{label}</Text>
+      <Text
+        style={styles.statMiniVal}
+        numberOfLines={1}
+        maxFontSizeMultiplier={FONT_CAPS.tight}
+      >
+        {value}
+      </Text>
+      <Text
+        style={styles.statMiniLbl}
+        numberOfLines={2}
+        ellipsizeMode="tail"
+        maxFontSizeMultiplier={FONT_CAPS.tight}
+      >
+        {label}
+      </Text>
     </View>
   );
 }
@@ -329,8 +431,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical:   4,
     borderRadius:      Radius.full,
+    flexShrink:        0,
   },
-  syncDot:  { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.amber },
+  syncDot:  { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.amber, flexShrink: 0 },
   syncText: { fontSize: Typography.tiny, fontWeight: Typography.semibold, color: Colors.amber },
   scroll:   { flex: 1 },
   content:  { padding: Spacing.lg, gap: Spacing.md },
@@ -404,7 +507,7 @@ const styles = StyleSheet.create({
     padding:        Spacing.md,
     marginTop:      Spacing.sm,
   },
-  chainInfoIcon: { fontSize: 18 },
+  chainInfoIcon: { fontSize: 18, flexShrink: 0 },
   chainInfoText: { flex: 1, fontSize: Typography.caption, color: Colors.ink60, lineHeight: 18 },
 
   // Conteneur de la grille 2 colonnes

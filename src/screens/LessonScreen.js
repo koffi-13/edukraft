@@ -8,10 +8,39 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors, Typography, Spacing, Radius, Shadow } from '../theme';
+import { FONT_CAPS, scaledLineHeight } from '../theme/fontCaps';
 import { useDb } from '../database/DbProvider';
 import { getModuleById, getLessonById } from '../content/moduleRegistry';
 import { t } from '../i18n';
 import feedback from '../services/feedbackService';
+import VideoBlock from '../components/VideoBlock';
+import SpeakButton from '../components/SpeakButton';
+
+// ── Vidéo de section ────────────────────────────────────────────────────
+// Deux formats acceptés :
+//   - structuré : section.video = { url, duration_sec, transcript?, thumbnail? }
+//   - legacy plat : section.videoUrl (+ section.transcript / section.duration_sec)
+function getSectionVideo(section) {
+  if (!section) return null;
+  if (section.video && typeof section.video === 'object') {
+    if (!section.video.url) return null;
+    return {
+      url: section.video.url,
+      durationSec: section.video.duration_sec ?? section.duration_sec ?? null,
+      transcript: section.video.transcript ?? section.transcript ?? null,
+      thumbnail: section.video.thumbnail ?? null,
+    };
+  }
+  if (section.videoUrl) {
+    return {
+      url: section.videoUrl,
+      durationSec: section.duration_sec ?? null,
+      transcript: section.transcript ?? null,
+      thumbnail: null,
+    };
+  }
+  return null;
+}
 
 export default function LessonScreen({ route, navigation }) {
   const { moduleId, lessonIndex: li } = route.params || {};
@@ -65,14 +94,26 @@ export default function LessonScreen({ route, navigation }) {
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate("Main")}>
-            <Text style={styles.backText}>{t('common.back')}</Text>
+            <Text
+              style={styles.backText}
+              numberOfLines={1}
+              maxFontSizeMultiplier={FONT_CAPS.tight}
+            >
+              {t('common.back')}
+            </Text>
           </TouchableOpacity>
-          <Text style={styles.title}>{t('lesson.no_lesson')}</Text>
+          <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail" maxFontSizeMultiplier={FONT_CAPS.tight}>{t('lesson.no_lesson')}</Text>
         </View>
         <View style={styles.emptyContent}>
-          <Text style={styles.emptyText}>{t('lesson.no_lesson')}</Text>
+          <Text style={styles.emptyText} maxFontSizeMultiplier={FONT_CAPS.normal}>{t('lesson.no_lesson')}</Text>
           <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate("Main")}>
-            <Text style={styles.primaryBtnText}>{t('common.back')}</Text>
+            <Text
+              style={styles.primaryBtnText}
+              numberOfLines={1}
+              maxFontSizeMultiplier={FONT_CAPS.tight}
+            >
+              {t('common.back')}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -88,13 +129,34 @@ export default function LessonScreen({ route, navigation }) {
       {/* Header fixe */}
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <TouchableOpacity onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate("Main")} hitSlop={8}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
+          <Text
+            style={styles.backText}
+            numberOfLines={1}
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {t('common.back')}
+          </Text>
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle} numberOfLines={1}>{module.title}</Text>
-          <Text style={styles.headerSub}>{t('lesson.question_of', { current: lessonIndex + 1, total: totalLessons })}</Text>
+          <Text
+            style={styles.headerTitle}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {module.title}
+          </Text>
+          <Text style={styles.headerSub} maxFontSizeMultiplier={FONT_CAPS.tight}>
+            {t('lesson.question_of', { current: lessonIndex + 1, total: totalLessons })}
+          </Text>
         </View>
-        <Text style={styles.xpChip}>+{lesson.xp_per_lesson} XP</Text>
+        <Text
+          style={styles.xpChip}
+          numberOfLines={1}
+          maxFontSizeMultiplier={FONT_CAPS.tight}
+        >
+          +{lesson.xp_per_lesson} XP
+        </Text>
       </View>
 
       {/* Progress bar fine */}
@@ -109,24 +171,36 @@ export default function LessonScreen({ route, navigation }) {
       >
         {/* Titre de la leçon */}
         <View style={styles.lessonHeader}>
-          <Text style={styles.lessonTitle}>{lesson.title}</Text>
+          <Text style={styles.lessonTitle} maxFontSizeMultiplier={FONT_CAPS.tight}>{lesson.title}</Text>
           {lesson.subtitle && (
-            <Text style={styles.lessonSubtitle}>{lesson.subtitle}</Text>
+            <Text style={styles.lessonSubtitle} maxFontSizeMultiplier={FONT_CAPS.tight}>{lesson.subtitle}</Text>
           )}
-          <Text style={styles.durationText}>⏱ {lesson.duration_min} {t('lesson.read_time')}</Text>
+          <Text style={styles.durationText} numberOfLines={1} maxFontSizeMultiplier={FONT_CAPS.tight}>⏱ {lesson.duration_min} {t('lesson.read_time')}</Text>
         </View>
 
         {/* Introduction */}
         {content.intro && (
           <View style={styles.introBlock}>
-            <Text style={styles.introLabel}>{t('lesson.intro')}</Text>
-            <Text style={styles.introText}>{content.intro}</Text>
+            <View style={styles.introLabelRow}>
+              <Text
+                style={styles.introLabel}
+                accessibilityRole="header"
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                maxFontSizeMultiplier={FONT_CAPS.tight}
+              >
+                {t('lesson.intro')}
+              </Text>
+              <SpeakButton text={content.intro} />
+            </View>
+            <Text style={styles.introText} maxFontSizeMultiplier={FONT_CAPS.reading}>{content.intro}</Text>
           </View>
         )}
 
         {/* Sections — révélées progressivement */}
         {sections.map((section, idx) => {
           if (idx >= visibleSections) return null;  // section pas encore révélée
+          const video = getSectionVideo(section);
           return (
             <View
               key={idx}
@@ -135,8 +209,19 @@ export default function LessonScreen({ route, navigation }) {
                 section.highlight ? styles.sectionHighlight : null,
               ]}
             >
-              <Text style={styles.sectionHeading}>{section.heading}</Text>
-              <Text style={styles.sectionBody}>{section.body}</Text>
+              <View style={styles.sectionHeadingRow}>
+                <Text
+                  style={styles.sectionHeading}
+                  accessibilityRole="header"
+                  maxFontSizeMultiplier={FONT_CAPS.tight}
+                >
+                  {section.heading}
+                </Text>
+                <SpeakButton text={`${section.heading}. ${section.body || ''}`} />
+              </View>
+              <Text style={styles.sectionBody} maxFontSizeMultiplier={FONT_CAPS.reading}>{section.body}</Text>
+              {/* Vidéo de section (après le corps) — lecteur + transcription repliable */}
+              {video && <VideoBlock {...video} />}
             </View>
           );
         })}
@@ -151,7 +236,12 @@ export default function LessonScreen({ route, navigation }) {
             }}
             activeOpacity={0.85}
           >
-            <Text style={styles.continueReadingText}>
+            <Text
+              style={styles.continueReadingText}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              maxFontSizeMultiplier={FONT_CAPS.tight}
+            >
               {visibleSections === 0 ? '📖 Commencer la lecture' : '👇 Continuer'}
             </Text>
           </TouchableOpacity>
@@ -160,8 +250,16 @@ export default function LessonScreen({ route, navigation }) {
         {/* Key takeaway — visible uniquement quand toutes les sections sont lues */}
         {content.key_takeaway && visibleSections >= sections.length && (
           <View style={[styles.takeawayCard, Shadow.card]}>
-            <Text style={styles.takeawayLabel}>💡 {t('lesson.key_takeaway')}</Text>
-            <Text style={styles.takeawayText}>{content.key_takeaway}</Text>
+            <Text
+              style={styles.takeawayLabel}
+              accessibilityRole="header"
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              maxFontSizeMultiplier={FONT_CAPS.tight}
+            >
+              💡 {t('lesson.key_takeaway')}
+            </Text>
+            <Text style={styles.takeawayText} maxFontSizeMultiplier={FONT_CAPS.reading}>{content.key_takeaway}</Text>
           </View>
         )}
 
@@ -173,7 +271,13 @@ export default function LessonScreen({ route, navigation }) {
       <View style={[styles.footer, { paddingBottom: insets.bottom + 8 }]}>
         {!isFirst && (
           <TouchableOpacity style={styles.secondaryBtn} onPress={goPrevLesson}>
-            <Text style={styles.secondaryBtnText}>← {t('lesson.prev_lesson')}</Text>
+            <Text
+              style={styles.secondaryBtnText}
+              numberOfLines={1}
+              maxFontSizeMultiplier={FONT_CAPS.tight}
+            >
+              ← {t('lesson.prev_lesson')}
+            </Text>
           </TouchableOpacity>
         )}
 
@@ -182,12 +286,22 @@ export default function LessonScreen({ route, navigation }) {
             style={[styles.primaryBtn, { backgroundColor: module.color || Colors.primary }]}
             onPress={goNextLesson}
           >
-            <Text style={styles.primaryBtnText}>
+            <Text
+              style={styles.primaryBtnText}
+              numberOfLines={1}
+              maxFontSizeMultiplier={FONT_CAPS.tight}
+            >
               {isLast ? t('lesson.start_quiz') : t('common.next')}
             </Text>
           </TouchableOpacity>
         ) : (
-          <Text style={styles.readHint}>📖 Lis toutes les sections pour continuer</Text>
+          <Text
+            style={styles.readHint}
+            numberOfLines={2}
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            📖 Lis toutes les sections pour continuer
+          </Text>
         )}
       </View>
     </View>
@@ -213,6 +327,7 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontSize: Typography.body,
     fontWeight: Typography.semibold,
+    flexShrink: 0,
   },
   headerCenter: {
     flex: 1,
@@ -236,6 +351,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
     borderRadius: Radius.full,
+    flexShrink: 0,
   },
   progressTrack: {
     height: 3,
@@ -281,13 +397,20 @@ const styles = StyleSheet.create({
     fontWeight: Typography.bold,
     color: Colors.primary,
     textTransform: 'uppercase',
-    marginBottom: Spacing.xs,
     letterSpacing: 0.5,
+    flex: 1,
+  },
+  // Rangée libellé + bouton « Écouter » (TTS)
+  introLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.xs,
   },
   introText: {
     fontSize: Typography.bodyLg,
     color: Colors.ink,
-    lineHeight: 22,
+    lineHeight: scaledLineHeight(22),
   },
 
   // Sections
@@ -310,12 +433,19 @@ const styles = StyleSheet.create({
     fontSize: Typography.body,
     fontWeight: Typography.bold,
     color: Colors.ink,
+    flex: 1,
+  },
+  // Rangée titre de section + bouton « Écouter » (TTS)
+  sectionHeadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
     marginBottom: Spacing.sm,
   },
   sectionBody: {
     fontSize: Typography.body,
     color: Colors.ink60,
-    lineHeight: 22,
+    lineHeight: scaledLineHeight(22),
   },
 
   // Takeaway
@@ -338,7 +468,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.body,
     fontWeight: Typography.semibold,
     color: Colors.ink,
-    lineHeight: 22,
+    lineHeight: scaledLineHeight(22),
   },
 
   // Bouton "Continuer la lecture"

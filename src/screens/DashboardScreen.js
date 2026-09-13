@@ -7,8 +7,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useFocusEffect } from '@react-navigation/native';
 import { Colors, Typography, Spacing, Radius, Shadow, getLevel } from '../theme';
+import { FONT_CAPS }            from '../theme/fontCaps';
 import { useDb }              from '../database/DbProvider';
 import { MODULES, subscribeModules } from '../content/moduleRegistry';
+import { splitModulesByInterests } from '../config/interests';
 import XPBar                  from '../components/XPBar';
 import OfflineIndicator       from '../components/OfflineIndicator';
 import StreakWidget           from '../components/StreakWidget';
@@ -67,6 +69,138 @@ export default function DashboardScreen({ navigation }) {
   const getModuleProgress = (moduleId) =>
     allProgress.find(p => p.module_id === moduleId);
 
+  // v1.2 : accès par centres d'intérêt — si l'apprenant a des intérêts ET
+  // qu'au moins un module du catalogue correspond, on remonte d'abord
+  // « ⭐ Recommandé pour toi » puis « Tous les modules ». SANS intérêt (ou
+  // sans aucun match) : comportement d'origine EXACT — « Modules
+  // disponibles » avec la liste complète, zéro régression.
+  const { recommended: recommendedModules, others: otherModules } =
+    splitModulesByInterests(MODULES, learner?.interests);
+  const hasRecommendations = recommendedModules.length > 0;
+
+  // Carte de module partagée par les deux sections (corps inchangé).
+  const renderModuleCard = (module) => {
+    const prog   = getModuleProgress(module.id);
+    const status = prog?.status ?? 'not_started';
+    const totalLessons = module.lessons?.length || 1;
+    const pct    = prog ? (prog.lessons_done / totalLessons) : 0;
+
+    return (
+      <TouchableOpacity
+        key={module.id}
+        style={[styles.moduleCard, Shadow.card]}
+        onPress={() => {
+          // Cap lessonIndex à lessons.length - 1 (évite "Leçon introuvable"
+          // quand current_lesson = lessons.length après completion)
+          const totalLessons = module.lessons?.length || 1;
+          const rawLesson = status === 'not_started' ? 0 : (prog?.current_lesson ?? 0);
+          const lessonIndex = Math.min(rawLesson, totalLessons - 1);
+          navigation.navigate('Lesson', { moduleId: module.id, lessonIndex });
+        }}
+        activeOpacity={0.88}
+        accessibilityRole="button"
+        accessibilityLabel={`${module.title}, ${module.filiere}`}
+      >
+        {/* Color band */}
+        <View style={[styles.moduleColorBand, { backgroundColor: module.color || Colors.primary }]} />
+
+        <View style={styles.moduleBody}>
+          <View style={styles.moduleTop}>
+            <View style={styles.moduleMeta}>
+              <Text
+                style={styles.moduleFiliere}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                maxFontSizeMultiplier={FONT_CAPS.tight}
+              >
+                {module.filiere}
+              </Text>
+              <Text
+                style={styles.moduleTitle}
+                numberOfLines={2}
+                ellipsizeMode="tail"
+                maxFontSizeMultiplier={FONT_CAPS.tight}
+              >
+                {module.title}
+              </Text>
+              <Text
+                style={styles.moduleSubtitle}
+                numberOfLines={2}
+                ellipsizeMode="tail"
+                maxFontSizeMultiplier={FONT_CAPS.tight}
+              >
+                {module.subtitle}
+              </Text>
+            </View>
+            <StatusChip status={status} />
+          </View>
+
+          {/* Stats */}
+          <View style={styles.moduleStats}>
+            <Text
+              style={styles.statText}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              maxFontSizeMultiplier={FONT_CAPS.tight}
+            >
+              📚 {t('module.lessons_count', { count: totalLessons })}
+            </Text>
+            <Text
+              style={styles.statText}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              maxFontSizeMultiplier={FONT_CAPS.tight}
+            >
+              ⏱ {module.duration} {t('lesson.read_time')}
+            </Text>
+            <Text
+              style={styles.statText}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              maxFontSizeMultiplier={FONT_CAPS.tight}
+            >
+              ⭐ {module.xp} XP
+            </Text>
+          </View>
+
+          {/* Progress bar */}
+          {status === 'in_progress' && (
+            <View style={styles.progressWrap}>
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressFill, {
+                  width: `${Math.round(pct * 100)}%`,
+                  backgroundColor: module.color || Colors.primary,
+                }]} />
+              </View>
+              <Text
+                style={styles.progressLabel}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                maxFontSizeMultiplier={FONT_CAPS.tight}
+              >
+                {prog.lessons_done}/{totalLessons} {t('dashboard.lessons_done')}
+              </Text>
+            </View>
+          )}
+
+          {/* CTA */}
+          <View style={[styles.cta, { backgroundColor: (module.color || Colors.primary) + '18' }]}>
+            <Text
+              style={[styles.ctaText, { color: module.color || Colors.primary }]}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              maxFontSizeMultiplier={FONT_CAPS.tight}
+            >
+              {status === 'not_started' ? t('module.start')
+                : status === 'completed' ? '✓ ' + t('module.completed')
+                : t('module.resume')} >
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   const completedCount = allProgress.filter(p => p.status === 'completed').length;
   const { current } = getLevel(learner?.total_xp ?? 0);
 
@@ -76,13 +210,33 @@ export default function DashboardScreen({ navigation }) {
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <View>
-          <Text style={styles.greeting}>{greeting()}, {learner?.name?.split(' ')[0]} 👋</Text>
-          <Text style={styles.levelChip}>{current.label} · {t('dashboard.level_label')} {current.level}</Text>
+        <View style={styles.headerText}>
+          <Text
+            style={styles.greeting}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {greeting()}, {learner?.name?.split(' ')[0]} 👋
+          </Text>
+          <Text
+            style={styles.levelChip}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {current.label} · {t('dashboard.level_label')} {current.level}
+          </Text>
         </View>
         <View style={styles.streakBadge}>
-          <Text style={styles.streakEmoji}>🔥</Text>
-          <Text style={styles.streakNum}>{learner?.streak_days ?? 0}</Text>
+          <Text style={styles.streakEmoji} maxFontSizeMultiplier={FONT_CAPS.tight}>🔥</Text>
+          <Text
+            style={styles.streakNum}
+            numberOfLines={1}
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {learner?.streak_days ?? 0}
+          </Text>
         </View>
       </View>
 
@@ -101,10 +255,24 @@ export default function DashboardScreen({ navigation }) {
               style={styles.profileBanner}
               onPress={() => navigation.navigate('EditProfile')}
               activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={`Compléter mon profil (${completion}%)`}
             >
               <View style={styles.profileBannerLeft}>
-                <Text style={styles.profileBannerTitle}>Complète ton profil ({completion}%)</Text>
-                <Text style={styles.profileBannerSub}>
+                <Text
+                  style={styles.profileBannerTitle}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  maxFontSizeMultiplier={FONT_CAPS.tight}
+                >
+                  Complète ton profil ({completion}%)
+                </Text>
+                <Text
+                  style={styles.profileBannerSub}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  maxFontSizeMultiplier={FONT_CAPS.tight}
+                >
                   {completion < 50 ? 'Plus d\'infos = meilleurs certificats' : 'Presque fini !'}
                 </Text>
                 <View style={styles.profileBarTrack}>
@@ -157,13 +325,28 @@ export default function DashboardScreen({ navigation }) {
             style={styles.achievementsLink}
             onPress={() => navigation.navigate('Achievements')}
             activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={`${t('gamification.achievements_link_title')} : ${t('gamification.achievements_link_sub', {
+              unlocked: gamo.achievements.unlocked.length,
+              total: gamo.achievements.total,
+            })}`}
           >
             <Text style={styles.achievementsLinkIcon}>🏆</Text>
             <View style={styles.achievementsLinkText}>
-              <Text style={styles.achievementsLinkTitle}>
+              <Text
+                style={styles.achievementsLinkTitle}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                maxFontSizeMultiplier={FONT_CAPS.tight}
+              >
                 {t('gamification.achievements_link_title')}
               </Text>
-              <Text style={styles.achievementsLinkSub}>
+              <Text
+                style={styles.achievementsLinkSub}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                maxFontSizeMultiplier={FONT_CAPS.tight}
+              >
                 {t('gamification.achievements_link_sub', {
                   unlocked: gamo.achievements.unlocked.length,
                   total: gamo.achievements.total,
@@ -174,82 +357,22 @@ export default function DashboardScreen({ navigation }) {
           </TouchableOpacity>
         )}
 
-        {/* Modules */}
-        <Text style={styles.sectionTitle}>{t('dashboard.modules_available')}</Text>
+        {/* Modules — v1.2 : recommandations par centres d'intérêt si actives,
+            sinon comportement d'origine EXACT (liste complète) */}
+        {hasRecommendations ? (
+          <>
+            <Text style={styles.sectionTitle} maxFontSizeMultiplier={FONT_CAPS.tight}>⭐ Recommandé pour toi</Text>
+            {recommendedModules.map(renderModuleCard)}
 
-        {MODULES.map(module => {
-          const prog   = getModuleProgress(module.id);
-          const status = prog?.status ?? 'not_started';
-          const totalLessons = module.lessons?.length || 1;
-          const pct    = prog ? (prog.lessons_done / totalLessons) : 0;
-
-          return (
-            <TouchableOpacity
-              key={module.id}
-              style={[styles.moduleCard, Shadow.card]}
-              onPress={() => {
-                // Cap lessonIndex à lessons.length - 1 (évite "Leçon introuvable"
-                // quand current_lesson = lessons.length après completion)
-                const totalLessons = module.lessons?.length || 1;
-                const rawLesson = status === 'not_started' ? 0 : (prog?.current_lesson ?? 0);
-                const lessonIndex = Math.min(rawLesson, totalLessons - 1);
-                navigation.navigate('Lesson', { moduleId: module.id, lessonIndex });
-              }}
-              activeOpacity={0.88}
-            >
-              {/* Color band */}
-              <View style={[styles.moduleColorBand, { backgroundColor: module.color || Colors.primary }]} />
-
-              <View style={styles.moduleBody}>
-                <View style={styles.moduleTop}>
-                  <View style={styles.moduleMeta}>
-                    <Text style={styles.moduleFiliere}>{module.filiere}</Text>
-                    <Text style={styles.moduleTitle}>{module.title}</Text>
-                    <Text style={styles.moduleSubtitle}>{module.subtitle}</Text>
-                  </View>
-                  <StatusChip status={status} />
-                </View>
-
-                {/* Stats */}
-                <View style={styles.moduleStats}>
-                  <Text style={styles.statText}>
-                    📚 {t('module.lessons_count', { count: totalLessons })}
-                  </Text>
-                  <Text style={styles.statText}>
-                    ⏱ {module.duration} {t('lesson.read_time')}
-                  </Text>
-                  <Text style={styles.statText}>
-                    ⭐ {module.xp} XP
-                  </Text>
-                </View>
-
-                {/* Progress bar */}
-                {status === 'in_progress' && (
-                  <View style={styles.progressWrap}>
-                    <View style={styles.progressTrack}>
-                      <View style={[styles.progressFill, {
-                        width: `${Math.round(pct * 100)}%`,
-                        backgroundColor: module.color || Colors.primary,
-                      }]} />
-                    </View>
-                    <Text style={styles.progressLabel}>
-                      {prog.lessons_done}/{totalLessons} {t('dashboard.lessons_done')}
-                    </Text>
-                  </View>
-                )}
-
-                {/* CTA */}
-                <View style={[styles.cta, { backgroundColor: (module.color || Colors.primary) + '18' }]}>
-                  <Text style={[styles.ctaText, { color: module.color || Colors.primary }]}>
-                    {status === 'not_started' ? t('module.start')
-                      : status === 'completed' ? '✓ ' + t('module.completed')
-                      : t('module.resume')} >
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
+            <Text style={styles.sectionTitle} maxFontSizeMultiplier={FONT_CAPS.tight}>Tous les modules</Text>
+            {otherModules.map(renderModuleCard)}
+          </>
+        ) : (
+          <>
+            <Text style={styles.sectionTitle} maxFontSizeMultiplier={FONT_CAPS.tight}>{t('dashboard.modules_available')}</Text>
+            {MODULES.map(renderModuleCard)}
+          </>
+        )}
       </ScrollView>
     </View>
   );
@@ -258,8 +381,22 @@ export default function DashboardScreen({ navigation }) {
 function StatBox({ value, label, color }) {
   return (
     <View style={statStyles.box}>
-      <Text style={[statStyles.val, { color }]}>{value}</Text>
-      <Text style={statStyles.lbl}>{label}</Text>
+      <Text
+        style={[statStyles.val, { color }]}
+        numberOfLines={1}
+        ellipsizeMode="tail"
+        maxFontSizeMultiplier={FONT_CAPS.tight}
+      >
+        {value}
+      </Text>
+      <Text
+        style={statStyles.lbl}
+        numberOfLines={2}
+        ellipsizeMode="tail"
+        maxFontSizeMultiplier={FONT_CAPS.tight}
+      >
+        {label}
+      </Text>
     </View>
   );
 }
@@ -273,7 +410,14 @@ function StatusChip({ status }) {
   const s = map[status] ?? map.not_started;
   return (
     <View style={[chipStyles.chip, { backgroundColor: s.bg }]}>
-      <Text style={[chipStyles.text, { color: s.text }]}>{s.label}</Text>
+      <Text
+        style={[chipStyles.text, { color: s.text }]}
+        numberOfLines={1}
+        ellipsizeMode="tail"
+        maxFontSizeMultiplier={FONT_CAPS.tight}
+      >
+        {s.label}
+      </Text>
     </View>
   );
 }
@@ -287,11 +431,13 @@ const styles = StyleSheet.create({
     alignItems:        'center',
     justifyContent:    'space-between',
   },
+  headerText:  { flex: 1 },
   greeting:   { fontSize: Typography.h2, fontWeight: Typography.bold, color: Colors.ink },
   levelChip:  { fontSize: Typography.caption, color: Colors.ink60, marginTop: 2 },
   streakBadge: {
     flexDirection:   'row',
     alignItems:      'center',
+    flexShrink:      0,
     backgroundColor: Colors.surface + '22',
     paddingHorizontal: 12,
     paddingVertical:   6,
@@ -327,7 +473,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   profileBarFill: { height: 4, backgroundColor: Colors.teal, borderRadius: Radius.full },
-  profileBannerArrow: { fontSize: 24, color: Colors.tealDark, fontWeight: '300' },
+  profileBannerArrow: { fontSize: 24, color: Colors.tealDark, fontWeight: '300', flexShrink: 0 },
   xpCard: {
     backgroundColor: Colors.surface,
     borderRadius:    Radius.lg,
@@ -337,10 +483,11 @@ const styles = StyleSheet.create({
   // Gamification row (objectif + streak)
   gamoRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: Spacing.sm,
   },
-  gamoColLeft:   { flex: 1 },
-  gamoColRight:  { flex: 1 },
+  gamoColLeft:   { flex: 1, minWidth: '47%' },
+  gamoColRight:  { flex: 1, minWidth: '47%' },
   // Lien Succès
   achievementsLink: {
     flexDirection: 'row',
@@ -352,7 +499,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  achievementsLinkIcon: { fontSize: 28 },
+  achievementsLinkIcon: { fontSize: 28, flexShrink: 0 },
   achievementsLinkText: { flex: 1 },
   achievementsLinkTitle: {
     fontSize: Typography.body,
@@ -368,8 +515,9 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: Colors.ink30,
     fontWeight: '300',
+    flexShrink: 0,
   },
-  statsRow:     { flexDirection: 'row', gap: Spacing.sm },
+  statsRow:     { flexDirection: 'row', flexWrap: 'wrap', columnGap: Spacing.sm, rowGap: Spacing.xs },
   sectionTitle: {
     fontSize:   Typography.h3,
     fontWeight: Typography.bold,
@@ -382,7 +530,7 @@ const styles = StyleSheet.create({
     overflow:        'hidden',
     flexDirection:   'row',
   },
-  moduleColorBand: { width: 6 },
+  moduleColorBand: { width: 6, flexShrink: 0 },
   moduleBody:      { flex: 1, padding: Spacing.md, gap: Spacing.sm },
   moduleTop:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   moduleMeta:      { flex: 1 },
@@ -403,7 +551,7 @@ const styles = StyleSheet.create({
     color:    Colors.ink60,
     marginTop: 2,
   },
-  moduleStats: { flexDirection: 'row', gap: Spacing.md },
+  moduleStats: { flexDirection: 'row', flexWrap: 'wrap', columnGap: Spacing.md, rowGap: Spacing.xs },
   statText:    { fontSize: Typography.caption, color: Colors.ink60 },
   progressWrap: { gap: 4 },
   progressTrack: {
@@ -419,17 +567,18 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.sm,
     alignSelf: 'flex-start',
+    flexShrink: 0,
   },
   ctaText: { fontSize: Typography.caption, fontWeight: Typography.bold },
 });
 
 const statStyles = StyleSheet.create({
-  box: { flex: 1, alignItems: 'center', gap: 2 },
+  box: { flex: 1, minWidth: '30%', alignItems: 'center', gap: 2 },
   val: { fontSize: Typography.h2, fontWeight: Typography.bold },
   lbl: { fontSize: Typography.tiny, color: Colors.ink60, textAlign: 'center' },
 });
 
 const chipStyles = StyleSheet.create({
-  chip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: Radius.full },
+  chip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: Radius.full, flexShrink: 0 },
   text: { fontSize: Typography.tiny, fontWeight: Typography.bold },
 });

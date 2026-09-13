@@ -11,6 +11,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../theme';
+import { FONT_CAPS } from '../theme/fontCaps';
 import { t } from '../i18n';
 import { MAX_FREEZES } from '../gamification';
 
@@ -34,12 +35,31 @@ export default function StreakWidget({ streak, freezes = MAX_FREEZES, bestStreak
 
   if (compact) {
     return (
-      <View style={styles.compact}>
+      <View
+        style={styles.compact}
+        accessibilityRole="button"
+        accessibilityLabel={`Série de ${streak} ${streak <= 1 ? t('gamification.day_singular') : t('gamification.day_plural')}, ${freezes} jokers restants`}
+      >
         {/* v1.1.3 : icône d'origine restaurée */}
-        <Animated.Text style={[styles.flameCompact, { transform: [{ scale: flameAnim }] }]}>🔥</Animated.Text>
-        <Text style={styles.streakNumCompact}>{streak}</Text>
+        <Animated.Text
+          style={[styles.flameCompact, { transform: [{ scale: flameAnim }] }]}
+          maxFontSizeMultiplier={FONT_CAPS.tight}
+        >🔥</Animated.Text>
+        <Text
+          style={styles.streakNumCompact}
+          numberOfLines={1}
+          maxFontSizeMultiplier={FONT_CAPS.tight}
+        >
+          {streak}
+        </Text>
         {freezes > 0 && (
-          <Text style={styles.freezeCompact}>❄{freezes}</Text>
+          <Text
+            style={styles.freezeCompact}
+            numberOfLines={1}
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            ❄{freezes}
+          </Text>
         )}
       </View>
     );
@@ -48,13 +68,27 @@ export default function StreakWidget({ streak, freezes = MAX_FREEZES, bestStreak
   const flameSize = streak >= 30 ? 40 : streak >= 7 ? 34 : streak >= 3 ? 30 : 26;
 
   return (
-    <View style={[styles.card, Shadow.card]}>
+    <View
+      style={[styles.card, Shadow.card]}
+      accessibilityRole="button"
+      accessibilityLabel={`Série de ${streak} ${streak <= 1 ? t('gamification.day_singular') : t('gamification.day_plural')}, ${freezes} jokers restants`}
+    >
       <View style={styles.header}>
         {/* v1.1.3 : icône d'origine restaurée */}
         <Animated.Text style={[styles.flame, { fontSize: flameSize, transform: [{ scale: flameAnim }] }]}>🔥</Animated.Text>
         <View style={styles.info}>
-          <Text style={styles.streakNum}>{streak}</Text>
-          <Text style={styles.streakLabel}>
+          <Text
+            style={styles.streakNum}
+            numberOfLines={1}
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {streak}
+          </Text>
+          <Text
+            style={styles.streakLabel}
+            numberOfLines={1}
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
             {streak <= 1 ? t('gamification.day_singular') : t('gamification.day_plural')}
           </Text>
         </View>
@@ -62,21 +96,31 @@ export default function StreakWidget({ streak, freezes = MAX_FREEZES, bestStreak
 
       {/* Gels */}
       <View style={styles.freezesRow}>
-        <Text style={styles.freezesLabel}>{t('gamification.freezes_label')}</Text>
+        <Text
+          style={styles.freezesLabel}
+          numberOfLines={2}
+          ellipsizeMode="tail"
+          maxFontSizeMultiplier={FONT_CAPS.tight}
+        >
+          {t('gamification.freezes_label')}
+        </Text>
         <View style={styles.freezesDots}>
           {Array.from({ length: MAX_FREEZES }).map((_, i) => (
             <View
               key={i}
               style={[styles.freezeDot, i < freezes && styles.freezeDotActive]}
             >
-              <Text style={[styles.freezeDotText, i < freezes && styles.freezeDotTextActive]}>❄</Text>
+              <Text
+                style={[styles.freezeDotText, i < freezes && styles.freezeDotTextActive]}
+                maxFontSizeMultiplier={FONT_CAPS.tight}
+              >❄</Text>
             </View>
           ))}
         </View>
       </View>
 
       {bestStreak > streak && bestStreak > 0 && (
-        <Text style={styles.bestStreak}>
+        <Text style={styles.bestStreak} maxFontSizeMultiplier={FONT_CAPS.tight}>
           {t('gamification.best_streak', { count: bestStreak })}
         </Text>
       )}
@@ -119,10 +163,12 @@ const styles = StyleSheet.create({
   freezesLabel: {
     fontSize: Typography.tiny,
     color: Colors.ink60,
+    flexShrink: 1,
   },
   freezesDots: {
     flexDirection: 'row',
     gap: 4,
+    flexShrink: 0,
   },
   freezeDot: {
     width: 22,
@@ -133,6 +179,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.surfaceAlt,
+    flexShrink: 0,
   },
   freezeDotActive: {
     borderColor: Colors.teal,

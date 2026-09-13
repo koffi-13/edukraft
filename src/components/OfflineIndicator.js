@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Network from 'expo-network';
 import { Colors, Typography, Spacing } from '../theme';
+import { FONT_CAPS } from '../theme/fontCaps';
 import { t } from '../i18n';
 
 // v1.1.14 : le bandeau « Mode hors-ligne » ne s'affichait PAS COMPLÈTEMENT :
@@ -59,7 +60,12 @@ export default function OfflineIndicator() {
       ]}
     >
       <View style={styles.dot} />
-      <Text style={styles.text} numberOfLines={2} ellipsizeMode="tail">
+      <Text
+        style={styles.text}
+        numberOfLines={2}
+        ellipsizeMode="tail"
+        maxFontSizeMultiplier={FONT_CAPS.tight}
+      >
         {t('dashboard.offline_banner')}
       </Text>
     </Animated.View>
@@ -86,6 +92,7 @@ const styles = StyleSheet.create({
     height:          8,
     borderRadius:    4,
     backgroundColor: Colors.surface,
+    flexShrink:     0,
   },
   text: {
     color:      Colors.surface,

@@ -87,6 +87,32 @@ function initGamificationTables(db) {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function now() { return new Date().toISOString(); }
 
+/** v1.1.19 : normalisation défensive des centres d'intérêt d'un learner.
+ *  Le client (src/config/interests.js) stocke un CSV de codes :
+ *  « code-a,code-b ». Appliquée côté serveur à CHAQUE point d'entrée
+ *  (findOrCreateLearner, PATCH profile, applySyncOperation) pour tolérer
+ *  les tableaux bruts et les valeurs vides envoyées par d'anciennes
+ *  versions du client.
+ *   - chaîne   → pass-through (trim)
+ *   - tableau  → éléments vides/nuls filtrés + join(',')
+ *   - vide / type inattendu → null (= « ne pas changer » pour un COALESCE,
+ *     une préférence vide n'écrase JAMAIS l'existant)
+ *  @returns {string|null} CSV de codes, ou null. */
+function toInterestsText(value) {
+  if (typeof value === 'string') {
+    const t = value.trim();
+    return t === '' ? null : t;
+  }
+  if (Array.isArray(value)) {
+    const joined = value
+      .filter(x => typeof x === 'string' && x.trim() !== '')
+      .map(x => x.trim())
+      .join(',');
+    return joined === '' ? null : joined;
+  }
+  return null;
+}
+
 /** Récupère l'état gamification complet d'un apprenant (côté serveur). */
 function getGamificationState(db, learnerId) {
   const learner = db.prepare(
@@ -132,8 +158,12 @@ function getGamificationState(db, learnerId) {
 // Appelé par server/index.js lors du traitement de /api/sync.
 // @param {string} tableName - 'streak_log' | 'achievement' | 'daily_goal' | 'learner' (gamification fields)
 // @param {Object} payload - données de l'opération
+// @param {Object} [preLearnerState] - v1.1.18 : PRÉ-IMAGE de la ligne learner (état
+//   AVANT findOrCreateLearner) pour le jugement LWW — le handler /api/sync la
+//   fournit car findOrCreateLearner rafraîchit last_active_at et écrit les
+//   valeurs entrantes AVANT cet appel. Absente → relecture défensive depuis la DB.
 // @returns {Object} { status: 'ok'|'error', server_id?, error? }
-function applySyncOperation(db, tableName, payload) {
+function applySyncOperation(db, tableName, payload, preLearnerState) {
   const t = now();
   try {
     switch (tableName) {
@@ -188,28 +218,55 @@ function applySyncOperation(db, tableName, payload) {
       case 'learner': {
         // Les champs gamification du learner (streak_days, streak_freezes, best_streak,
         // last_active_date, total_lessons_done) sont mis à jour ici si présents.
-        // v1.1.6 : sémantique MAX sur les compteurs (cohérente avec
-        // findOrCreateLearner) — un appareil en retard ne peut plus rétrograder
-        // les valeurs du compte (COALESCE seul écrasait streak_days=4 par 1).
+        // v1.1.18 : streak_days / streak_freezes / last_active_date sont des
+        // ressources NON-MONOTONES — un joker consommé (2→1) ou une série
+        // cassée (5→1) doivent pouvoir DESCENDRE. L'ancien MAX les rendait
+        // incassables et les jokers infinis. Désormais : LWW « dernier writer
+        // actif gagne » — l'entrant l'emporte si son last_active_at est AUSSI
+        // récent (>=) que celui déjà stocké, sinon la PRÉ-IMAGE est rétablie
+        // (findOrCreateLearner, appelé juste avant par le handler /api/sync, a
+        // déjà écrit les valeurs entrantes en COALESCE direct — c'est ce
+        // rétablissement qui fait « rester 2/1 » à un push périmé).
+        // MAX reste réservé aux compteurs monotones (best_streak,
+        // total_lessons_done) qu'un appareil en retard ne peut pas rétrograder.
+        // v1.1.19 : interests (centres d'intérêt, CSV de codes) en COALESCE
+        // simple — SANS MAX, SANS LWW : c'est une PRÉFÉRENCE utilisateur,
+        // pas un compteur — une valeur non vide remplace, une valeur vide
+        // (null après toInterestsText) conserve l'existant.
         if (payload.learner_id || payload.id) {
           const lid = payload.learner_id || payload.id;
+          const pre = preLearnerState
+            || db.prepare('SELECT streak_days, streak_freezes, last_active_date, last_active_at FROM learner WHERE id = ?').get(lid)
+            || {};
+          const incAt = payload.last_active_at ?? null;
+          const preAt = pre.last_active_at ?? null;
+          // L'entrant gagne seulement s'il prouve une activité AUSSI récente que
+          // celle déjà stockée (comparaison ISO lexicographique ; sans horodatage,
+          // l'entrant ne peut pas prouver sa fraîcheur).
+          const incomingWins = incAt !== null && (preAt === null || String(incAt) >= String(preAt));
+          const wStreakDays    = incomingWins ? (payload.streak_days ?? pre.streak_days ?? null) : (pre.streak_days ?? null);
+          const wStreakFreezes = incomingWins ? (payload.streak_freezes ?? pre.streak_freezes ?? null) : (pre.streak_freezes ?? null);
+          const wActiveDate    = incomingWins ? (payload.last_active_date ?? pre.last_active_date ?? null) : (pre.last_active_date ?? null);
+          const wActiveAt      = incomingWins ? (incAt ?? preAt) : preAt;
           db.prepare(`
             UPDATE learner SET
-              streak_days = MAX(streak_days, COALESCE(?, streak_days)),
-              streak_freezes = MAX(streak_freezes, COALESCE(?, streak_freezes)),
+              streak_days = ?,
+              streak_freezes = ?,
               best_streak = MAX(best_streak, COALESCE(?, best_streak)),
-              last_active_date = COALESCE(?, last_active_date),
+              last_active_date = ?,
               total_lessons_done = MAX(total_lessons_done, COALESCE(?, total_lessons_done)),
-              last_active_at = COALESCE(?, last_active_at),
+              last_active_at = ?,
+              interests = COALESCE(?, interests),
               updated_at = ?
             WHERE id = ?
           `).run(
-            payload.streak_days ?? null,
-            payload.streak_freezes ?? null,
+            wStreakDays,
+            wStreakFreezes,
             payload.best_streak ?? null,
-            payload.last_active_date ?? null,
+            wActiveDate,
             payload.total_lessons_done ?? null,
-            payload.last_active_at ?? null,
+            wActiveAt,
+            toInterestsText(payload.interests),
             t, lid
           );
           return { status: 'ok' };
@@ -275,6 +332,7 @@ module.exports = {
   initGamificationTables,
   mountGamificationRoutes,
   applySyncOperation,
+  toInterestsText,
   ACHIEVEMENT_DEFS,
   getGamificationState,
 };

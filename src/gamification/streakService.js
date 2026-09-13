@@ -128,15 +128,22 @@ export function computeStreak({ today, lastActiveDate, currentStreak, bestStreak
 }
 
 /**
- * Recalcule le nombre de gels disponibles après `activityDaysCount` jours actifs.
- * La régénération est lente : 1 gel tous les FREEZE_REGEN_EVERY_DAYS jours actifs,
- * plafonné à MAX_FREEZES.
+ * Recalcule le nombre de gels disponibles après la progression du streak.
+ * v1.1.18 : régénération INCRÉMENTALE par palier — 1 gel est accordé chaque
+ * fois qu'un NOUVEAU palier de FREEZE_REGEN_EVERY_DAYS jours actifs est
+ * franchi : floor(newStreak/5) - floor(prevStreak/5), clampé >= 0 (une casse
+ * de série ne « rend » rien) et plafonné à MAX_FREEZES.
+ * Avant : floor(streak/5) calculé sur le streak TOTAL → tout joker consommé
+ * était remboursé instantanément dès que streak >= 5 (jokers de facto infinis).
  *
  * @param {number} currentFreezes - gels actuels (après consommation éventuelle)
- * @param {number} activityDaysCount - jours actifs consécutifs (newStreak)
- * @returns {number} gels finaux (peut être supérieur si régénération)
+ * @param {number} prevStreak     - streak AVANT l'activité (valeur passée à computeStreak)
+ * @param {number} newStreak      - streak APRÈS l'activité
+ * @returns {number} gels finaux (peut être supérieur si un palier a été franchi)
  */
-export function regenerateFreezes(currentFreezes, activityDaysCount) {
-  const earned = Math.floor(activityDaysCount / FREEZE_REGEN_EVERY_DAYS);
-  return Math.min(MAX_FREEZES, currentFreezes + earned);
+export function regenerateFreezes(currentFreezes, prevStreak, newStreak) {
+  const tiersBefore = Math.floor((prevStreak || 0) / FREEZE_REGEN_EVERY_DAYS);
+  const tiersAfter = Math.floor((newStreak || 0) / FREEZE_REGEN_EVERY_DAYS);
+  const earned = Math.max(0, tiersAfter - tiersBefore); // clamp >= 0 : pas de remboursement sur une casse
+  return Math.min(MAX_FREEZES, Math.max(0, currentFreezes) + earned);
 }

@@ -103,13 +103,13 @@ function MainTabs() {
       tabBarInactiveTintColor: Colors.ink30,
     }}>
       <Tab.Screen name="Dashboard" component={DashboardScreen}
-        options={{ tabBarLabel: t('nav.dashboard'), tabBarIcon: (p) => <TabIcon name="dashboard" {...p} /> }} />
+        options={{ tabBarLabel: t('nav.dashboard'), tabBarIcon: (p) => <TabIcon name="dashboard" {...p} />, tabBarAccessibilityLabel: t('nav.dashboard') }} />
       <Tab.Screen name="BadgeWallet" component={BadgeWalletScreen}
-        options={{ tabBarLabel: t('nav.badges'), tabBarIcon: (p) => <TabIcon name="badges" {...p} /> }} />
+        options={{ tabBarLabel: t('nav.badges'), tabBarIcon: (p) => <TabIcon name="badges" {...p} />, tabBarAccessibilityLabel: t('nav.badges') }} />
       <Tab.Screen name="Community" component={CommunityScreen}
-        options={{ tabBarLabel: 'Communauté', tabBarIcon: (p) => <TabIcon name="community" {...p} /> }} />
+        options={{ tabBarLabel: 'Communauté', tabBarIcon: (p) => <TabIcon name="community" {...p} />, tabBarAccessibilityLabel: 'Communauté' }} />
       <Tab.Screen name="Profile" component={ProfileScreen}
-        options={{ tabBarLabel: t('nav.profile'), tabBarIcon: (p) => <TabIcon name="profile" {...p} /> }} />
+        options={{ tabBarLabel: t('nav.profile'), tabBarIcon: (p) => <TabIcon name="profile" {...p} />, tabBarAccessibilityLabel: t('nav.profile') }} />
     </Tab.Navigator>
   );
 }

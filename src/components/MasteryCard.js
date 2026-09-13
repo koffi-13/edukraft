@@ -12,6 +12,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../theme';
+import { FONT_CAPS } from '../theme/fontCaps';
 import { t } from '../i18n';
 
 export default function MasteryCard({ mastery = [] }) {
@@ -20,8 +21,15 @@ export default function MasteryCard({ mastery = [] }) {
   if (!mastery || mastery.length === 0) {
     return (
       <View style={[styles.card, Shadow.card]}>
-        <Text style={styles.title}>{t('gamification.mastery_title')}</Text>
-        <Text style={styles.empty}>{t('gamification.mastery_empty')}</Text>
+        <Text
+          style={styles.title}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          maxFontSizeMultiplier={FONT_CAPS.tight}
+        >
+          {t('gamification.mastery_title')}
+        </Text>
+        <Text style={styles.empty} maxFontSizeMultiplier={FONT_CAPS.tight}>{t('gamification.mastery_empty')}</Text>
       </View>
     );
   }
@@ -33,9 +41,23 @@ export default function MasteryCard({ mastery = [] }) {
         onPress={() => setExpanded(!expanded)}
         activeOpacity={0.85}
       >
-        <View>
-          <Text style={styles.title}>{t('gamification.mastery_title')}</Text>
-          <Text style={styles.subtitle}>{t('gamification.mastery_subtitle')}</Text>
+        <View style={styles.headerText}>
+          <Text
+            style={styles.title}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {t('gamification.mastery_title')}
+          </Text>
+          <Text
+            style={styles.subtitle}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {t('gamification.mastery_subtitle')}
+          </Text>
         </View>
         {/* v1.1.3 : icône d'origine restaurée */}
         <Text style={[styles.chevron, !expanded && styles.chevronCollapsed]}>
@@ -50,8 +72,19 @@ export default function MasteryCard({ mastery = [] }) {
             return (
               <View key={i} style={styles.filiere}>
                 <View style={styles.filiereHeader}>
-                  <Text style={styles.filiereName}>{f.filiere}</Text>
-                  <Text style={styles.filiereCount}>
+                  <Text
+                    style={styles.filiereName}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    maxFontSizeMultiplier={FONT_CAPS.tight}
+                  >
+                    {f.filiere}
+                  </Text>
+                  <Text
+                    style={styles.filiereCount}
+                    numberOfLines={1}
+                    maxFontSizeMultiplier={FONT_CAPS.tight}
+                  >
                     {f.completed}/{f.total}
                   </Text>
                 </View>
@@ -61,7 +94,12 @@ export default function MasteryCard({ mastery = [] }) {
                     backgroundColor: pct === 1 ? Colors.teal : pct > 0 ? Colors.primary : Colors.border,
                   }]} />
                 </View>
-                <Text style={styles.filiereStatus}>
+                <Text
+                  style={styles.filiereStatus}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  maxFontSizeMultiplier={FONT_CAPS.tight}
+                >
                   {pct === 1
                     ? t('gamification.mastery_mastered')
                     : f.inProgress > 0
@@ -89,6 +127,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  headerText: { flex: 1 },
   title: {
     fontSize: Typography.h3,
     fontWeight: Typography.bold,
@@ -103,6 +142,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.ink30,
     padding: Spacing.sm,
+    flexShrink: 0,
   },
   chevronCollapsed: {
     color: Colors.primary,
@@ -124,11 +164,13 @@ const styles = StyleSheet.create({
     fontSize: Typography.body,
     fontWeight: Typography.semibold,
     color: Colors.ink,
+    flexShrink: 1,
   },
   filiereCount: {
     fontSize: Typography.caption,
     color: Colors.ink60,
     fontWeight: Typography.semibold,
+    flexShrink: 0,
   },
   barTrack: {
     height: 6,

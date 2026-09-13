@@ -96,14 +96,18 @@ export async function recordLessonCompleted(ctx, payload) {
   const comebackAfterDays = lastActiveDate ? daysBetween(lastActiveDate, today) : 0;
 
   // ── 1. Calcul du streak ──────────────────────────────────────────────
+  // v1.1.18 : prevStreak = la valeur passée à computeStreak — nécessaire à la
+  // régénération INCRÉMENTALE des gels (floor(new/5) - floor(prev/5), plus de
+  // remboursement instantané des jokers dès que streak >= 5).
+  const prevStreak = learner.streak_days ?? 0;
   const streakResult = computeStreak({
     today,
     lastActiveDate,
-    currentStreak: learner.streak_days ?? 0,
+    currentStreak: prevStreak,
     bestStreak: learner.best_streak ?? learner.streak_days ?? 0,
     currentFreezes: learner.streak_freezes ?? MAX_FREEZES,
   });
-  const finalFreezes = regenerateFreezes(streakResult.newFreezes, streakResult.activityDaysCount);
+  const finalFreezes = regenerateFreezes(streakResult.newFreezes, prevStreak, streakResult.newStreak);
 
   // ── 2. Enregistrer l'activité du jour (streak_log) ───────────────────
   const goalMet = await checkGoalMet(ctx, { todayXpDelta: payload.xpEarned || 0, todayLessonsDelta: 1 });

@@ -5,6 +5,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Animated, Alert, 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors, Typography, Spacing, Radius, Shadow, getLevel } from '../theme';
+import { FONT_CAPS, scaledLineHeight } from '../theme/fontCaps';
 import { useDb } from '../database/DbProvider';
 import { getModuleById, getLessonById, getQuizForLesson } from '../content/moduleRegistry';
 import { t } from '../i18n';
@@ -298,14 +299,26 @@ export default function QuizScreen({ route, navigation }) {
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate("Main")}>
-            <Text style={styles.backText}>{t('common.back')}</Text>
+            <Text
+              style={styles.backText}
+              numberOfLines={1}
+              maxFontSizeMultiplier={FONT_CAPS.tight}
+            >
+              {t('common.back')}
+            </Text>
           </TouchableOpacity>
-          <Text style={styles.title}>Quiz</Text>
+          <Text style={styles.title} numberOfLines={1} maxFontSizeMultiplier={FONT_CAPS.tight}>Quiz</Text>
         </View>
         <View style={styles.content}>
-          <Text style={styles.message}>{t('lesson.no_lesson')}</Text>
+          <Text style={styles.message} maxFontSizeMultiplier={FONT_CAPS.tight}>{t('lesson.no_lesson')}</Text>
           <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate("Main")}>
-            <Text style={styles.primaryBtnText}>{t('common.back')}</Text>
+            <Text
+              style={styles.primaryBtnText}
+              numberOfLines={1}
+              maxFontSizeMultiplier={FONT_CAPS.tight}
+            >
+              {t('common.back')}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -322,10 +335,27 @@ export default function QuizScreen({ route, navigation }) {
         {/* Header */}
         <View style={[styles.header, { paddingTop: insets.top }]}>
           <TouchableOpacity onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate("Main")} hitSlop={8}>
-            <Text style={styles.backText}>{t('common.back')}</Text>
+            <Text
+              style={styles.backText}
+              numberOfLines={1}
+              maxFontSizeMultiplier={FONT_CAPS.tight}
+            >
+              {t('common.back')}
+            </Text>
           </TouchableOpacity>
-          <Text style={styles.title}>{module?.title}</Text>
-          <Text style={styles.qCounter}>
+          <Text
+            style={styles.title}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {module?.title}
+          </Text>
+          <Text
+            style={styles.qCounter}
+            numberOfLines={1}
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
             {qIndex + 1}/{totalQ}
           </Text>
         </View>
@@ -345,7 +375,12 @@ export default function QuizScreen({ route, navigation }) {
         >
           <Animated.View style={{ opacity: fadeAnim, padding: Spacing.lg, gap: Spacing.md }}>
             {/* Question */}
-            <Text style={styles.questionText}>{currentQ.text}</Text>
+            <Text
+              style={styles.questionText}
+              maxFontSizeMultiplier={1.75}
+            >
+              {currentQ.text}
+            </Text>
 
             {/* Champ de saisie (fill_blank) */}
             {currentQ.type === 'fill_blank' ? (
@@ -359,16 +394,17 @@ export default function QuizScreen({ route, navigation }) {
                   editable={step === STEP_QUESTION}
                   autoCapitalize="none"
                   autoCorrect={false}
+                  maxFontSizeMultiplier={FONT_CAPS.normal}
                 />
                 {step === STEP_FEEDBACK && (
                   <View style={[styles.feedbackBox, answers[answers.length - 1]?.correct ? styles.feedbackCorrect : styles.feedbackWrong]}>
-                    <Text style={styles.feedbackText}>
+                    <Text style={styles.feedbackText} maxFontSizeMultiplier={FONT_CAPS.normal}>
                       {answers[answers.length - 1]?.correct ? '✓ Correct !' : '✗ Réponse attendue : ' + (currentQ.accepted_answers?.[0] || currentQ.options?.[0]?.text || '')}
                     </Text>
                   </View>
                 )}
                 {currentQ.explanation && step === STEP_FEEDBACK && (
-                  <Text style={styles.explanationText}>{currentQ.explanation}</Text>
+                  <Text style={styles.explanationText} maxFontSizeMultiplier={FONT_CAPS.normal}>{currentQ.explanation}</Text>
                 )}
               </View>
             ) : (
@@ -401,6 +437,9 @@ export default function QuizScreen({ route, navigation }) {
                   onPress={() => handleSelect(option.id)}
                   activeOpacity={step === STEP_QUESTION ? 0.7 : 1}
                   disabled={step === STEP_FEEDBACK}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Réponse possible : ${option.text}`}
+                  accessibilityState={{ selected: isSelected, disabled: step === STEP_FEEDBACK }}
                 >
                   <View style={styles.optionRow}>
                     <View style={[
@@ -408,11 +447,18 @@ export default function QuizScreen({ route, navigation }) {
                       isSelected && styles.radioButtonSelected,
                       step === STEP_FEEDBACK && isCorrectOption && styles.radioButtonCorrect,
                     ]}>
-                      {(step === STEP_FEEDBACK && isCorrectOption) && <Text style={styles.checkMark}>✓</Text>}
-                      {step === STEP_FEEDBACK && isSelected && !isCorrect && <Text style={styles.xMark}>✗</Text>}
+                      {(step === STEP_FEEDBACK && isCorrectOption) && <Text style={styles.checkMark} maxFontSizeMultiplier={FONT_CAPS.tight}>✓</Text>}
+                      {step === STEP_FEEDBACK && isSelected && !isCorrect && <Text style={styles.xMark} maxFontSizeMultiplier={FONT_CAPS.tight}>✗</Text>}
                       {step === STEP_QUESTION && isSelected && <View style={styles.radioDot} />}
                     </View>
-                    <Text style={textStyle}>{option.text}</Text>
+                    <Text
+                      style={textStyle}
+                      numberOfLines={3}
+                      ellipsizeMode="tail"
+                      maxFontSizeMultiplier={FONT_CAPS.tight}
+                    >
+                      {option.text}
+                    </Text>
                   </View>
                 </TouchableOpacity>
               );
@@ -422,12 +468,12 @@ export default function QuizScreen({ route, navigation }) {
             {/* Feedback (single_choice only — fill_blank a son propre feedback) */}
             {step === STEP_FEEDBACK && currentQ.type !== 'fill_blank' && (
               <View style={styles.feedbackBox}>
-                <Text style={[styles.feedbackTitle, { color: isCorrect ? Colors.teal : Colors.error }]}>
+                <Text style={[styles.feedbackTitle, { color: isCorrect ? Colors.teal : Colors.error }]} maxFontSizeMultiplier={FONT_CAPS.normal}>
                   {isCorrect ? t('lesson.correct') : t('lesson.incorrect')}
                 </Text>
 
                 {!isCorrect && correctOption && (
-                  <Text style={styles.feedbackCorrect}>
+                  <Text style={styles.feedbackCorrect} maxFontSizeMultiplier={FONT_CAPS.normal}>
                     {t('lesson.correct_answer')} {correctOption.text}
                   </Text>
                 )}
@@ -436,15 +482,22 @@ export default function QuizScreen({ route, navigation }) {
                   <TouchableOpacity
                     onPress={() => setShowExplanation(!showExplanation)}
                     style={styles.explanationToggle}
+                    accessibilityRole="button"
+                    accessibilityLabel="Afficher ou masquer l'explication"
+                    accessibilityState={{ expanded: showExplanation }}
                   >
-                    <Text style={styles.explanationToggleText}>
+                    <Text
+                      style={styles.explanationToggleText}
+                      numberOfLines={1}
+                      maxFontSizeMultiplier={FONT_CAPS.tight}
+                    >
                       {showExplanation ? '▼' : '▶'} Explication
                     </Text>
                   </TouchableOpacity>
                 )}
 
                 {showExplanation && currentQ.explanation && (
-                  <Text style={styles.explanationText}>{currentQ.explanation}</Text>
+                  <Text style={styles.explanationText} maxFontSizeMultiplier={FONT_CAPS.normal}>{currentQ.explanation}</Text>
                 )}
               </View>
             )}
@@ -462,7 +515,14 @@ export default function QuizScreen({ route, navigation }) {
               onPress={handleValidate}
               disabled={!selectedId}
             >
-              <Text style={styles.primaryBtnText}>{t('lesson.validate')}</Text>
+              <Text
+                style={styles.primaryBtnText}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                maxFontSizeMultiplier={FONT_CAPS.tight}
+              >
+                {t('lesson.validate')}
+              </Text>
             </TouchableOpacity>
           )}
           {step === STEP_FEEDBACK && (
@@ -470,7 +530,12 @@ export default function QuizScreen({ route, navigation }) {
               style={[styles.primaryBtn, { backgroundColor: module?.color || Colors.primary }]}
               onPress={handleNext}
             >
-              <Text style={styles.primaryBtnText}>
+              <Text
+                style={styles.primaryBtnText}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                maxFontSizeMultiplier={FONT_CAPS.tight}
+              >
                 {qIndex + 1 < totalQ ? t('lesson.next_question') : t('common.done')}
               </Text>
             </TouchableOpacity>
@@ -485,7 +550,7 @@ export default function QuizScreen({ route, navigation }) {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <View style={{ width: 60 }} />
-        <Text style={styles.title}>{t('lesson.quiz')}</Text>
+        <Text style={styles.title} numberOfLines={1} maxFontSizeMultiplier={FONT_CAPS.tight}>{t('lesson.quiz')}</Text>
         <View style={{ width: 60 }} />
       </View>
 
@@ -501,36 +566,55 @@ export default function QuizScreen({ route, navigation }) {
               styles.resultCircleInner,
               { borderColor: passed ? Colors.teal : Colors.error },
             ]}>
-              <Text style={[styles.resultScore, { color: passed ? Colors.teal : Colors.error }]}>
+              <Text
+                style={[styles.resultScore, { color: passed ? Colors.teal : Colors.error }]}
+                numberOfLines={1}
+                maxFontSizeMultiplier={FONT_CAPS.tight}
+              >
                 {Math.round(score * 100)}%
               </Text>
-              <Text style={styles.resultLabel}>{t('lesson.score_percent', { percent: Math.round(score * 100) })}</Text>
+              <Text
+                style={styles.resultLabel}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                maxFontSizeMultiplier={FONT_CAPS.tight}
+              >
+                {t('lesson.score_percent', { percent: Math.round(score * 100) })}
+              </Text>
             </View>
           </View>
 
           {/* Statut */}
-          <Text style={[styles.resultStatus, { color: passed ? Colors.teal : Colors.error }]}>
+          <Text
+            style={[styles.resultStatus, { color: passed ? Colors.teal : Colors.error }]}
+            numberOfLines={1}
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
             {passed ? t('lesson.passed') : t('lesson.failed')}
           </Text>
 
           {/* Message */}
-          <Text style={styles.resultMessage}>
+          <Text style={styles.resultMessage} maxFontSizeMultiplier={FONT_CAPS.normal}>
             {passed ? t('lesson.quiz_pass') : t('lesson.quiz_fail')}
           </Text>
 
           {/* Score minimum info */}
-          <Text style={styles.minScoreInfo}>
+          <Text style={styles.minScoreInfo} maxFontSizeMultiplier={FONT_CAPS.tight}>
             {t('lesson.min_score_info', { min: Math.round(passingScore * 100) })}
           </Text>
 
           {/* XP gagnés */}
           {totalXP > 0 && (
             <View style={styles.xpBanner}>
-              <Text style={styles.xpBannerText}>
+              <Text
+                style={styles.xpBannerText}
+                numberOfLines={1}
+                maxFontSizeMultiplier={FONT_CAPS.tight}
+              >
                 ⭐ {t('lesson.xp_won', { xp: totalXP })}
               </Text>
               {isPerfect && (
-                <Text style={styles.perfectText}>
+                <Text style={styles.perfectText} maxFontSizeMultiplier={FONT_CAPS.tight}>
                   {t('lesson.perfect_bonus', { xp: xpBonus })}
                 </Text>
               )}
@@ -539,17 +623,20 @@ export default function QuizScreen({ route, navigation }) {
 
           {/* Détail des réponses */}
           <View style={styles.answerSummary}>
-            <Text style={styles.answerSummaryTitle}>
+            <Text style={styles.answerSummaryTitle} maxFontSizeMultiplier={FONT_CAPS.tight}>
               {correctCount}/{totalQ} {t('lesson.correct').toLowerCase()}
             </Text>
             {answers.map((a, i) => {
               const q = questions[i];
               return (
                 <View key={a.qId} style={styles.answerRow}>
-                  <Text style={[styles.answerIcon, { color: a.correct ? Colors.teal : Colors.error }]}>
+                  <Text
+                    style={[styles.answerIcon, { color: a.correct ? Colors.teal : Colors.error }]}
+                    maxFontSizeMultiplier={FONT_CAPS.tight}
+                  >
                     {a.correct ? '✓' : '✗'}
                   </Text>
-                  <Text style={styles.answerQuestion} numberOfLines={2}>{q?.text}</Text>
+                  <Text style={styles.answerQuestion} numberOfLines={2} ellipsizeMode="tail" maxFontSizeMultiplier={FONT_CAPS.tight}>{q?.text}</Text>
                 </View>
               );
             })}
@@ -563,7 +650,13 @@ export default function QuizScreen({ route, navigation }) {
           style={styles.secondaryBtn}
           onPress={handleBackToModule}
         >
-          <Text style={styles.secondaryBtnText}>{t('lesson.back_to_module')}</Text>
+          <Text
+            style={styles.secondaryBtnText}
+            numberOfLines={1}
+            maxFontSizeMultiplier={FONT_CAPS.tight}
+          >
+            {t('lesson.back_to_module')}
+          </Text>
         </TouchableOpacity>
 
         {passed && !isLastLesson && (
@@ -571,7 +664,14 @@ export default function QuizScreen({ route, navigation }) {
             style={[styles.primaryBtn, { backgroundColor: module?.color || Colors.primary }]}
             onPress={handleNextLesson}
           >
-            <Text style={styles.primaryBtnText}>{t('lesson.next_lesson')}</Text>
+            <Text
+              style={styles.primaryBtnText}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              maxFontSizeMultiplier={FONT_CAPS.tight}
+            >
+              {t('lesson.next_lesson')}
+            </Text>
           </TouchableOpacity>
         )}
 
@@ -580,7 +680,14 @@ export default function QuizScreen({ route, navigation }) {
             style={[styles.primaryBtn, { backgroundColor: Colors.error }]}
             onPress={handleRetry}
           >
-            <Text style={styles.primaryBtnText}>{t('lesson.retry')}</Text>
+            <Text
+              style={styles.primaryBtnText}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              maxFontSizeMultiplier={FONT_CAPS.tight}
+            >
+              {t('lesson.retry')}
+            </Text>
           </TouchableOpacity>
         )}
 
@@ -589,7 +696,14 @@ export default function QuizScreen({ route, navigation }) {
             style={[styles.primaryBtn, { backgroundColor: module?.color || Colors.primary }]}
             onPress={handleBackToModule}
           >
-            <Text style={styles.primaryBtnText}>{t('lesson.all_lessons_done')}</Text>
+            <Text
+              style={styles.primaryBtnText}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              maxFontSizeMultiplier={FONT_CAPS.tight}
+            >
+              {t('lesson.all_lessons_done')}
+            </Text>
           </TouchableOpacity>
         )}
       </View>
@@ -671,7 +785,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.bodyLg,
     fontWeight: Typography.semibold,
     color: Colors.ink,
-    lineHeight: 24,
+    lineHeight: scaledLineHeight(24, 1.75),
   },
 
   // Options
@@ -746,6 +860,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 1,
+    flexShrink: 0,
   },
   radioButtonSelected: {
     borderColor: Colors.primary,
@@ -962,6 +1077,7 @@ const styles = StyleSheet.create({
     fontWeight: Typography.bold,
     width: 20,
     textAlign: 'center',
+    flexShrink: 0,
   },
   answerQuestion: {
     flex: 1,
